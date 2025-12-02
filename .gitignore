@@ -1,0 +1,67 @@
+# ----------------------
+# JAVA / MAVEN
+# ----------------------
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ----------------------
+# IDE & TOOLS
+# ----------------------
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+# ----------------------
+# NODE.JS / FRONTEND (Mới thêm)
+# ----------------------
+# Dependencies
+node_modules/
+
+# Production build (nếu có frontend riêng)
+dist/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables (QUAN TRỌNG: Không bao giờ up file này lên git)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ----------------------
+# OS FILES (File rác hệ thống)
+# ----------------------
+.DS_Store
+Thumbs.db
