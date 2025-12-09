@@ -264,6 +264,12 @@ const handleResult = async () => {
   try {
     const res = await charStore.explore();
 
+    // Kiểm tra res có null không
+    if (!res) {
+      addLog(`<span style="color:orange">⚠️ Không thể thám hiểm lúc này</span>`);
+      return;
+    }
+
     if (res.type === "GOLD") {
       showTarget.value = true;
       targetName.value = "Túi Vàng";
@@ -282,7 +288,7 @@ const handleResult = async () => {
         `<span style="color:#ef5350; font-weight:bold;">⚠️ ${res.message}</span>`,
       );
     } else {
-      addLog(`<span style="color:#aaa;">${res.message}</span>`);
+      addLog(`<span style="color:#aaa;">${res.message || 'Không có gì đặc biệt'}</span>`);
     }
   } catch (e) {
     const msg = e.message || e;
