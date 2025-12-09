@@ -60,10 +60,10 @@ export const useCharacterStore = defineStore("character", {
 
     // Logic Thám Hiểm (Tích hợp GameFi)
     async explore() {
-      if (!this.character) return;
+      if (!this.character) return null;
       if (this.character.energy < 1) {
         this.addLog("⚠️ Hết thể lực! Hãy về khách điếm nghỉ ngơi.", "WARNING");
-        return;
+        return null;
       }
 
       try {
@@ -84,13 +84,17 @@ export const useCharacterStore = defineStore("character", {
         }
 
         this.addLog(data.message, data.type === "ENEMY" ? "ENEMY" : "INFO");
+
+        // Trả về data để Explore.vue có thể sử dụng
+        return data;
       } catch (error) {
         const msg =
           error.response?.data?.message || error.response?.data || "Lỗi";
-        if (msg === "CAPTCHA") {
+        if (msg === "CAPTCHA" || msg === "CAPTCHA_REQUIRED") {
           throw new Error("CAPTCHA"); // Để view xử lý hiện popup
         }
         this.addLog("❌ " + msg, "ERROR");
+        throw error;
       }
     },
 

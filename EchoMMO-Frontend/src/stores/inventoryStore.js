@@ -23,8 +23,10 @@ export const useInventoryStore = defineStore("inventory", {
       // Duyệt qua inventory để map vào slot
       if (state.items && state.items.length > 0) {
         state.items.forEach((userItem) => {
-          // Kiểm tra null safety cho item
-          if (userItem.isEquipped && userItem.item) {
+          // Kiểm tra null safety cho item và type
+          if (!userItem || !userItem.item || !userItem.item.type) return;
+
+          if (userItem.isEquipped) {
             const type = userItem.item.type;
             // Chỉ gán nếu type đó có tồn tại trong slots định nghĩa ở trên
             if (Object.prototype.hasOwnProperty.call(slots, type)) {

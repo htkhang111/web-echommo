@@ -41,8 +41,11 @@ export const usePlayerStore = defineStore("player", () => {
     };
 
     inventory.forEach((item) => {
-      // FIX: Sử dụng item.item.type vì inventory là UserItem, chứa Item bên trong
-      const itemType = item.item?.type;
+      // FIX: Kiểm tra null/undefined trước khi đọc type
+      if (!item || !item.item) return;
+
+      const itemType = item.item.type;
+      if (!itemType) return;
 
       // Xử lý mapping type (HELMET -> HELM)
       const mappedType = itemType === "HELMET" ? "HELM" : itemType;
