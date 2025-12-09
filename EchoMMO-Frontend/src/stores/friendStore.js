@@ -32,13 +32,23 @@ export const useFriendStore = defineStore("friend", {
       }
     },
     async accept(id) {
-      await axiosClient.post(`/friends/accept/${id}`);
-      this.fetchAll();
+      try {
+        await axiosClient.post(`/friends/accept/${id}`);
+        await this.fetchAll();
+      } catch (error) {
+        console.error("Lỗi chấp nhận lời mời:", error);
+        alert(error.response?.data || "Lỗi chấp nhận lời mời");
+      }
     },
     async remove(id) {
       if (!confirm("Bạn chắc chứ?")) return;
-      await axiosClient.delete(`/friends/remove/${id}`);
-      this.fetchAll();
+      try {
+        await axiosClient.delete(`/friends/remove/${id}`);
+        await this.fetchAll();
+      } catch (error) {
+        console.error("Lỗi xóa bạn bè:", error);
+        alert(error.response?.data || "Lỗi xóa bạn bè");
+      }
     },
   },
 });

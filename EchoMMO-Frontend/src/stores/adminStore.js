@@ -44,42 +44,79 @@ export const useAdminStore = defineStore("admin", {
 
     // --- Logic Xử Lý User ---
     async banUser(id, reason) {
-      // Để component xử lý try-catch và popup
-      await axiosClient.post(`/admin/user/ban/${id}`, { reason });
-      await this.fetchUsers();
+      try {
+        await axiosClient.post(`/admin/user/ban/${id}`, { reason });
+        await this.fetchUsers();
+      } catch (error) {
+        console.error("Lỗi cấm người dùng:", error);
+        throw error;
+      }
     },
     async unbanUser(id) {
-      await axiosClient.post(`/admin/user/unban/${id}`);
-      await this.fetchUsers();
+      try {
+        await axiosClient.post(`/admin/user/unban/${id}`);
+        await this.fetchUsers();
+      } catch (error) {
+        console.error("Lỗi bỏ cấm người dùng:", error);
+        throw error;
+      }
     },
     async deleteUser(id) {
-      // Bỏ confirm ở đây, Component đã lo vụ hỏi xác nhận rồi
-      await axiosClient.delete(`/admin/user/${id}`);
-      await this.fetchUsers();
+      try {
+        await axiosClient.delete(`/admin/user/${id}`);
+        await this.fetchUsers();
+      } catch (error) {
+        console.error("Lỗi xóa người dùng:", error);
+        throw error;
+      }
     },
 
     // --- Logic Xử Lý Item/Listing ---
     async deleteItem(id) {
-      await axiosClient.delete(`/admin/item/${id}`);
-      await this.fetchItems();
+      try {
+        await axiosClient.delete(`/admin/item/${id}`);
+        await this.fetchItems();
+      } catch (error) {
+        console.error("Lỗi xóa vật phẩm:", error);
+        throw error;
+      }
     },
     async deleteListing(id) {
-      await axiosClient.delete(`/admin/listing/${id}`);
-      await this.fetchListings();
+      try {
+        await axiosClient.delete(`/admin/listing/${id}`);
+        await this.fetchListings();
+      } catch (error) {
+        console.error("Lỗi xóa tin rao bán:", error);
+        throw error;
+      }
     },
 
     // --- Logic Ban Thưởng & Thông Báo ---
-    // Bỏ try-catch và alert, để lỗi bắn ra cho Admin.vue bắt lấy
     async grantGold(payload) {
-      await axiosClient.post("/admin/grant-gold", payload);
+      try {
+        await axiosClient.post("/admin/grant-gold", payload);
+      } catch (error) {
+        console.error("Lỗi tặng vàng:", error);
+        throw error;
+      }
     },
 
     async grantItem(payload) {
-      await axiosClient.post("/admin/grant-item", payload);
+      try {
+        await axiosClient.post("/admin/grant-item", payload);
+      } catch (error) {
+        console.error("Lỗi tặng vật phẩm:", error);
+        throw error;
+      }
     },
 
     async sendNotification(payload) {
-      await axiosClient.post("/admin/notification/create", payload);
+      try {
+        await axiosClient.post("/admin/notification/create", payload);
+      } catch (error) {
+        console.error("Lỗi gửi thông báo:", error);
+        throw error;
+      }
     },
   },
 });
