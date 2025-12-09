@@ -14,3 +14,4 @@ EchoMMO-Frontend/.env.local
 # General
 .DS_Store
 *.log
+.env
