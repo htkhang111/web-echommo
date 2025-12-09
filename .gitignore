@@ -1,0 +1,16 @@
+# Backend
+EchoMMO-Backend/target/
+EchoMMO-Backend/.idea/
+EchoMMO-Backend/*.iml
+EchoMMO-Backend/.env
+
+# Frontend  
+EchoMMO-Frontend/node_modules/
+EchoMMO-Frontend/dist/
+EchoMMO-Frontend/build/
+EchoMMO-Frontend/.env
+EchoMMO-Frontend/.env.local
+
+# General
+.DS_Store
+*.log

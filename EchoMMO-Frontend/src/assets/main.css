@@ -1,0 +1,393 @@
+/* --- IMPORTS --- */
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap");
+
+/* --- ROOT VARIABLES (CYBER SYSTEM) --- */
+:root {
+  /* Core Colors */
+  --bg-void: #020617;
+  /* Deepest dark */
+  --bg-panel: rgba(10, 15, 30, 0.75);
+
+  /* Neon Palette - Dùng chung cho toàn app */
+  --primary: #00f3ff;
+  /* Cyan - Main Interface */
+  --primary-glow: rgba(0, 243, 255, 0.5);
+
+  --secondary: #7000ff;
+  /* Purple - Magic/Mystic */
+  --accent: #ff0055;
+  /* Red/Pink - Danger/Alert/Attack */
+
+  --success: #00ff9d;
+  /* Green - Health/Success */
+  --warning: #ffbe0b;
+  /* Yellow/Gold - Gold/Warning/Legendary */
+
+  --text-main: #e2e8f0;
+  --text-dim: #94a3b8;
+
+  /* Borders & Radius */
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --neon-border: 1px solid var(--primary);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+
+  /* Typography */
+  --font-display: "Orbitron", sans-serif;
+  /* Headers, Numbers */
+  --font-body: "Rajdhani", sans-serif;
+  /* Text content */
+  --font-code: "JetBrains Mono", monospace;
+  /* Logs, Chat, Stats */
+
+  /* Layout */
+  --header-height: 80px;
+  --sidebar-width: 280px;
+  /* Default */
+  --ease-elastic: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Định nghĩa màu phẩm chất Neon */
+  --neon-c: #00ff9d;
+  /* Xanh lá */
+  --neon-b: #0099ff;
+  /* Xanh dương */
+  --neon-a: #b700ff;
+  /* Tím */
+  --neon-s: #ffd700;
+  /* Vàng kim */
+}
+
+/* --- BASE RESET --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg-void);
+  font-family: var(--font-body);
+  color: var(--text-main);
+  overflow-x: hidden;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Remove default link styles */
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Button Reset */
+button {
+  font-family: var(--font-display);
+}
+
+/* --- UTILITY CLASSES --- */
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: var(--bg-panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: var(--glass-border);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  border-radius: var(--radius-md);
+}
+
+/* Text Gradient Effect */
+.text-gradient {
+  font-family: var(--font-display);
+  background: linear-gradient(135deg, #fff 20%, var(--primary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 5px rgba(0, 243, 255, 0.3));
+}
+
+/* Page Container (Updated for Layout) */
+.page-container {
+  /* Padding-top handled by layout structure or specific page styles */
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+}
+
+/* Custom Scrollbar (Global) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* --- GLOBAL COMPONENTS --- */
+
+/* 3D Cyber Button */
+.btn-3d {
+  padding: 12px 24px;
+  background: rgba(0, 243, 255, 0.05);
+  color: var(--primary);
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 1px;
+  border: 1px solid var(--primary);
+  clip-path: polygon(
+    10px 0,
+    100% 0,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    0 100%,
+    0 10px
+  );
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-3d:hover:not(:disabled) {
+  background: var(--primary);
+  color: #000;
+  box-shadow: 0 0 20px var(--primary-glow);
+  transform: translateY(-2px);
+}
+
+.btn-3d:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+/* Red/Danger Variant */
+.btn-danger-3d {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(255, 0, 85, 0.05);
+}
+
+.btn-danger-3d:hover:not(:disabled) {
+  background: var(--accent);
+  box-shadow: 0 0 20px rgba(255, 0, 85, 0.6);
+}
+
+/* --- VUE TRANSITIONS (Router View) --- */
+
+/* Fade Transition */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Page Slide Up Transition */
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+/* --- GLOBAL KEYFRAMES --- */
+
+/* Glitch Effect */
+@keyframes glitch-skew {
+  0% {
+    transform: skew(0deg);
+  }
+
+  20% {
+    transform: skew(-2deg);
+  }
+
+  40% {
+    transform: skew(2deg);
+  }
+
+  60% {
+    transform: skew(-1deg);
+  }
+
+  80% {
+    transform: skew(1deg);
+  }
+
+  100% {
+    transform: skew(0deg);
+  }
+}
+
+/* Pulse (Warning/Active) */
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Floating Object */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Scanning Line */
+@keyframes scan {
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+/* Rotation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Blink (Cursor/Status) */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+/* --- RESPONSIVE HELPERS --- */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 0px;
+    --header-height: 60px;
+  }
+
+  .page-container {
+    padding-bottom: 80px;
+  }
+}
+
+/* Ghi đè style cũ để tạo khung full viền */
+.grid-slot.rarity-C,
+.grid-slot.rarity-B,
+.grid-slot.rarity-A,
+.grid-slot.rarity-S {
+  border-bottom: none !important;
+  transition: all 0.3s ease;
+}
+
+/* --- CẤP C (COMMON) --- */
+.rarity-C {
+  border: 1px solid var(--neon-c) !important;
+  box-shadow:
+    0 0 5px rgba(0, 255, 157, 0.3),
+    inset 0 0 10px rgba(0, 255, 157, 0.1);
+}
+
+/* --- CẤP B (RARE) --- */
+.rarity-B {
+  border: 1px solid var(--neon-b) !important;
+  box-shadow:
+    0 0 8px rgba(0, 153, 255, 0.5),
+    inset 0 0 15px rgba(0, 153, 255, 0.15);
+}
+
+/* --- CẤP A (EPIC) --- */
+.rarity-A {
+  border: 1px solid var(--neon-a) !important;
+  box-shadow:
+    0 0 10px var(--neon-a),
+    inset 0 0 20px rgba(183, 0, 255, 0.2);
+  /* Xóa animation nếu muốn nó tĩnh luôn giống Legendary */
+  /* animation: neon-pulse-purple 3s infinite alternate; */
+}
+
+/* --- CẤP S (LEGENDARY) - [ĐÃ SỬA: TĨNH + KHÔNG BÓNG] --- */
+.rarity-S {
+  border: 1px solid var(--neon-s) !important;
+  /* Chỉ giữ lại inset (sáng vào trong) để làm hiệu ứng neon, bỏ bóng ngoài */
+  box-shadow: inset 0 0 5px var(--neon-s);
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), transparent 60%);
+  /* Đã xóa dòng animation chớp tắt */
+}
+
+/* Màu chữ theo phẩm chất (Áp dụng cho tên vật phẩm) */
+.text-rarity-C {
+  color: var(--neon-c) !important;
+  text-shadow: 0 0 5px var(--neon-c);
+}
+
+.text-rarity-B {
+  color: var(--neon-b) !important;
+  text-shadow: 0 0 8px var(--neon-b);
+}
+
+.text-rarity-A {
+  color: var(--neon-a) !important;
+  text-shadow: 0 0 10px var(--neon-a);
+}
+
+.text-rarity-S {
+  color: var(--neon-s) !important;
+  text-shadow: 0 0 15px var(--neon-s);
+  font-weight: 800;
+}
