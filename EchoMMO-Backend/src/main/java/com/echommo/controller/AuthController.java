@@ -87,16 +87,11 @@ public class AuthController {
 
         userRepository.save(user);
 
-        // 3. Tự động tạo Nhân vật (Character)
+        // 3. Tự động tạo Nhân vật (Character) - Truyền User object trực tiếp
         try {
-            // Fake login để lấy context cho CharacterService
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(signUpRequest.getUsername(), signUpRequest.getPassword()));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
             CharacterRequest charReq = new CharacterRequest();
             charReq.setName(signUpRequest.getUsername());
-            characterService.createCharacter(charReq);
+            characterService.createCharacterForNewUser(user, charReq);
         } catch (Exception e) {
             return ResponseEntity.ok("Đăng ký thành công tài khoản, nhưng lỗi tạo nhân vật: " + e.getMessage());
         }

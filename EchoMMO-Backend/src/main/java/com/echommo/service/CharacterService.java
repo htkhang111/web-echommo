@@ -205,10 +205,13 @@ import com.echommo.entity.*;
 import com.echommo.repository.*;
 import com.echommo.enums.CharacterStatus;
 import com.echommo.enums.Role;
+import com.echommo.enums.SpaPackage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
@@ -225,9 +228,41 @@ public class CharacterService {
             String u = SecurityContextHolder.getContext().getAuthentication().getName();
             Optional<User> userOpt = userRepo.findByUsername(u);
             if (userOpt.isEmpty()) return null;
-            return charRepo.findByUser_UserId(userOpt.get().getUserId()).orElse(null);
+            Optional<Character> charOpt = charRepo.findByUser_UserId(userOpt.get().getUserId());
+            if (charOpt.isEmpty()) return null;
+
+            Character character = charOpt.get();
+            autoWakeCharacterIfNeeded(character);
+            return character;
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    @Transactional
+    private void autoWakeCharacterIfNeeded(Character character) {
+        if (character.getStatus() == CharacterStatus.RESTING && character.getSpaEndTime() != null) {
+            LocalDateTime now = LocalDateTime.now();
+            if (now.isAfter(character.getSpaEndTime())) {
+                SpaPackage spaPackage = SpaPackage.valueOf(character.getSpaPackageType());
+                int maxHp = character.getMaxHp();
+                int maxEnergy = character.getMaxEnergy();
+
+                int healAmount = (int) (maxHp * spaPackage.getRecoveryRate());
+                int energyAmount = (int) (maxEnergy * spaPackage.getRecoveryRate());
+
+                int newHp = Math.min(maxHp, character.getCurrentHp() + healAmount);
+                int newEnergy = Math.min(maxEnergy, character.getCurrentEnergy() + energyAmount);
+
+                character.setCurrentHp(newHp);
+                character.setCurrentEnergy(newEnergy);
+                character.setStatus(CharacterStatus.IDLE);
+                character.setSpaStartTime(null);
+                character.setSpaEndTime(null);
+                character.setSpaPackageType(null);
+
+                charRepo.save(character);
+            }
         }
     }
     
@@ -255,6 +290,13 @@ public class CharacterService {
         if(charRepo.findByUser_UserId(u.getUserId()).isPresent()) throw new RuntimeException("Character exists");
         if(charRepo.existsByName(req.getName())) throw new RuntimeException("Name taken");
         return createCharacterInternal(u, req);
+    }
+
+    @Transactional
+    public Character createCharacterForNewUser(User user, CharacterRequest req) {
+        if(charRepo.findByUser_UserId(user.getUserId()).isPresent()) throw new RuntimeException("Character exists");
+        if(charRepo.existsByName(req.getName())) throw new RuntimeException("Name taken");
+        return createCharacterInternal(user, req);
     }
 
     private Character createCharacterInternal(User u, CharacterRequest req) {
