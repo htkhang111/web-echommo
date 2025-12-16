@@ -449,12 +449,9 @@ const handleUpgrade = async () => {
 };
 
 const handleEvolve = async () => {
-  const currentUserId = authStore.userId;
-  if (!currentUserId) return;
-
   isForging.value = true;
   try {
-    const url = `/items/${selectedItem.value.userItemId}/evolve-mythic?userId=${currentUserId}`;
+    const url = `/equipment/evolve-mythic/${selectedItem.value.userItemId}`;
     const res = await axiosClient.post(url);
     if (
       res.data &&

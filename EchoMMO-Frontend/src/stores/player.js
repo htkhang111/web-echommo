@@ -74,13 +74,11 @@ export const usePlayerStore = defineStore("player", () => {
     });
   };
 
-  // [V1 Logic] Tải toàn bộ data nhân vật, ví, và inventory
   const fetchPlayerData = async () => {
     try {
-      // FIX: Giả định backend dùng session/token để lấy ID người dùng
       const [resChar, resInv, resUser] = await Promise.all([
         axiosClient.get("/character/me"),
-        axiosClient.get("/inventory/me"),
+        axiosClient.get("/equipment/inventory"),
         axiosClient.get("/user/me"),
       ]);
 
@@ -144,20 +142,18 @@ export const usePlayerStore = defineStore("player", () => {
     }
   };
 
-  // [V2 Logic] Mặc trang bị (Cần item.id là userItemId)
   const equipItemApi = async (item) => {
     try {
-      await axiosClient.post(`/inventory/equip/${item.id}`);
-      await fetchPlayerData(); // Reload toàn bộ để lấy stats mới
+      await axiosClient.post(`/equipment/equip/${item.id}`);
+      await fetchPlayerData();
     } catch (e) {
       alert(e.response?.data);
     }
   };
 
-  // [V2 Logic] Gỡ trang bị
   const unequipItemApi = async (item) => {
     try {
-      await axiosClient.post(`/inventory/unequip/${item.id}`);
+      await axiosClient.post(`/equipment/unequip/${item.id}`);
       await fetchPlayerData();
     } catch (e) {
       alert(e.response?.data);

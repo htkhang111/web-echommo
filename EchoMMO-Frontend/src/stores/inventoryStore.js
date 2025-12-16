@@ -41,18 +41,15 @@ export const useInventoryStore = defineStore("inventory", {
     async fetchInventory() {
       this.isLoading = true;
       try {
-        // Gọi đúng endpoint đã fix ở Backend
-        const res = await axiosClient.get("/inventory/me");
+        const res = await axiosClient.get("/equipment/inventory");
         this.items = res.data;
       } catch (error) {
         console.error("Lỗi lấy Inventory:", error);
-        // Nếu lỗi 403/401, có thể token hết hạn
         if (
           error.response &&
           (error.response.status === 401 || error.response.status === 403)
         ) {
           alert("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
-          // window.location.href = '/login'; // Tùy chọn redirect
         }
       } finally {
         this.isLoading = false;
@@ -62,8 +59,7 @@ export const useInventoryStore = defineStore("inventory", {
     async equipItem(id) {
       const charStore = useCharacterStore();
       try {
-        await axiosClient.post(`/inventory/equip/${id}`);
-        // Refresh lại cả inventory và chỉ số nhân vật
+        await axiosClient.post(`/equipment/equip/${id}`);
         await Promise.all([this.fetchInventory(), charStore.fetchCharacter()]);
       } catch (e) {
         console.error(e);
@@ -74,7 +70,7 @@ export const useInventoryStore = defineStore("inventory", {
     async unequipItem(id) {
       const charStore = useCharacterStore();
       try {
-        await axiosClient.post(`/inventory/unequip/${id}`);
+        await axiosClient.post(`/equipment/unequip/${id}`);
         await Promise.all([this.fetchInventory(), charStore.fetchCharacter()]);
       } catch (e) {
         console.error(e);
@@ -85,7 +81,7 @@ export const useInventoryStore = defineStore("inventory", {
     async useItem(id) {
       const charStore = useCharacterStore();
       try {
-        const res = await axiosClient.post(`/inventory/use/${id}`);
+        const res = await axiosClient.post(`/equipment/use/${id}`);
         alert(res.data || "Sử dụng thành công");
         await Promise.all([this.fetchInventory(), charStore.fetchCharacter()]);
       } catch (e) {
