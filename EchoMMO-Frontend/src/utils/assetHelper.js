@@ -306,8 +306,27 @@ export const getRandomEnemyData = () => {
 };
 
 export const getItemImage = (type) => {
-  if (type === "GOLD") return resolveItemImage("r_gold_coin.png");
-  return resolveItemImage("r_copper_bar.png");
+  if (!type) return resolveItemImage("r_stone_3.png");
+
+  const itemMapping = {
+    "GOLD": "r_gold_coin.png",
+    "Gỗ": "r_go.png",
+    "Đá": "r_stone_3.png",
+    "Đồng": "r_copper_bar.png",
+    "Cá": "r_gohoathach.png",
+    "Sắt": "r_silver_bar.png",
+    "Bạch Kim": "r_mystrile_bar.png",
+    "Gỗ Khô": "r_go.png",
+    "Gỗ Lạnh": "r_go.png",
+    "Gỗ Hóa Thạch": "r_go.png",
+    "Cá Độc": "r_gohoathach.png",
+    "Kim Cương": "r_gold_node.png",
+    "Nguyên liệu lạ": "r_mystrile_node.png",
+    "Quặng Đồng": "r_copper_node.png",
+    "Quặng Sắt": "r_silver_node.png",
+  };
+
+  return resolveItemImage(itemMapping[type] || "r_stone_3.png");
 };
 
 // [FIX QUAN TRỌNG] Thêm dòng này để fix lỗi Combat.vue gọi getAssetUrl
