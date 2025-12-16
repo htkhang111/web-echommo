@@ -1,47 +1,45 @@
 package com.echommo.controller;
 
+import com.echommo.entity.User;
+import com.echommo.entity.UserItem;
 import com.echommo.repository.UserRepository;
+import com.echommo.service.EquipmentService;
 import com.echommo.service.InventoryService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-@RestController
-@RequestMapping("/api/inventory")
-public class InventoryController {
+import java.util.List;
+import java.util.Map;
 
+@RestController
+@RequestMapping("/api/equipment")
+public class EquipmentController {
+
+    @Autowired private EquipmentService equipmentService;
     @Autowired private InventoryService inventoryService;
     @Autowired private UserRepository userRepository;
 
-    // Helper lấy User ID từ Token
     private Integer getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
-            throw new RuntimeException("Unauthorized: Bạn chưa đăng nhập");
-        }
-        return userRepository.findByUsername(authentication.getName())
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"))
                 .getUserId();
     }
 
-    // Lấy danh sách đồ (Túi đồ + Đồ đang mặc)
-    @GetMapping("/me")
-    public ResponseEntity<?> getMyInventory() {
+    @GetMapping("/inventory")
+    public ResponseEntity<List<UserItem>> getMyInventory() {
         try {
             return ResponseEntity.ok(inventoryService.getInventory(getCurrentUserId()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Lỗi lấy túi đồ: " + e.getMessage());
+            return ResponseEntity.badRequest().build();
         }
     }
 
-    // Mặc đồ (Equip)
     @PostMapping("/equip/{userItemId}")
     public ResponseEntity<?> equipItem(@PathVariable Long userItemId) {
         try {
-            // Gọi Service để xử lý logic mặc đồ (tự tháo đồ cũ ra nếu trùng slot)
             inventoryService.equipItem(getCurrentUserId(), userItemId);
             return ResponseEntity.ok("Đã trang bị vật phẩm thành công!");
         } catch (RuntimeException e) {
@@ -49,7 +47,6 @@ public class InventoryController {
         }
     }
 
-    // Tháo đồ (Unequip)
     @PostMapping("/unequip/{userItemId}")
     public ResponseEntity<?> unequipItem(@PathVariable Long userItemId) {
         try {
@@ -60,13 +57,41 @@ public class InventoryController {
         }
     }
 
-    // Cường hóa (Enhance)
     @PostMapping("/enhance/{userItemId}")
     public ResponseEntity<?> enhanceItem(@PathVariable Long userItemId) {
         try {
-            // Trả về item sau khi cường hóa (kèm thông báo thành công/thất bại trong object trả về nếu cần)
             return ResponseEntity.ok(inventoryService.enhanceItem(getCurrentUserId(), userItemId));
         } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/upgrade/{userItemId}")
+    public ResponseEntity<?> upgradeItem(@PathVariable Long userItemId) {
+        try {
+            UserItem updatedItem = equipmentService.upgradeItem(userItemId, getCurrentUserId());
+            return ResponseEntity.ok(updatedItem);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/evolve-mythic/{userItemId}")
+    public ResponseEntity<String> evolveToMythic(@PathVariable Long userItemId) {
+        try {
+            String result = equipmentService.evolveToMythic(userItemId, getCurrentUserId());
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PostMapping("/upgrade-mythic/{userItemId}")
+    public ResponseEntity<?> upgradeMythic(@PathVariable Long userItemId) {
+        try {
+            UserItem updatedItem = equipmentService.upgradeMythicLevel(userItemId);
+            return ResponseEntity.ok(updatedItem);
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }

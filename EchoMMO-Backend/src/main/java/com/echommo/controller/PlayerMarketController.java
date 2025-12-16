@@ -9,15 +9,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/market")
-public class MarketplaceController {
+@RequestMapping("/api/player-market")
+public class PlayerMarketController {
 
     @Autowired private MarketplaceService service;
-
-    @GetMapping("/shop-items")
-    public ResponseEntity<?> getShopItems() {
-        return ResponseEntity.ok(service.getShopItems());
-    }
 
     @GetMapping("/listings")
     public ResponseEntity<?> getListings() {
@@ -29,28 +24,6 @@ public class MarketplaceController {
         return ResponseEntity.ok(service.getMyListings());
     }
 
-    @PostMapping("/buy-shop")
-    public ResponseEntity<?> buyFromShop(@RequestBody Map<String, Integer> body) {
-        try {
-            return ResponseEntity.ok(service.buyItem(body.get("itemId"), body.get("quantity")));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    // [UserItem ID là Long]
-    @PostMapping("/sell")
-    public ResponseEntity<?> sellToShop(@RequestBody Map<String, Object> body) {
-        try {
-            Long userItemId = ((Number) body.get("userItemId")).longValue();
-            Integer quantity = ((Number) body.get("quantity")).intValue();
-            return ResponseEntity.ok(service.sellItem(userItemId, quantity));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    // [UserItem ID là Long]
     @PostMapping("/create")
     public ResponseEntity<?> createListing(@RequestBody CreateListingRequest req) {
         try {
@@ -60,7 +33,6 @@ public class MarketplaceController {
         }
     }
 
-    // [FIX] Listing ID đổi về Integer
     @PostMapping("/buy/{id}")
     public ResponseEntity<?> buyListingByPath(@PathVariable Integer id, @RequestBody(required = false) Map<String, Integer> body) {
         try {
@@ -71,11 +43,10 @@ public class MarketplaceController {
         }
     }
 
-    // [FIX] Listing ID đổi về Integer (Cast từ Object an toàn)
     @PostMapping("/buy")
     public ResponseEntity<?> buyListing(@RequestBody Map<String, Object> body) {
         try {
-            Integer listingId = ((Number) body.get("listingId")).intValue(); // Cast về int
+            Integer listingId = ((Number) body.get("listingId")).intValue();
             Integer quantity = ((Number) body.get("quantity")).intValue();
             return ResponseEntity.ok(service.buyPlayerListing(listingId, quantity));
         } catch (Exception e) {
@@ -83,7 +54,6 @@ public class MarketplaceController {
         }
     }
 
-    // [FIX] Listing ID đổi về Integer
     @PostMapping("/cancel/{id}")
     public ResponseEntity<?> cancelListing(@PathVariable Integer id) {
         try {
