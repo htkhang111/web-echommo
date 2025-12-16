@@ -3,25 +3,23 @@ package com.echommo.enums;
 import java.math.BigDecimal;
 
 public enum SpaPackage {
-    STANDARD("Vé Thường", new BigDecimal("50"), "GOLD", 0.5),   // 50 Vàng, hồi 50%
-    VIP("Vé VIP", new BigDecimal("200"), "GOLD", 1.0),          // 200 Vàng, hồi 100%
-    ROYAL("Vé Hoàng Gia", new BigDecimal("10"), "DIAMOND", 1.0); // 10 KC, hồi 100%
+    // Gói Lỏ: 60 giây, 50 Vàng
+    STANDARD("Gói Bình Dân", new BigDecimal("50"), 60),
+
+    // Gói Xịn: 10 giây, 200 Vàng
+    VIP("Gói Thượng Hạng", new BigDecimal("200"), 10);
 
     private final String name;
     private final BigDecimal cost;
-    private final String currencyType;
-    private final double recoveryRate;
+    private final int durationSeconds;
 
-    SpaPackage(String name, BigDecimal cost, String currencyType, double recoveryRate) {
+    SpaPackage(String name, BigDecimal cost, int durationSeconds) {
         this.name = name;
         this.cost = cost;
-        this.currencyType = currencyType;
-        this.recoveryRate = recoveryRate;
+        this.durationSeconds = durationSeconds;
     }
 
-    // Getters
     public String getName() { return name; }
     public BigDecimal getCost() { return cost; }
-    public String getCurrencyType() { return currencyType; }
-    public double getRecoveryRate() { return recoveryRate; }
+    public int getDurationSeconds() { return durationSeconds; }
 }

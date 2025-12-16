@@ -386,3 +386,6 @@ SELECT 'Database setup completed!' AS status;
 
 INSERT INTO user_items (user_id, item_id, is_equipped, quantity, acquired_at)
 VALUES (1, 1, false, 1, NOW());
+
+USE echommo_db;
+DROP TABLE battle_sessions;

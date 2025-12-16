@@ -60,7 +60,7 @@ public class ExplorationService {
             c.setCurrentExp(c.getCurrentExp() + baseExp);
             w.setGold((w.getGold() != null ? w.getGold() : BigDecimal.ZERO).add(BigDecimal.valueOf(baseCoin)));
 
-            // [FIXED] Tỷ lệ chuẩn 60/20/11/9 (Xử lý toàn bộ tại Backend)
+            // Tỷ lệ chuẩn 60/20/11/9 (Xử lý toàn bộ tại Backend)
             int roll = r.nextInt(100);
             String type; String msg; String rewardName = null; Integer rewardAmount = 0;
 
@@ -104,13 +104,15 @@ public class ExplorationService {
         boolean isElite = r.nextInt(100) < 5;
         if (isElite) multiplier *= 1.5;
 
-        // Sửa getCharacterId() -> getCharId()
         BattleSession session = battleSessionRepo.findByCharacter_CharId(player.getCharId()).orElse(new BattleSession());
         session.setCharacter(player);
         session.setEnemyName((isElite ? "[Tinh Anh] " : "") + enemyName);
         session.setEnemyMaxHp((int) (baseHp * multiplier));
         session.setEnemyCurrentHp((int) (baseHp * multiplier));
-        session.setTurnCount(0);
+
+        // [FIX] Dùng setCurrentTurn thay vì setTurnCount
+        session.setCurrentTurn(0);
+
         session.setLog("Bạn gặp " + session.getEnemyName());
         return battleSessionRepo.save(session);
     }

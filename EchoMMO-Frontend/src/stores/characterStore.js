@@ -7,24 +7,33 @@ export const useCharacterStore = defineStore("character", {
     character: null,
     isLoading: false,
     logs: [],
-    explorationState: { playerPos: 10, moveDir: 1 },
+    explorationState: {
+      playerPos: 10,
+      moveDir: 1,
+    },
   }),
 
   getters: {
     xpPercent: (state) => {
       if (!state.character) return 0;
-      // Công thức hiển thị tương đối (Đồng bộ với backend Soft Cap)
-      const lv = state.character.level;
+      const lv = state.character.level || 1;
+      const curExp = state.character.currentExp || 0;
       const needed = lv < 60 ? lv * 50 : lv * 100 + Math.pow(lv - 60, 2) * 200;
-      return Math.min((state.character.currentExp / needed) * 100, 100);
+      return Math.min((curExp / needed) * 100, 100);
     },
+    // [ĐỒNG BỘ] Dùng đúng currentHp
     hpPercent: (state) => {
       if (!state.character) return 0;
-      return Math.min((state.character.hp / state.character.maxHp) * 100, 100);
+      const cur = state.character.currentHp || 0;
+      const max = state.character.maxHp || 100;
+      return Math.min((cur / max) * 100, 100);
     },
+    // [ĐỒNG BỘ] Dùng đúng currentEnergy
     energyPercent: (state) => {
       if (!state.character) return 0;
-      return Math.min((state.character.energy / state.character.maxEnergy) * 100, 100);
+      const cur = state.character.currentEnergy || 0;
+      const max = state.character.maxEnergy || 50;
+      return Math.min((cur / max) * 100, 100);
     },
   },
 
@@ -33,9 +42,12 @@ export const useCharacterStore = defineStore("character", {
       this.isLoading = true;
       try {
         const res = await axiosClient.get("/character/me");
+        // [ĐỒNG BỘ] Không map thủ công nữa, dùng thẳng data Backend
         this.character = res.data || null;
       } catch (error) {
-        if (error.response && [401, 403].includes(error.response.status)) router.push("/login");
+        if (error.response && [401, 403].includes(error.response.status)) {
+          router.push("/login");
+        }
       } finally {
         this.isLoading = false;
       }
@@ -52,11 +64,11 @@ export const useCharacterStore = defineStore("character", {
       }
     },
 
-    // [MODIFIED] Thêm tham số payload để gửi mapId
     async explore(payload = { mapId: 'MAP_01' }) {
       if (!this.character) return;
-      if (this.character.energy < 1) {
-        this.addLog("⚠️ Hết thể lực!", "WARNING");
+      // [ĐỒNG BỘ] Check currentEnergy
+      if (this.character.currentEnergy < 1) {
+        this.addLog("⚠️ Hết thể lực! Về trại nghỉ ngơi.", "WARNING");
         return;
       }
 
@@ -64,11 +76,17 @@ export const useCharacterStore = defineStore("character", {
         const res = await axiosClient.post("/exploration/explore", payload);
         const data = res.data;
 
-        this.character.energy = data.currentEnergy;
+        // Nếu là Gathering -> Return để Component chuyển trang
+        if (data.type === "GATHERING") return data;
+
+        // [ĐỒNG BỘ] Cập nhật State với tên biến chuẩn
+        this.character.currentEnergy = data.currentEnergy;
         this.character.currentExp = data.currentExp;
-        
+        // Backend explore response nên trả về currentHp nếu có combat (đã update ExplorationResponse ở các bước trước)
+        if (data.currentHp !== undefined) this.character.currentHp = data.currentHp;
+
         if (data.newLevel) {
-          await this.fetchCharacter(); 
+          await this.fetchCharacter();
           this.addLog(`🎉 LÊN CẤP ${data.newLevel}!`, "LEVEL_UP");
         }
 
