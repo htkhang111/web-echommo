@@ -69,13 +69,15 @@ public class EquipmentService {
         UserItem item = userItemRepo.findById(userItemId).orElseThrow(() -> new EntityNotFoundException("Item không tồn tại"));
 
         if (!item.getUser().getUserId().equals(userId)) throw new RuntimeException("Item không chính chủ");
-        if (item.getEnhanceLevel() >= 30) throw new RuntimeException("Đã đạt cấp tối đa (+30)");
+
+        int enhanceLevel = item.getEnhanceLevel() != null ? item.getEnhanceLevel() : 0;
+        if (enhanceLevel >= 30) throw new RuntimeException("Đã đạt cấp tối đa (+30)");
 
         // 1. Kiểm tra và Trừ chi phí VÀNG
         Wallet wallet = walletRepo.findByUser_UserId(userId)
                 .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy ví người chơi."));
 
-        BigDecimal GOLD_COST = BigDecimal.valueOf(50 + item.getEnhanceLevel() * 10);
+        BigDecimal GOLD_COST = BigDecimal.valueOf(50 + enhanceLevel * 10);
 
         if (wallet.getGold().compareTo(GOLD_COST) < 0) {
             throw new RuntimeException("Không đủ Vàng! (Cần: " + GOLD_COST.intValue() + ")");
@@ -85,8 +87,8 @@ public class EquipmentService {
 
 
         // 2. Kiểm tra và Trừ nguyên liệu
-        String matName = getRequiredMaterial(item.getEnhanceLevel());
-        int qtyRequired = getRequiredQuantity(item.getEnhanceLevel());
+        String matName = getRequiredMaterial(enhanceLevel);
+        int qtyRequired = getRequiredQuantity(enhanceLevel);
 
         // --- CHECK FOR BASIC RESOURCES IN WALLET (Gỗ / Đá) ---
         int currentQty = 0;
@@ -133,7 +135,7 @@ public class EquipmentService {
 
 
         // 3. Tăng cấp (+1)
-        int newLevel = item.getEnhanceLevel() + 1;
+        int newLevel = enhanceLevel + 1;
         item.setEnhanceLevel(newLevel);
 
         // 4. Tăng Main Stat (Xử lý Null Main Stat Value)
@@ -195,7 +197,8 @@ public class EquipmentService {
         UserItem item = userItemRepo.findById(userItemId).orElseThrow();
 
         if (!item.getUser().getUserId().equals(userId)) throw new RuntimeException("Item không chính chủ");
-        if (item.getRarity() != Rarity.LEGENDARY || item.getEnhanceLevel() < 30) return "Chưa đủ điều kiện tiến hóa.";
+        int enhLvl = item.getEnhanceLevel() != null ? item.getEnhanceLevel() : 0;
+        if (item.getRarity() != Rarity.LEGENDARY || enhLvl < 30) return "Chưa đủ điều kiện tiến hóa.";
 
         // 1. Logic Trừ Nguyên liệu Mythic (Kim cương, token hiếm...)
 

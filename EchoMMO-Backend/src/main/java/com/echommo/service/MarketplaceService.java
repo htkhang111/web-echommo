@@ -216,7 +216,7 @@ public class MarketplaceService {
 
         Optional<UserItem> ex = list.stream()
                 .filter(i -> i.getItem().getItemId().equals(item.getItemId())
-                        && i.getEnhanceLevel().equals(enhance) // Dùng equals cho Integer
+                        && (i.getEnhanceLevel() != null ? i.getEnhanceLevel().equals(enhance) : enhance == 0)
                         && !Boolean.TRUE.equals(i.getIsEquipped()))
                 .findFirst();
 
