@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.util.*;
 
@@ -20,218 +19,147 @@ public class ExplorationService {
     @Autowired private WalletRepository walletRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private CaptchaService captchaService;
-
     @Autowired private ItemRepository itemRepo;
     @Autowired private UserItemRepository userItemRepo;
     @Autowired private FlavorTextRepository flavorTextRepo;
     @Autowired private WeatherTextRepository weatherTextRepo;
+    @Autowired private BattleSessionRepository battleSessionRepo;
 
-    // --- 1. TÍNH NĂNG THÁM HIỂM (HÀNH TẨU) ---
-    @Transactional
-    public ExplorationResponse explore() {
-        try {
-            // 1. Lấy thông tin nhân vật
-            Character c = characterService.getMyCharacter();
+    public enum GameMap {
+        MAP_01("MAP_01", "Đồng Bằng", 1, 19, Map.of("Gỗ", 40, "Đá", 30, "Quặng Đồng", 20, "Cá", 10), List.of("Goblin", "Skeleton", "Mushroom")),
+        MAP_02("MAP_02", "Rừng Rậm", 20, 30, Map.of("Gỗ", 30, "Đá", 20, "Quặng Đồng", 20, "Sắt", 15, "Cá", 15), List.of("Người Rừng", "Gấu Hoang", "Nhện Rừng")),
+        MAP_03("MAP_03", "Sa Mạc", 30, 40, Map.of("Gỗ Khô", 20, "Đá", 30, "Quặng Đồng", 25, "Sắt", 25), List.of("Bọ Cát", "Xác Ướp Lang Thang", "Bọ Hung Khổng Lồ")),
+        MAP_04("MAP_04", "Núi Cao", 40, 50, Map.of("Gỗ", 15, "Đá", 25, "Quặng Đồng", 20, "Sắt", 25, "Bạch Kim", 15), List.of("Golem Đá", "Đại Bàng Núi", "Người Lùn Đào Mỏ")),
+        MAP_05("MAP_05", "Băng Đảo", 50, 60, Map.of("Gỗ Lạnh", 10, "Sắt", 35, "Bạch Kim", 35, "Nguyên liệu lạ", 20), List.of("Gấu Băng", "Người Tuyết", "Tinh Linh Băng")),
+        MAP_06("MAP_06", "Đầm Lầy", 60, 70, Map.of("Gỗ Hóa Thạch", 30, "Cá Độc", 20, "Kim Cương", 10, "Nguyên liệu lạ", 40), List.of("Quái Đầm Lầy", "Rắn Độc Khổng Lồ", "Linh Hồn Sa Lầy"));
 
-            // Nếu chưa có thì tạo mới (Fallback)
-            if (c == null) {
-                String username = SecurityContextHolder.getContext().getAuthentication().getName();
-                User user = userRepository.findByUsername(username)
-                        .orElseThrow(() -> new RuntimeException("User not found in DB"));
-                c = characterService.createDefaultCharacter(user);
-            }
-            if (c == null) throw new RuntimeException("Lỗi dữ liệu nhân vật.");
-
-            // 2. Check Captcha (nếu có logic này)
-            captchaService.checkLockStatus(c.getUser());
-
-            Random r = new Random();
-
-            // --- A. PHẦN THƯỞNG CỐ ĐỊNH (Luôn nhận được) ---
-            int baseExp = 1 + (c.getLevel() / 2);
-            int baseCoin = 1 + r.nextInt(3);
-
-            c.setCurrentExp(c.getCurrentExp() + baseExp);
-
-            Wallet w = c.getUser().getWallet();
-            BigDecimal currentGold = w.getGold() != null ? w.getGold() : BigDecimal.ZERO;
-            w.setGold(currentGold.add(BigDecimal.valueOf(baseCoin)));
-
-            // --- B. XỬ LÝ RNG (SỰ KIỆN NGẪU NHIÊN) ---
-            int roll = r.nextInt(100); // Random từ 0 đến 99
-            String type;
-            String msg;
-            String rewardName = null;
-            Integer rewardAmount = 0;
-            BigDecimal eventGold = BigDecimal.ZERO;
-
-            // [LOGIC MỚI] Cân bằng tỉ lệ để dễ test
-            if (roll < 30) {
-                // 30%: FLAVOR TEXT (Chỉ hiện chữ)
-                type = "TEXT";
-                boolean isWeather = r.nextBoolean();
-                if (isWeather) {
-                    msg = weatherTextRepo.findRandomContent().orElse("Gió thổi hiu hiu, lá bay xào xạc...");
-                } else {
-                    msg = flavorTextRepo.findRandomContent().orElse("Giang hồ hiểm ác, cẩn thận củi lửa.");
-                }
-
-            } else if (roll < 60) {
-                // 30%: GOLD DROP (Nhặt vàng)
-                type = "GOLD";
-                int bigGold = 10 + r.nextInt(41); // 10 - 50 vàng
-                eventGold = BigDecimal.valueOf(bigGold);
-                w.setGold(w.getGold().add(eventGold));
-
-                msg = "Bạn đá phải một cái túi nặng trịch. Bên trong là " + bigGold + " Vàng!";
-                rewardName = "Túi vàng";
-                rewardAmount = bigGold;
-
-            } else if (roll < 80) {
-                // 20%: ITEM DROP (Nhặt đồ)
-                type = "ITEM";
-                Item droppedItem = getResourceByMapLevel(c.getLevel(), r);
-
-                if (droppedItem != null) {
-                    addItemToInventory(c.getUser(), droppedItem, 1);
-                    msg = "Bạn tìm thấy " + droppedItem.getName() + "!";
-                    rewardName = droppedItem.getName();
-                    rewardAmount = 1;
-                } else {
-                    // Nếu lỗi không tìm thấy item trong DB thì fallback về Text
-                    type = "TEXT";
-                    msg = "Bạn thấy lấp lánh nhưng chỉ là hòn đá cuội.";
-                }
-
-            } else {
-                // 20%: COMBAT (Gặp quái)
-                // [QUAN TRỌNG] Phải là "ENEMY" để khớp với VueJS: if (res.type === 'ENEMY')
-                type = "ENEMY";
-                msg = "Sát khí đằng đằng! Quái vật xuất hiện.";
-                c.setStatus(CharacterStatus.IN_COMBAT);
-            }
-
-            // --- C. CHECK LÊN CẤP ---
-            Integer newLv = null;
-            long reqExp = (long) c.getLevel() * 100L; // Công thức exp: Level * 100
-
-            if (c.getCurrentExp() >= reqExp) {
-                c.setCurrentExp(c.getCurrentExp() - (int) reqExp);
-                c.setLevel(c.getLevel() + 1);
-                c.setMaxHp(c.getMaxHp() + 20); // Tăng HP tối đa khi lên cấp
-
-                // Hồi phục đầy đủ khi lên cấp
-                c.setCurrentHp(c.getMaxHp());
-                c.setCurrentEnergy(c.getMaxEnergy());
-
-                newLv = c.getLevel();
-                msg += " [LÊN CẤP ĐỘ " + newLv + "!]";
-            }
-
-            // Lưu dữ liệu vào DB
-            characterRepository.save(c);
-            walletRepository.save(w);
-
-            // Trả về Response
-            return new ExplorationResponse(
-                    msg,
-                    type,
-                    BigDecimal.valueOf(baseCoin).add(eventGold),
-                    c.getCurrentExp(),
-                    c.getLevel(),
-                    c.getCurrentEnergy(),
-                    c.getMaxEnergy(),
-                    newLv,
-                    rewardName,
-                    rewardAmount
-            );
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            // Ném lỗi ra để Controller bắt được
-            throw new RuntimeException("Lỗi thám hiểm: " + e.getMessage());
+        public final String id; public final String name; public final int minLv; public final int maxLv;
+        public final Map<String, Integer> resources; public final List<String> enemies;
+        GameMap(String id, String name, int minLv, int maxLv, Map<String, Integer> resources, List<String> enemies) {
+            this.id = id; this.name = name; this.minLv = minLv; this.maxLv = maxLv; this.resources = resources; this.enemies = enemies;
         }
+        public static GameMap findById(String id) { return Arrays.stream(values()).filter(m -> m.id.equalsIgnoreCase(id)).findFirst().orElse(MAP_01); }
     }
 
-    // --- 2. TÍNH NĂNG KHAI THÁC (Giữ nguyên) ---
+    @Transactional
+    public ExplorationResponse explore(String mapId) {
+        try {
+            Character c = characterService.getMyCharacter();
+            if (c == null) {
+                User user = userRepository.findByUsername(SecurityContextHolder.getContext().getAuthentication().getName()).orElseThrow();
+                c = characterService.createDefaultCharacter(user);
+            }
+            captchaService.checkLockStatus(c.getUser());
+            GameMap map = GameMap.findById(mapId);
+            if (c.getLevel() < map.minLv) throw new RuntimeException("Cấp độ không đủ! Cần Lv." + map.minLv);
+
+            Random r = new Random();
+            Wallet w = c.getUser().getWallet();
+            int baseExp = 10 + c.getLevel();
+            int baseCoin = 1 + r.nextInt(5) + (map.minLv / 5);
+            c.setCurrentExp(c.getCurrentExp() + baseExp);
+            w.setGold((w.getGold() != null ? w.getGold() : BigDecimal.ZERO).add(BigDecimal.valueOf(baseCoin)));
+
+            // [FIXED] Tỷ lệ chuẩn 60/20/11/9 (Xử lý toàn bộ tại Backend)
+            int roll = r.nextInt(100);
+            String type; String msg; String rewardName = null; Integer rewardAmount = 0;
+
+            if (roll < 60) { // 60% TEXT
+                type = "TEXT";
+                msg = r.nextBoolean() ? weatherTextRepo.findRandomContent().orElse("Thời tiết lạ.") : flavorTextRepo.findRandomContent().orElse("Cảnh đẹp.");
+
+            } else if (roll < 80) { // 20% GATHERING (Resource)
+                // Trả về type GATHERING để Frontend biết đường chuyển trang
+                type = "GATHERING";
+                msg = "Phát hiện khu vực tài nguyên!";
+                // Không cộng item ở đây, chuyển sang Gathering.vue xử lý
+
+            } else if (roll < 91) { // 11% ENEMY
+                type = "ENEMY";
+                String enemyNameBase = map.enemies.get(r.nextInt(map.enemies.size()));
+                BattleSession session = createBattleSession(c, enemyNameBase, map);
+                msg = "Sát khí! " + session.getEnemyName() + " xuất hiện!";
+                c.setStatus(CharacterStatus.IN_COMBAT);
+                rewardName = session.getEnemyName();
+
+            } else { // 9% EQUIPMENT (ITEM)
+                type = "ITEM";
+                List<Item> equips = itemRepo.findByType("WEAPON");
+                Item equip = equips.isEmpty() ? null : equips.get(r.nextInt(equips.size()));
+                if (equip != null) { addItemToInventory(c.getUser(), equip, 1); msg = "Nhặt được: " + equip.getName(); rewardName = equip.getName(); rewardAmount = 1; }
+                else { type = "TEXT"; msg = "Rương rỗng."; }
+            }
+
+            Integer newLv = checkLevelUp(c);
+            characterRepository.save(c); walletRepository.save(w);
+            return new ExplorationResponse(msg, type, BigDecimal.valueOf(baseCoin), c.getCurrentExp(), c.getLevel(), c.getCurrentEnergy(), c.getMaxEnergy(), newLv, rewardName, rewardAmount);
+        } catch (Exception e) { throw new RuntimeException(e.getMessage()); }
+    }
+
+    private BattleSession createBattleSession(Character player, String enemyName, GameMap map) {
+        Random r = new Random();
+        int baseHp = 50; int baseAtk = 8; int baseDef = 2; // Giả lập base stat
+        int enemyLv = r.nextInt(map.maxLv - map.minLv + 1) + map.minLv;
+        double multiplier = 1.0 + (enemyLv * 0.1);
+        boolean isElite = r.nextInt(100) < 5;
+        if (isElite) multiplier *= 1.5;
+
+        // Sửa getCharacterId() -> getCharId()
+        BattleSession session = battleSessionRepo.findByCharacter_CharId(player.getCharId()).orElse(new BattleSession());
+        session.setCharacter(player);
+        session.setEnemyName((isElite ? "[Tinh Anh] " : "") + enemyName);
+        session.setEnemyMaxHp((int) (baseHp * multiplier));
+        session.setEnemyCurrentHp((int) (baseHp * multiplier));
+        session.setTurnCount(0);
+        session.setLog("Bạn gặp " + session.getEnemyName());
+        return battleSessionRepo.save(session);
+    }
+
+    private Integer checkLevelUp(Character c) {
+        long reqExp = (c.getLevel() < 60) ? (long) c.getLevel() * 50L : (long) c.getLevel() * 100L + (long) Math.pow(c.getLevel() - 60, 2) * 200L;
+        if (c.getCurrentExp() >= reqExp) {
+            c.setCurrentExp(c.getCurrentExp() - (int)reqExp);
+            c.setLevel(c.getLevel() + 1); c.setMaxHp(c.getMaxHp() + 20); c.setCurrentHp(c.getMaxHp()); c.setCurrentEnergy(c.getMaxEnergy());
+            return c.getLevel();
+        }
+        return null;
+    }
+
+    private void addItemToInventory(User user, Item item, int amount) {
+        UserItem userItem = userItemRepo.findByUser_UserId(user.getUserId()).stream().filter(ui -> ui.getItem().getItemId().equals(item.getItemId())).findFirst().orElse(new UserItem());
+        if (userItem.getUserItemId() == null) { userItem.setUser(user); userItem.setItem(item); userItem.setQuantity(amount); userItem.setIsEquipped(false); userItem.setEnhanceLevel(0); }
+        else { userItem.setQuantity(userItem.getQuantity() + amount); }
+        userItemRepo.save(userItem);
+    }
+
+    // Hàm này giữ nguyên để phục vụ trang Gathering gọi vào
     @Transactional
     public Map<String, Object> gatherResource(String resourceType, int amount) {
         Character c = characterService.getMyCharacter();
         if (c == null) throw new RuntimeException("Chưa có nhân vật");
 
-        int energyCost = amount;
+        if (c.getCurrentEnergy() < amount) throw new RuntimeException("Không đủ nội năng! Cần " + amount);
 
-        if (c.getCurrentEnergy() < energyCost) {
-            throw new RuntimeException("Không đủ nội năng! Cần " + energyCost);
-        }
-
-        c.setCurrentEnergy(c.getCurrentEnergy() - energyCost);
+        c.setCurrentEnergy(c.getCurrentEnergy() - amount);
         characterRepository.save(c);
 
-        Wallet w = c.getUser().getWallet();
-        String msg = "";
-
+        String itemName;
         switch (resourceType) {
-            case "wood":
-            case "special":
-                w.setWood(w.getWood() + amount);
-                msg = "Nhận được " + amount + " Gỗ";
-                break;
-            case "stone":
-            case "mining":
-                w.setStone(w.getStone() + amount);
-                msg = "Nhận được " + amount + " Đá";
-                break;
-            default:
-                throw new RuntimeException("Loại tài nguyên không hợp lệ");
+            case "wood": itemName = "Gỗ"; break;
+            case "stone": itemName = "Đá"; break;
+            case "mining": itemName = "Quặng Đồng"; break;
+            case "special": itemName = "Gỗ Hóa Thạch"; break;
+            default: itemName = "Gỗ"; break;
         }
 
-        walletRepository.save(w);
+        Item item = itemRepo.findByName(itemName).orElse(null);
+        if (item != null) { addItemToInventory(c.getUser(), item, amount); }
 
         Map<String, Object> result = new HashMap<>();
-        result.put("message", msg);
+        result.put("message", "Thu hoạch " + amount + " " + itemName);
         result.put("currentEnergy", c.getCurrentEnergy());
-        result.put("wood", w.getWood());
-        result.put("stone", w.getStone());
-
+        result.put("wood", 0);
+        result.put("stone", 0);
         return result;
-    }
-
-    // --- CÁC HÀM PHỤ TRỢ ---
-
-    private Item getResourceByMapLevel(int level, Random r) {
-        List<String> possibleItems = new ArrayList<>();
-        possibleItems.add("Gỗ");
-        possibleItems.add("Đá");
-
-        // Logic mở khóa item theo cấp độ
-        if (level >= 10) possibleItems.add("Quặng Đồng");
-        if (level >= 20) possibleItems.add("Quặng Sắt");
-        if (level >= 30) possibleItems.add("Bạch Kim");
-
-        String itemName = possibleItems.get(r.nextInt(possibleItems.size()));
-        return itemRepo.findByName(itemName).stream().findFirst().orElse(null);
-    }
-
-    private void addItemToInventory(User user, Item item, int amount) {
-        // Tìm xem user đã có item này trong túi chưa
-        UserItem userItem = userItemRepo.findByUser_UserId(user.getUserId())
-                .stream()
-                .filter(ui -> ui.getItem().getItemId().equals(item.getItemId()))
-                .findFirst()
-                .orElse(new UserItem());
-
-        if (userItem.getUserItemId() == null) {
-            // Nếu chưa có, tạo slot mới
-            userItem.setUser(user);
-            userItem.setItem(item);
-            userItem.setQuantity(amount);
-            userItem.setIsEquipped(false);
-            userItem.setEnhanceLevel(0); // Mặc định +0
-        } else {
-            // Nếu có rồi, cộng dồn số lượng
-            userItem.setQuantity(userItem.getQuantity() + amount);
-        }
-        userItemRepo.save(userItem);
     }
 }

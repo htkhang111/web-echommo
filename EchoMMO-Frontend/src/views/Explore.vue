@@ -4,91 +4,41 @@
       <div class="center-zone">
         <div class="game-board">
           <div class="status-header">
-            <div class="level-badge">
-              <span>Lv.{{ charStore.character?.lv }}</span>
-            </div>
+            <div class="level-badge"><span>Lv.{{ charStore.character?.level }}</span></div>
             <div class="bars-container">
               <div class="stat-group">
-                <div class="stat-row">
-                  <span class="stat-icon">❤️</span>
+                <div class="stat-row"><span class="stat-icon">❤️</span>
                   <div class="progress-bg">
-                    <div
-                      class="progress-fill hp"
-                      :style="{ width: charStore.hpPercent + '%' }"
-                    ></div>
-                    <span class="stat-text"
-                      >{{ charStore.character?.hp }}/{{
-                        charStore.character?.maxHp
-                      }}</span
-                    >
+                    <div class="progress-fill hp" :style="{ width: charStore.hpPercent + '%' }"></div><span
+                      class="stat-text">{{ charStore.character?.hp }}/{{ charStore.character?.maxHp }}</span>
                   </div>
                 </div>
-                <div class="stat-row">
-                  <span class="stat-icon">⚡</span>
+                <div class="stat-row"><span class="stat-icon">⚡</span>
                   <div class="progress-bg">
-                    <div
-                      class="progress-fill energy"
-                      :style="{ width: charStore.energyPercent + '%' }"
-                    ></div>
-                    <span class="stat-text"
-                      >{{ charStore.character?.energy }}/{{
-                        charStore.character?.maxEnergy
-                      }}</span
-                    >
+                    <div class="progress-fill energy" :style="{ width: charStore.energyPercent + '%' }"></div><span
+                      class="stat-text">{{ charStore.character?.energy }}/{{ charStore.character?.maxEnergy }}</span>
                   </div>
                 </div>
               </div>
               <div class="exp-row">
                 <div class="exp-bg">
-                  <div
-                    class="exp-fill"
-                    :style="{ width: charStore.xpPercent + '%' }"
-                  ></div>
+                  <div class="exp-fill" :style="{ width: charStore.xpPercent + '%' }"></div>
                 </div>
-                <span class="exp-text"
-                  >{{ charStore.xpPercent.toFixed(1) }}%</span
-                >
               </div>
             </div>
           </div>
 
           <div class="stage-viewport">
-            <div class="stage-background">
-              <div
-                class="actor player"
-                :style="{
-                  left: charStore.explorationState.playerPos + '%',
-                  transform: `scaleX(${charStore.explorationState.moveDir})`,
-                }"
-              >
-                <div class="avatar-circle">
-                  <img :src="imgPlayer" class="avatar-img" />
-                </div>
+            <div class="stage-background" :style="{ backgroundImage: `url(${getMapBg()})` }">
+              <div class="actor player"
+                :style="{ left: charStore.explorationState.playerPos + '%', transform: `scaleX(${charStore.explorationState.moveDir})` }">
+                <div class="avatar-circle"><img :src="imgPlayer" class="avatar-img" /></div>
                 <div class="actor-label">Bạn</div>
               </div>
-
-              <div
-                class="actor target"
-                v-if="showTarget"
-                :style="{
-                  left:
-                    charStore.explorationState.playerPos +
-                    15 * charStore.explorationState.moveDir +
-                    '%',
-                }"
-              >
-                <div
-                  class="avatar-target"
-                  :class="{
-                    'is-enemy': isEncounter,
-                    'is-reward': !isEncounter,
-                  }"
-                >
-                  <img
-                    v-if="targetImage"
-                    :src="targetImage"
-                    class="avatar-img"
-                  />
+              <div class="actor target" v-if="showTarget"
+                :style="{ left: charStore.explorationState.playerPos + 15 * charStore.explorationState.moveDir + '%' }">
+                <div class="avatar-target" :class="{ 'is-enemy': isEncounter, 'is-reward': !isEncounter }">
+                  <img v-if="targetImage" :src="targetImage" class="avatar-img" />
                   <div v-else class="text-3xl">🎁</div>
                 </div>
                 <div class="actor-label target-name">{{ targetName }}</div>
@@ -98,28 +48,17 @@
 
           <div class="action-panel">
             <template v-if="!isEncounter">
-              <button
-                class="btn-action main-btn"
-                @click="startExploration"
-                :disabled="isMoving"
-              >
-                <div class="btn-content">
-                  <i class="fas fa-walking"></i>
-                  <span v-if="!isMoving">HÀNH TẨU</span>
-                  <span v-else>ĐANG TÌM... ({{ countdown }}s)</span>
-                </div>
+              <button class="btn-action map-btn" @click="showMapModal = true" :disabled="isMoving">
+                <div class="btn-content"><span>🗺️ {{ currentMapName }}</span></div>
               </button>
-              <button
-                class="btn-action sub-btn"
-                @click="$router.push('/village')"
-                :disabled="isMoving"
-              >
-                <div class="btn-content">
-                  <i class="fas fa-home"></i><span>VỀ TRẠI</span>
-                </div>
+              <button class="btn-action main-btn" @click="startExploration" :disabled="isMoving">
+                <div class="btn-content"><i class="fas fa-walking"></i><span v-if="!isMoving">HÀNH TẨU</span><span
+                    v-else>... ({{ countdown }}s)</span></div>
               </button>
+              <button class="btn-action sub-btn" @click="$router.push('/village')" :disabled="isMoving"><i
+                  class="fas fa-home"></i></button>
             </template>
-            <div v-else class="encounter-msg">⚠️ Đang tương tác...</div>
+            <div v-else class="encounter-msg">⚠️ Đang chiến đấu...</div>
           </div>
         </div>
 
@@ -130,60 +69,62 @@
 
       <div class="right-zone">
         <div class="log-panel">
-          <div class="log-header"><i class="fas fa-scroll"></i> NHẬT KÝ</div>
+          <div class="log-header">NHẬT KÝ</div>
           <div class="log-content custom-scroll">
-            <div v-for="(log, index) in logs" :key="index" class="log-line">
-              <span class="log-time">[{{ log.time }}]</span>
+            <div v-for="(log, index) in logs" :key="index" class="log-line"><span class="log-time">[{{ log.time
+                }}]</span>
               <span class="log-msg" v-html="log.msg"></span>
             </div>
           </div>
         </div>
-
         <div class="quest-panel-wrapper">
           <QuestPanel />
         </div>
       </div>
     </div>
 
-    <div v-if="isEncounter" class="encounter-modal">
-      <div class="modal-card">
-        <div class="modal-header">⚠️ CẢNH BÁO</div>
-        <div class="modal-body">
-          <div class="preview-box">
-            <img :src="targetImage" class="enemy-preview-img" />
+    <div v-if="showMapModal" class="modal-overlay" @click.self="showMapModal = false">
+      <div class="map-modal-card">
+        <div class="map-header">CHỌN KHU VỰC</div>
+        <div class="map-grid">
+          <div v-for="map in maps" :key="map.id" class="map-item"
+            :class="{ 'active': currentMapId === map.id, 'locked': userLv < map.minLv }" @click="selectMap(map)">
+            <div class="map-info">
+              <div class="map-name">{{ map.name }}</div>
+              <div class="map-lv">Lv.{{ map.minLv }}-{{ map.maxLv }}</div>
+            </div>
+            <div v-if="userLv < map.minLv" class="lock-icon">🔒</div>
           </div>
-          <p>
-            Gặp <strong>{{ targetName }}</strong
-            >!
-          </p>
         </div>
-        <div class="modal-footer">
-          <button class="modal-btn flee" @click="flee">🏃 Bỏ Chạy</button>
-          <button class="modal-btn fight" @click="goToBattle">
-            ⚔️ CHIẾN ĐẤU
-          </button>
-        </div>
+        <button class="close-btn" @click="showMapModal = false">Đóng</button>
       </div>
     </div>
 
+    <div v-if="isEncounter" class="encounter-modal">
+      <div class="modal-card">
+        <div class="modal-header">CẢNH BÁO</div>
+        <div class="modal-body">
+          <div class="preview-box"><img :src="targetImage" class="enemy-preview-img" /></div>
+          <p>Gặp <strong>{{ targetName }}</strong>!</p>
+        </div>
+        <div class="modal-footer"><button class="modal-btn flee" @click="flee">Bỏ Chạy</button><button
+            class="modal-btn fight" @click="goToBattle">CHIẾN ĐẤU</button></div>
+      </div>
+    </div>
     <CaptchaModal ref="captchaModal" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from "vue";
-import { useCharacterStore } from "@/stores/characterStore"; // Đảm bảo đường dẫn đúng
+import { useCharacterStore } from "@/stores/characterStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useBattleStore } from "@/stores/battleStore";
 import { useRouter } from "vue-router";
 import CaptchaModal from "@/components/CaptchaModal.vue";
 import ChatPanel from "@/components/ChatPanel.vue";
 import QuestPanel from "@/components/QuestPanel.vue";
-import {
-  getRandomEnemyData,
-  getItemImage,
-  getCurrentSkin,
-} from "@/utils/assetHelper";
+import { getRandomEnemyData, getItemImage, getCurrentSkin } from "@/utils/assetHelper";
 
 const charStore = useCharacterStore();
 const authStore = useAuthStore();
@@ -199,105 +140,80 @@ const logs = ref([]);
 const targetImage = ref("");
 const targetName = ref("");
 
-// Lấy ảnh nhân vật theo Skin
+const showMapModal = ref(false);
+const currentMapId = ref("MAP_01");
+const userLv = computed(() => charStore.character?.level || 1);
+const maps = [
+  { id: "MAP_01", name: "Đồng Bằng", minLv: 1, maxLv: 19 },
+  { id: "MAP_02", name: "Rừng Rậm", minLv: 20, maxLv: 30 },
+  { id: "MAP_03", name: "Sa Mạc", minLv: 30, maxLv: 40 },
+  { id: "MAP_04", name: "Núi Cao", minLv: 40, maxLv: 50 },
+  { id: "MAP_05", name: "Băng Đảo", minLv: 50, maxLv: 60 },
+  { id: "MAP_06", name: "Đầm Lầy", minLv: 60, maxLv: 70 },
+];
+const currentMapName = computed(() => maps.find(m => m.id === currentMapId.value)?.name || "Đồng Bằng");
+
+const selectMap = (map) => {
+  if (userLv.value < map.minLv) { addLog(`🔒 Cần Lv.${map.minLv} để vào ${map.name}`); return; }
+  currentMapId.value = map.id; showMapModal.value = false; addLog(`Đã chọn: <b>${map.name}</b>`);
+};
+
+const getMapBg = () => new URL(`../assets/Background/b_doanhtrai.png`, import.meta.url).href;
 const imgPlayer = computed(() => {
   const skin = getCurrentSkin(authStore.user?.avatarUrl);
   return isMoving.value ? skin.sprites.run : skin.sprites.idle;
 });
 
 let moveInterval = null;
-
-const getTime = () =>
-  new Date().toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const getTime = () => new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 const addLog = (msg) => logs.value.unshift({ time: getTime(), msg });
 
 const startMovingJS = () => {
   if (moveInterval) clearInterval(moveInterval);
   moveInterval = setInterval(() => {
-    charStore.explorationState.playerPos +=
-      0.5 * charStore.explorationState.moveDir;
-    if (charStore.explorationState.playerPos >= 80)
-      charStore.explorationState.moveDir = -1;
-    else if (charStore.explorationState.playerPos <= 10)
-      charStore.explorationState.moveDir = 1;
+    charStore.explorationState.playerPos += 0.5 * charStore.explorationState.moveDir;
+    if (charStore.explorationState.playerPos >= 70) charStore.explorationState.moveDir = -1;
+    else if (charStore.explorationState.playerPos <= 30) charStore.explorationState.moveDir = 1;
   }, 16);
 };
 
 const startExploration = () => {
   if (isMoving.value) return;
-  isMoving.value = true;
-  showTarget.value = false;
-  isEncounter.value = false;
-  countdown.value = 2;
-  startMovingJS();
-  addLog("Bắt đầu hành tẩu...");
-  const timer = setInterval(async () => {
-    countdown.value--;
-    if (countdown.value <= 0) {
-      clearInterval(timer);
-      await handleResult();
-    }
-  }, 1000);
+  isMoving.value = true; showTarget.value = false; isEncounter.value = false; countdown.value = 2; startMovingJS();
+  const timer = setInterval(async () => { countdown.value--; if (countdown.value <= 0) { clearInterval(timer); await handleResult(); } }, 1000);
 };
 
-// Xử lý kết quả khám phá
 const handleResult = async () => {
-  clearInterval(moveInterval);
-  isMoving.value = false;
+  clearInterval(moveInterval); isMoving.value = false;
 
-  // 1. Tỉ lệ 20% gặp Tài Nguyên -> Chuyển trang Gathering
-  const eventChance = Math.random() * 100;
-  if (eventChance < 20) {
-    addLog(
-      `<span style="color:#00e676; font-weight:bold;">🌿 Phát hiện khu vực tài nguyên! Đang tiến vào...</span>`,
-    );
-    setTimeout(() => {
-      router.push("/gathering");
-    }, 1000);
-    return;
-  }
-
-  // 2. Tỉ lệ 80% còn lại: Gọi API Explore
+  // [FIX] Xóa logic random frontend, gọi thẳng Backend
   try {
-    const res = await charStore.explore();
+    const res = await charStore.explore({ mapId: currentMapId.value });
 
-    if (res.type === "GOLD") {
-      showTarget.value = true;
-      targetName.value = "Túi Vàng";
-      targetImage.value = getItemImage("GOLD");
-      addLog(
-        `<span style="color:#ffd700; font-weight:bold;">${res.message}</span>`,
-      );
-    } else if (res.type === "ENEMY") {
-      isEncounter.value = true;
-      showTarget.value = true;
-      const rndEnemy = getRandomEnemyData();
-      targetName.value = rndEnemy.name;
-      targetImage.value = rndEnemy.img;
-      battleStore.setEncounter(rndEnemy);
-      addLog(
-        `<span style="color:#ef5350; font-weight:bold;">⚠️ ${res.message}</span>`,
-      );
-    } else {
-      addLog(`<span style="color:#aaa;">${res.message}</span>`);
+    // [LOGIC MỚI] Check type từ Backend trả về
+    if (res.type === "GATHERING") {
+      addLog(`<span style="color:#00e676; font-weight:bold;">🌿 ${res.message}</span>`);
+      setTimeout(() => { router.push("/gathering"); }, 800);
+      return;
     }
+
+    if (res.type === "ITEM" && res.rewardName) {
+      showTarget.value = true; targetName.value = res.rewardName;
+      targetImage.value = getItemImage(res.rewardName) || getItemImage("GOLD");
+      addLog(`<span style="color:#00e676;">${res.message}</span>`);
+    } else if (res.type === "ENEMY") {
+      isEncounter.value = true; showTarget.value = true; targetName.value = res.rewardName;
+      targetImage.value = new URL(`../assets/enemy/idle_goblin.png`, import.meta.url).href;
+      battleStore.setEncounter({ name: res.rewardName, img: targetImage.value });
+      addLog(`<span style="color:#ef5350;">⚠️ ${res.message}</span>`);
+    } else { addLog(`<span style="color:#aaa;">${res.message}</span>`); }
   } catch (e) {
-    const msg = e.message || e;
-    if (msg === "CAPTCHA" || msg === "CAPTCHA_REQUIRED")
-      captchaModal.value.open();
-    else addLog(`<span style="color:red">Lỗi: ${msg}</span>`);
+    if (e.message === "CAPTCHA") captchaModal.value.open(); else addLog(`<span style="color:red">Lỗi: ${e.message || e}</span>`);
   }
 };
 
 const goToBattle = () => router.push("/battle");
-const flee = () => {
-  isEncounter.value = false;
-  showTarget.value = false;
-  addLog("<span style='color:#a5d6a7'>Đã chạy thoát.</span>");
-};
+const flee = () => { isEncounter.value = false; showTarget.value = false; addLog("Đã chạy thoát."); };
 
 onMounted(() => charStore.fetchCharacter());
 onUnmounted(() => clearInterval(moveInterval));
@@ -307,7 +223,6 @@ onUnmounted(() => clearInterval(moveInterval));
 .explore-page {
   padding: 10px;
   height: 100vh;
-  box-sizing: border-box;
   overflow: hidden;
   color: #eee;
   font-family: "Noto Serif TC", serif;
@@ -326,21 +241,27 @@ onUnmounted(() => clearInterval(moveInterval));
 .center-zone {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 10px;
   height: 100%;
   overflow: hidden;
 }
 
 .game-board {
-  flex: 1;
-  min-height: 300px;
+  flex: 0 0 320px;
   background: #261815;
   border: 2px solid #5d4037;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
   position: relative;
+}
+
+.chat-board {
+  flex: 1;
+  min-height: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #444;
+  border-radius: 8px;
 }
 
 .status-header {
@@ -350,16 +271,6 @@ onUnmounted(() => clearInterval(moveInterval));
   display: flex;
   align-items: center;
   gap: 12px;
-}
-
-.level-badge {
-  background: linear-gradient(135deg, #ffd700, #f57f17);
-  color: #000;
-  font-weight: 900;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.85em;
-  white-space: nowrap;
 }
 
 .bars-container {
@@ -381,10 +292,6 @@ onUnmounted(() => clearInterval(moveInterval));
   gap: 5px;
 }
 
-.stat-icon {
-  font-size: 1em;
-}
-
 .progress-bg {
   flex: 1;
   height: 14px;
@@ -399,9 +306,11 @@ onUnmounted(() => clearInterval(moveInterval));
   height: 100%;
   transition: width 0.3s ease;
 }
+
 .progress-fill.hp {
   background: linear-gradient(to right, #c62828, #e53935);
 }
+
 .progress-fill.energy {
   background: linear-gradient(to right, #8a1c1c, #b71c1c);
 }
@@ -416,30 +325,8 @@ onUnmounted(() => clearInterval(moveInterval));
   text-shadow: 1px 1px 0 #000;
 }
 
-.exp-row {
-  position: relative;
-  width: 100%;
-  margin-top: 2px;
-}
-.exp-bg {
-  height: 3px;
-  background: #333;
-}
-.exp-fill {
-  height: 100%;
-  background: #00e676;
-}
-.exp-text {
-  position: absolute;
-  right: 0;
-  top: -12px;
-  font-size: 0.6em;
-  color: #00e676;
-}
-
 .stage-viewport {
   flex: 1;
-  min-height: 0;
   margin: 5px;
   border: 2px solid #3e2723;
   border-radius: 6px;
@@ -450,7 +337,6 @@ onUnmounted(() => clearInterval(moveInterval));
 .stage-background {
   width: 100%;
   height: 100%;
-  background-image: url("@/assets/Background/b_doanhtrai.png");
   background-size: cover;
   background-position: center bottom;
   position: relative;
@@ -471,28 +357,10 @@ onUnmounted(() => clearInterval(moveInterval));
 .avatar-target {
   width: 96px;
   height: 96px;
-  border: none;
-  background: transparent;
   display: flex;
   justify-content: center;
   align-items: center;
   filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.5));
-}
-
-.avatar-target.is-reward {
-  width: 48px;
-  height: 48px;
-  margin-bottom: 15px;
-  animation: floatCoin 2s infinite ease-in-out;
-}
-@keyframes floatCoin {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
 }
 
 .avatar-img {
@@ -502,22 +370,6 @@ onUnmounted(() => clearInterval(moveInterval));
   transform: scale(1.2);
 }
 
-.actor-label {
-  margin-top: 0px;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 2px 10px;
-  border-radius: 12px;
-  font-size: 0.9em;
-  color: #fff;
-  border: none;
-  white-space: nowrap;
-  font-weight: bold;
-  z-index: 12;
-}
-.target-name {
-  color: #ffeb3b;
-}
-
 .action-panel {
   height: 60px;
   background: #1a100e;
@@ -525,7 +377,7 @@ onUnmounted(() => clearInterval(moveInterval));
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 15px;
+  gap: 10px;
   padding: 0 15px;
 }
 
@@ -537,21 +389,14 @@ onUnmounted(() => clearInterval(moveInterval));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: "Noto Serif TC";
   font-weight: bold;
-  font-size: 0.9em;
-  transition: 0.2s;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.5);
+  color: #fff;
 }
-.btn-action:active {
-  transform: translateY(2px);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
-}
-.btn-action:disabled {
-  background: #444;
-  border: 1px solid #333;
-  color: #888;
-  cursor: not-allowed;
+
+.map-btn {
+  flex: 1;
+  background: #2c3e50;
+  border: 1px solid #34495e;
 }
 
 .main-btn {
@@ -559,94 +404,108 @@ onUnmounted(() => clearInterval(moveInterval));
   background: linear-gradient(to bottom, #4e342e, #3e2723);
   border: 1px solid #c5a059;
   color: #c5a059;
-  box-shadow: 0 3px 0 #261815;
 }
+
 .sub-btn {
-  flex: 1;
+  flex: 0.5;
   background: #3e2723;
   border: 1px solid #5d4037;
-  color: #d7ccc8;
-}
-.btn-content {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
-.chat-board {
-  height: 300px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 2px solid #5d4037;
-  border-radius: 8px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-/* RIGHT ZONE LAYOUT */
 .right-zone {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  height: 100%;
   gap: 15px;
+  height: 100%;
 }
 
 .log-panel {
   flex: 0 0 40%;
-  min-height: 150px;
   background: #1e1e1e;
   border: 2px solid #5d4037;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-}
-
-.log-header {
-  height: 36px;
-  background: #3e2723;
-  border-bottom: 1px solid #5d4037;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  color: #ffd700;
-  gap: 6px;
-  font-size: 0.9em;
 }
 
 .log-content {
   flex: 1;
   padding: 8px;
   overflow-y: auto;
-  font-size: 0.85em;
-  line-height: 1.4;
   background: #111;
+  font-size: 0.85em;
 }
-.log-line {
-  margin-bottom: 5px;
-}
-.log-time {
-  font-style: italic;
-  color: #888;
-  margin-right: 5px;
-}
-.log-msg {
-  color: #d7ccc8;
-}
+
 .quest-panel-wrapper {
-  flex: 1; /* Chiếm hết phần còn lại */
-  min-height: 150px;
+  flex: 1;
   background: #1e1e1e;
   border: 2px solid #5d4037;
   border-radius: 8px;
   overflow: hidden;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
 }
 
-/* MODAL STYLES */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-modal-card {
+  width: 90%;
+  max-width: 500px;
+  background: #1a1a1a;
+  border: 2px solid #d4af37;
+  border-radius: 8px;
+  padding: 15px;
+  color: #fff;
+}
+
+.map-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.map-item {
+  background: #333;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #444;
+  position: relative;
+}
+
+.map-item.active {
+  border-color: #00e676;
+  background: #1b5e20;
+}
+
+.map-item.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.lock-icon {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+}
+
+.close-btn {
+  width: 100%;
+  padding: 10px;
+  background: #b71c1c;
+  border: none;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
 .encounter-modal {
   position: fixed;
   inset: 0;
@@ -656,115 +515,57 @@ onUnmounted(() => clearInterval(moveInterval));
   align-items: center;
   justify-content: center;
 }
+
 .modal-card {
   width: 350px;
   background: #261815;
   border: 2px solid #b71c1c;
   border-radius: 12px;
-  box-shadow: 0 0 30px rgba(183, 28, 28, 0.5);
-  overflow: hidden;
-  animation: zoomIn 0.2s;
 }
+
 .modal-header {
   background: #b71c1c;
   color: #fff;
   padding: 10px;
   text-align: center;
   font-weight: bold;
-  font-size: 1.1em;
 }
+
 .modal-body {
-  padding: 20px 15px;
+  padding: 20px;
   text-align: center;
-  color: #eee;
 }
-.preview-box {
-  width: 160px;
-  height: 160px;
-  margin: 0 auto 15px;
-  border: none;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.enemy-preview-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  filter: drop-shadow(0 0 10px rgba(255, 0, 0, 0.5));
-}
+
 .modal-footer {
   padding: 15px;
-  background: #1a100e;
   display: flex;
   gap: 15px;
 }
+
 .modal-btn {
   flex: 1;
-  padding: 12px;
-  border: none;
-  border-radius: 4px;
-  font-weight: bold;
+  padding: 10px;
   cursor: pointer;
-  font-size: 1em;
+  font-weight: bold;
 }
+
 .modal-btn.flee {
   background: #555;
   color: #ccc;
 }
+
 .modal-btn.fight {
   background: #d32f2f;
   color: #fff;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes zoomIn {
-  from {
-    transform: scale(0.9);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.02);
-  }
-  100% {
-    transform: scale(1);
-  }
 }
 
 @media (max-width: 900px) {
-  .explore-page {
-    padding: 5px;
-    height: auto;
-    min-height: 100vh;
-    overflow-y: auto;
-  }
   .explore-layout {
     grid-template-columns: 1fr;
-    gap: 10px;
-    height: auto;
   }
-  .center-zone {
-    height: auto;
-  }
-  .game-board {
-    height: 350px;
-  }
-  .chat-board {
-    height: 300px;
-  }
+
   .right-zone {
     height: 400px;
-    min-height: 300px;
   }
 }
 </style>

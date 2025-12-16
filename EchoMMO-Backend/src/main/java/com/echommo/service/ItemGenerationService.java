@@ -1,10 +1,8 @@
 package com.echommo.service;
 
-// [QUAN TRỌNG] Import DTO chuẩn từ package dto
 import com.echommo.dto.SubStatDTO;
 import com.echommo.entity.UserItem;
 import com.echommo.enums.SlotType;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -16,11 +14,8 @@ import java.util.Random;
 public class ItemGenerationService {
 
     private final Random random = new Random();
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // [QUAN TRỌNG] ĐÃ XÓA class SubStatDTO nội bộ để dùng chung DTO với BattleService
-
-    // --- 1. CORE: Hàm sinh dòng phụ mới ---
+    // --- 1. CORE: Hàm sinh dòng phụ ---
     public SubStatDTO generateRandomSubStat(UserItem userItem, List<SubStatDTO> currentStats) {
         SlotType slot = userItem.getItem().getSlotType();
         String mainStat = userItem.getMainStatType();
@@ -28,28 +23,25 @@ public class ItemGenerationService {
         while (true) {
             String candidateType = rollStatType();
 
-            // Rule 1: Không trùng Main Stat
+            // Rule: Không trùng Main Stat
             if (candidateType.equals(mainStat)) continue;
 
-            // Rule 2: Không trùng các dòng phụ đã có
-            // [FIX] DTO chuẩn dùng .getCode() chứ không phải .getType()
+            // Rule: Không trùng dòng phụ đã có
             boolean isDuplicate = currentStats.stream()
                     .anyMatch(s -> s.getCode().equals(candidateType));
             if (isDuplicate) continue;
 
-            // Rule 3: Blacklist (Luật cấm của Epic 7)
+            // Rule: Blacklist (Luật cấm)
             if (isBlacklisted(slot, candidateType)) continue;
 
-            // Rule 4: Roll giá trị ban đầu (Base Roll)
+            // Roll giá trị
             double value = getBaseRollValue(candidateType, userItem.getItem().getTier());
 
-            // [FIX] Xác định isPercent để Frontend hiển thị đúng
+            // Check Percent để hiển thị
             boolean isPercent = candidateType.contains("PERCENT")
                     || candidateType.equals("CRIT_RATE")
                     || candidateType.equals("CRIT_DMG");
 
-            // [FIX] Trả về DTO chuẩn (code, value, originalValue, isPercent)
-            // originalValue để null vì mới tạo chưa lên Mythic
             return new SubStatDTO(candidateType, value, null, isPercent);
         }
     }
@@ -61,46 +53,44 @@ public class ItemGenerationService {
                 "DEF_FLAT", "DEF_PERCENT",
                 "HP_FLAT", "HP_PERCENT",
                 "SPEED",
-                "CRIT_RATE", "CRIT_DMG"
+                "CRIT_RATE", "CRIT_DMG",
+                "ACCURACY", "EVASION" // [MỚI] Thêm 2 chỉ số này
         };
         return stats[random.nextInt(stats.length)];
     }
 
-    // --- 3. SUPPORT: Check Blacklist ---
+    // --- 3. SUPPORT: Blacklist ---
     private boolean isBlacklisted(SlotType slot, String statType) {
         switch (slot) {
-            case WEAPON: // Kiếm không có Thủ
-                return statType.contains("DEF");
-            case ARMOR: // Áo không có Công
-                return statType.contains("ATK");
+            case WEAPON: // Kiếm: Không Thủ, Không Né
+                return statType.contains("DEF") || statType.equals("EVASION");
+            case ARMOR: // Áo: Không Công, Không Chính xác
+                return statType.contains("ATK") || statType.equals("ACCURACY");
             default:
                 return false;
         }
     }
 
-    // --- 4. SUPPORT: Giá trị Roll khi MỚI RA DÒNG (Tier 1) ---
+    // --- 4. SUPPORT: Giá trị Roll (Tier 1) ---
     private double getBaseRollValue(String statType, int tier) {
-        int multiplier = Math.max(1, tier); // Đảm bảo tier ít nhất là 1
+        int multiplier = Math.max(1, tier);
 
         switch (statType) {
-            case "SPEED":
-                // Speed rất hiếm, tier cao mới tăng nhẹ
-                return random.nextInt(3) + 1 + (tier > 3 ? 1 : 0);
-            case "CRIT_RATE":
-                return random.nextInt(3) + 2; // 2 - 4%
-            case "CRIT_DMG":
-                return random.nextInt(4) + 4; // 4 - 7%
+            case "SPEED": return random.nextInt(3) + 1 + (tier > 3 ? 1 : 0);
+            case "CRIT_RATE": return random.nextInt(3) + 2;
+            case "CRIT_DMG": return random.nextInt(4) + 4;
             case "ATK_PERCENT":
             case "HP_PERCENT":
-            case "DEF_PERCENT":
-                return random.nextInt(5) + 4; // 4 - 8%
-            default:
-                // Flat stat nhân mạnh theo Tier
-                return (random.nextInt(10) + 10) * multiplier;
+            case "DEF_PERCENT": return random.nextInt(5) + 4;
+
+            // [MỚI] Roll phẳng cho ACC/EVA (10-20 điểm ở tier 1)
+            case "ACCURACY":
+            case "EVASION": return (random.nextInt(11) + 10) * multiplier;
+
+            default: return (random.nextInt(10) + 10) * multiplier;
         }
     }
 
-    // --- 5. SUPPORT: Giá trị Roll khi NHẢY DÒNG (Enhance Bonus) ---
     public double getEnhanceRollValue(String statType, int tier) {
         return getBaseRollValue(statType, tier);
     }

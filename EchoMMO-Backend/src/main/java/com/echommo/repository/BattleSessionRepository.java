@@ -6,6 +6,12 @@ import org.springframework.stereotype.Repository;
 import java.util.Optional;
 
 @Repository
+// [FIX] Đổi Integer thành Long vì ID trong BattleSession là Long
 public interface BattleSessionRepository extends JpaRepository<BattleSession, Long> {
-    Optional<BattleSession> findByUser_UserId(Integer userId);
+
+    // Tìm session theo Character ID
+    Optional<BattleSession> findByCharacter_CharId(Integer charId);
+
+    // Xóa session
+    void deleteByCharacter_CharId(Integer charId);
 }

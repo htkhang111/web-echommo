@@ -383,3 +383,6 @@ INSERT INTO weather_text (content) VALUES
 -- POST   /api/player-market/cancel/{id} → Hủy listing
 
 SELECT 'Database setup completed!' AS status;
+
+INSERT INTO user_items (user_id, item_id, is_equipped, quantity, acquired_at)
+VALUES (1, 1, false, 1, NOW());
