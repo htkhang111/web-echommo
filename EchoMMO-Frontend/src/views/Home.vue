@@ -2265,7 +2265,7 @@ p {
 </style> -->
 
 <!-- 5:52 -->
-<template>
+<!-- <template>
   <div class="page-container wuxia-dashboard">
     <div class="ink-bg-layer">
       <img :src="bgImage" class="bg-image-full" />
@@ -2840,6 +2840,442 @@ p {
     width: 100%;
     justify-content: space-between;
     box-sizing: border-box;
+  }
+}
+</style> -->
+<template>
+  <div class="page-container wuxia-dashboard">
+    <div class="ink-bg-layer">
+      <div class="mountain-bg"></div>
+      <div class="fog-anim"></div>
+    </div>
+
+    <div class="dashboard-wrapper">
+      <div class="command-grid">
+        <router-link to="/explore" class="cmd-card play-card">
+          <div class="card-bg-ink"></div>
+          <div class="card-content">
+            <div class="play-content-left">
+              <div class="icon-wrapper">
+                <i class="fas fa-dragon"></i>
+              </div>
+              <div class="text-group">
+                <h2>NHẬP THẾ</h2>
+                <p>BƯỚC VÀO GIANG HỒ</p>
+              </div>
+            </div>
+            <div class="play-arrow">
+              <i class="fas fa-chevron-right"></i>
+            </div>
+          </div>
+        </router-link>
+
+        <router-link to="/inventory" class="cmd-card wood-card">
+          <div class="card-content vertical">
+            <div class="icon-circle"><i class="fas fa-box-open"></i></div>
+            <h3>HÀNH TRANG</h3>
+            <p>Vật Phẩm & Bảo Bối</p>
+          </div>
+        </router-link>
+
+        <router-link to="/market" class="cmd-card wood-card">
+          <div class="card-content vertical">
+            <div class="icon-circle"><i class="fas fa-store"></i></div>
+            <h3>THƯƠNG HỘI</h3>
+            <p>Giao Thương</p>
+          </div>
+        </router-link>
+
+        <router-link to="/leaderboard" class="cmd-card wood-card">
+          <div class="card-content vertical">
+            <div class="icon-circle"><i class="fas fa-trophy"></i></div>
+            <h3>BẢNG VÀNG</h3>
+            <p>Danh Chấn Giang Hồ</p>
+          </div>
+        </router-link>
+
+        <router-link
+          v-if="authStore.user?.role === 'ADMIN'"
+          to="/admin"
+          class="cmd-card admin-card"
+        >
+          <div class="card-content vertical">
+            <div class="icon-circle"><i class="fas fa-gavel"></i></div>
+            <h3>QUAN PHỦ</h3>
+            <p>Điều Hành Hệ Thống</p>
+          </div>
+        </router-link>
+      </div>
+
+      <div class="news-ticker-box">
+        <div class="ticker-label"><i class="fas fa-scroll"></i> CÁO THỊ</div>
+        <div class="ticker-track">
+          <div class="ticker-content">
+            <span class="ticker-item">⚠️ BẢO TRÌ: Giờ Tý canh ba</span>
+            <span class="ticker-separator">❖</span>
+            <span class="ticker-item highlight"
+              >💎 SỰ KIỆN: Nhân đôi kinh nghiệm</span
+            >
+            <span class="ticker-separator">❖</span>
+            <span class="ticker-item"
+              >⚔️ BOSS: Hắc Long đã xuất hiện tại Bắc Sơn</span
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { onMounted } from "vue";
+import { useAuthStore } from "../stores/authStore";
+
+const authStore = useAuthStore();
+// Home không cần fetch lại profile nếu App.vue đã làm việc đó, 
+// nhưng để chắc ăn giữ nguyên cũng không sao.
+onMounted(() => {
+  if (authStore.token) authStore.fetchProfile();
+});
+</script>
+
+<style scoped>
+/* CSS GIỮ NGUYÊN NHƯ CŨ CỦA ÔNG */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700;900&display=swap");
+
+:root {
+  --wood-dark: #3e2723;
+  --wood-light: #5d4037;
+  --ink: #212121;
+  --red-seal: #b71c1c;
+  --gold: #ffecb3;
+  --text-light: #f3f4f6;
+  --text-dim: #a1887f;
+}
+
+.wuxia-dashboard {
+  min-height: 100vh;
+  background-color: var(--wood-dark);
+  color: var(--text-light);
+  font-family: "Noto Serif TC", serif;
+  position: relative;
+  overflow: hidden;
+  /* Thêm padding-top để tránh bị Header che mất nếu Header là fixed */
+  padding-top: 20px; 
+}
+
+.dashboard-wrapper {
+  position: relative;
+  z-index: 10;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.ink-bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: #3e2723;
+}
+
+.mountain-bg {
+  position: absolute;
+  inset: 0;
+  background-image: url("https://images.unsplash.com/photo-1518182170546-0766ce6fec56?q=80&w=2000&auto=format&fit=crop");
+  background-size: cover;
+  background-position: center bottom;
+  filter: sepia(30%) brightness(0.7) contrast(1.1);
+  opacity: 0.9;
+}
+
+.fog-anim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(62, 39, 35, 0.9) 0%,
+    transparent 60%
+  );
+}
+
+/* --- GRID SYSTEM --- */
+.command-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 180px;
+  gap: 20px;
+  flex-grow: 1;
+}
+
+.cmd-card {
+  position: relative;
+  text-decoration: none;
+  background: var(--wood-dark);
+  border: 4px solid var(--wood-light);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+}
+
+.cmd-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--gold);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 215, 0, 0.4);
+}
+
+.card-content {
+  position: relative;
+  z-index: 2;
+  padding: 24px;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.card-content.vertical {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.icon-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--wood-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  color: var(--gold);
+  margin-bottom: 15px;
+  border: 2px solid var(--gold);
+  transition: all 0.3s ease;
+}
+
+.cmd-card:hover .icon-circle {
+  background: var(--red-seal);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+h3 {
+  margin: 0;
+  font-family: "Noto Serif TC";
+  font-size: 1.3rem;
+  color: var(--gold);
+  font-weight: 900;
+}
+
+p {
+  margin: 5px 0 0;
+  color: var(--text-light);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.play-card {
+  grid-column: span 2;
+  grid-row: span 2;
+  background: var(--wood-dark);
+  border-color: var(--gold);
+}
+
+.play-card h2 {
+  font-family: "Noto Serif TC";
+  font-size: 4rem;
+  margin: 0;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.play-card p {
+  color: var(--gold);
+  font-size: 1.2rem;
+  letter-spacing: 4px;
+  font-weight: 700;
+  border-top: 2px solid var(--red-seal);
+  display: inline-block;
+  padding-top: 10px;
+}
+
+.card-bg-ink {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, #4e342e 0%, #000000 100%);
+  z-index: 1;
+  opacity: 0.9;
+}
+
+.play-card::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(255, 236, 179, 0.3);
+  z-index: 2;
+  pointer-events: none;
+}
+
+.play-card .card-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.play-content-left {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.play-card .icon-wrapper i {
+  font-size: 5rem;
+  color: var(--gold);
+  filter: drop-shadow(0 0 10px rgba(212, 160, 23, 0.4));
+}
+
+.play-arrow {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: #fff;
+  transition: all 0.3s ease;
+  background: var(--red-seal);
+}
+
+.play-card:hover .play-arrow {
+  background: #fff;
+  color: var(--red-seal);
+  transform: scale(1.1);
+  box-shadow: 0 0 20px #fff;
+}
+
+.admin-card {
+  background: #263238;
+  border-color: #37474f;
+}
+
+.admin-card h3 {
+  color: #fff;
+}
+
+.admin-card p {
+  color: #cfd8dc;
+}
+
+.admin-card .icon-circle {
+  background: #eceff1;
+  color: #263238;
+  border-color: #263238;
+}
+
+.admin-card:hover {
+  border-color: #ef5350;
+}
+
+.admin-card:hover .icon-circle {
+  background: #ef5350;
+  color: #fff;
+}
+
+.news-ticker-box {
+  background: var(--wood-dark);
+  border: 4px double var(--gold);
+  border-radius: 4px;
+  height: 50px;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+}
+
+.ticker-label {
+  background: var(--gold);
+  color: var(--wood-dark);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  font-weight: 900;
+  font-family: "Noto Serif TC";
+  font-size: 1rem;
+  gap: 10px;
+  z-index: 5;
+  box-shadow: 5px 0 15px rgba(0, 0, 0, 0.3);
+}
+
+.ticker-track {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  background: #2c1810;
+}
+
+.ticker-content {
+  display: flex;
+  white-space: nowrap;
+  animation: ticker 30s linear infinite;
+}
+
+.ticker-item {
+  color: var(--text-light);
+  font-family: "Noto Serif TC";
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.ticker-item.highlight {
+  color: var(--red-seal);
+}
+
+.ticker-separator {
+  margin: 0 30px;
+  color: var(--gold);
+  font-size: 0.8em;
+  text-shadow: 1px 1px 0 #000;
+}
+
+@keyframes ticker {
+  0% {
+    transform: translateX(100%);
+  }
+
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@media (max-width: 900px) {
+  .command-grid {
+    grid-template-columns: 1fr;
+    grid-auto-rows: auto;
+  }
+
+  .play-card {
+    grid-column: span 1;
+    grid-row: span 1;
+    height: 300px;
+  }
+
+  .play-card .card-content {
+    flex-direction: column;
+    justify-content: center;
+    gap: 30px;
+    text-align: center;
   }
 }
 </style>

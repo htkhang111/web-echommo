@@ -37,9 +37,7 @@ public class MarketplaceService {
 
     // --- SHOP SYSTEM ---
     public List<Item> getShopItems() {
-        return itemRepo.findAll().stream()
-                .filter(i -> !"MATERIAL".equals(i.getType()))
-                .collect(Collectors.toList());
+        return itemRepo.findAll(); // Lấy tất cả, có thể lọc MATERIAL nếu muốn
     }
 
     @Transactional
@@ -47,14 +45,15 @@ public class MarketplaceService {
         User u = getCurrentUser();
         Item i = itemRepo.findById(itemId).orElseThrow(() -> new RuntimeException("Item không tồn tại"));
 
-        if ("MATERIAL".equals(i.getType())) throw new RuntimeException("Vật phẩm này không còn bán.");
-
         BigDecimal cost = BigDecimal.valueOf(i.getBasePrice()).multiply(BigDecimal.valueOf(qty));
-        // [FIX] Kiểm tra tiền kỹ càng hơn
-        if (u.getWallet() == null || u.getWallet().getGold() == null) {
-            throw new RuntimeException("Lỗi ví tiền.");
+
+        // Kiểm tra ví tiền
+        if (u.getWallet() == null) throw new RuntimeException("Lỗi dữ liệu ví tiền");
+        if (u.getWallet().getGold() == null) u.getWallet().setGold(BigDecimal.ZERO);
+
+        if (u.getWallet().getGold().compareTo(cost) < 0) {
+            throw new RuntimeException("Không đủ vàng (Cần: " + cost + ")");
         }
-        if (u.getWallet().getGold().compareTo(cost) < 0) throw new RuntimeException("Không đủ vàng (Cần: " + cost + ")");
 
         u.getWallet().setGold(u.getWallet().getGold().subtract(cost));
         walletRepo.save(u.getWallet());
@@ -74,26 +73,20 @@ public class MarketplaceService {
 
         BigDecimal earn = BigDecimal.valueOf(ui.getItem().getBasePrice()).multiply(new BigDecimal("0.5")).multiply(BigDecimal.valueOf(qty));
         User u = myChar.getUser();
+
+        if (u.getWallet() == null) throw new RuntimeException("Lỗi ví tiền");
         u.getWallet().setGold(u.getWallet().getGold().add(earn));
         walletRepo.save(u.getWallet());
 
         if (ui.getQuantity() <= qty) uiRepo.delete(ui);
         else { ui.setQuantity(ui.getQuantity() - qty); uiRepo.save(ui); }
-        return "Đã bán nhận " + earn + " vàng";
+        return "Bán thành công, nhận " + earn + " vàng";
     }
 
     // --- PLAYER MARKET ---
-    // [FIX QUAN TRỌNG] Thêm @Transactional(readOnly=true) để tránh lỗi Lazy Loading gây 500
     @Transactional(readOnly = true)
     public List<MarketListing> getPlayerListings() {
-        List<MarketListing> allListings = listingRepo.findByStatusOrderByCreatedAtDesc("ACTIVE");
-        // Lọc bằng Java để an toàn
-        return allListings.stream()
-                .filter(listing -> {
-                    if (listing.getItem() == null) return false;
-                    return !"MATERIAL".equals(listing.getItem().getType());
-                })
-                .collect(Collectors.toList());
+        return listingRepo.findByStatusOrderByCreatedAtDesc("ACTIVE");
     }
 
     public List<MarketListing> getMyListings() {
@@ -105,9 +98,8 @@ public class MarketplaceService {
         User u = getCurrentUser();
         Character myChar = getMyChar();
         UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(req.getUserItemId(), myChar.getCharId())
-                .orElseThrow(() -> new RuntimeException("Vật phẩm không tồn tại"));
+                .orElseThrow(() -> new RuntimeException("Vật phẩm lỗi"));
 
-        if ("MATERIAL".equals(ui.getItem().getType())) throw new RuntimeException("Chợ chỉ dành cho trang bị!");
         if (Boolean.TRUE.equals(ui.getIsEquipped())) throw new RuntimeException("Phải tháo đồ trước khi bán");
 
         MarketListing ml = new MarketListing();
@@ -125,42 +117,46 @@ public class MarketplaceService {
         Character buyerChar = getMyChar();
         MarketListing l = listingRepo.findById(listingId).orElseThrow(() -> new RuntimeException("Tin không tồn tại"));
 
-        if (!"ACTIVE".equals(l.getStatus())) throw new RuntimeException("Vật phẩm đã được bán");
-        if (l.getSeller().getUserId().equals(buyer.getUserId())) throw new RuntimeException("Không thể tự mua");
+        if (!"ACTIVE".equals(l.getStatus())) throw new RuntimeException("Đã bị người khác mua mất rồi!");
+        if (l.getSeller().getUserId().equals(buyer.getUserId())) throw new RuntimeException("Không thể tự mua đồ của mình");
 
         BigDecimal total = l.getPrice();
         if (buyer.getWallet().getGold().compareTo(total) < 0) throw new RuntimeException("Không đủ vàng");
 
+        // Trừ tiền người mua
         buyer.getWallet().setGold(buyer.getWallet().getGold().subtract(total));
         walletRepo.save(buyer.getWallet());
 
+        // Cộng tiền người bán
         User seller = l.getSeller();
-        BigDecimal receive = total.multiply(new BigDecimal("0.95"));
+        BigDecimal receive = total.multiply(new BigDecimal("0.95")); // Thuế 5%
         seller.getWallet().setGold(seller.getWallet().getGold().add(receive));
         walletRepo.save(seller.getWallet());
 
+        // Chuyển vật phẩm
         UserItem itemBeingSold = l.getUserItem();
-        if (itemBeingSold == null) {
-            deliverSystemItem(buyerChar, l.getItem(), l.getQuantity());
-        } else {
+        if (itemBeingSold != null) {
             itemBeingSold.setCharacter(buyerChar);
             itemBeingSold.setIsEquipped(false);
             uiRepo.save(itemBeingSold);
+        } else {
+            // Fallback nếu data cũ
+            deliverSystemItem(buyerChar, l.getItem(), l.getQuantity());
         }
+
         l.setStatus("SOLD");
         listingRepo.save(l);
-        return "Mua thành công!";
+        return "Giao dịch thành công!";
     }
 
     @Transactional
     public String cancelListing(Integer id) {
         User u = getCurrentUser();
-        MarketListing l = listingRepo.findById(id).orElseThrow(() -> new RuntimeException("Tin lỗi"));
-        if (!l.getSeller().getUserId().equals(u.getUserId())) throw new RuntimeException("Không chính chủ");
-        if (!"ACTIVE".equals(l.getStatus())) throw new RuntimeException("Không thể hủy");
+        MarketListing l = listingRepo.findById(id).orElseThrow(() -> new RuntimeException("Lỗi tin đăng"));
+        if (!l.getSeller().getUserId().equals(u.getUserId())) throw new RuntimeException("Không phải của bạn");
         l.setStatus("CANCELLED");
         listingRepo.save(l);
-        return "Đã hủy bán.";
+        return "Đã thu hồi";
     }
 
     private void deliverSystemItem(Character c, Item item, int qty) {

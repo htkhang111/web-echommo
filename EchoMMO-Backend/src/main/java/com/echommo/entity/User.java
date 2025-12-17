@@ -3,9 +3,9 @@ package com.echommo.entity;
 import com.echommo.enums.Role;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,11 +25,11 @@ public class User {
     private String username;
 
     @Column(name = "password_hash", nullable = false)
-    @JsonIgnore // GIỮ LẠI: Ẩn mật khẩu là đúng
+    @JsonIgnore
     private String passwordHash;
 
     @Column(name = "password", nullable = false)
-    @JsonIgnore // GIỮ LẠI: Ẩn mật khẩu là đúng
+    @JsonIgnore
     private String password;
 
     @Column(nullable = false, unique = true)
@@ -41,29 +41,20 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role = Role.USER;
 
-    // --- CÁC QUAN HỆ ---
-
-    // 1. Quan hệ với Wallet
-    // [QUAN TRỌNG] ĐÃ XÓA @JsonIgnore Ở ĐÂY
-    // Nếu để @JsonIgnore, Frontend sẽ không bao giờ nhận được số dư Vàng/Ngọc
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    // --- QUAN HỆ VÍ TIỀN (QUAN TRỌNG) ---
+    // Đổi LAZY -> EAGER để luôn load được tiền khi lấy User
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private Wallet wallet;
 
-    // 2. Quan hệ với Character
-    // Thường thì API /user/me không cần trả về Character (đã có API riêng),
-    // nhưng nếu bạn muốn hiển thị tên nhân vật ngay trên Header thì có thể BỎ @JsonIgnore ở đây luôn.
-    // Tạm thời mình để lại @JsonIgnore để tránh dữ liệu quá lớn.
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     private Character character;
 
-    // 3. Quan hệ với MarketListing
     @OneToMany(mappedBy = "seller", fetch = FetchType.LAZY)
-    @JsonIgnore // Giữ lại để tránh load danh sách bán hàng dài dòng không cần thiết
+    @JsonIgnore
     private List<MarketListing> marketListings;
 
-    // ---------------------------------------------------------
-
+    // --- CÁC TRƯỜNG PHỤ ---
     private Boolean isActive = true;
     private String banReason;
     private LocalDateTime bannedAt;
@@ -76,7 +67,6 @@ public class User {
     private LocalDateTime otpExpiry;
 
     private String avatarUrl = "🐲";
-
     private LocalDateTime lastLogin;
     private LocalDateTime createdAt;
 

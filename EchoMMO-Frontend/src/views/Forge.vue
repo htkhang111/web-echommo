@@ -271,13 +271,13 @@ import axiosClient from "../api/axiosClient";
 import { useInventoryStore } from "../stores/inventoryStore";
 import { useAuthStore } from "../stores/authStore";
 import { useCharacterStore } from "../stores/characterStore";
-import { useMarketStore } from "../stores/marketStore"; // <-- IMPORT MARKET STORE
+import { useMarketStore } from "../stores/marketStore";
 import { resolveItemImage } from "@/utils/assetHelper";
 
 const inventoryStore = useInventoryStore();
 const authStore = useAuthStore();
 const characterStore = useCharacterStore();
-const marketStore = useMarketStore(); // <-- KHỞI TẠO MARKET STORE
+const marketStore = useMarketStore();
 
 const selectedItem = ref(null);
 const isForging = ref(false);
@@ -376,7 +376,6 @@ const resultIcon = computed(() => {
 // --- ACTIONS ---
 
 const fetchInventory = async () => {
-  // Đảm bảo gọi fetchInventory đúng tên
   await inventoryStore.fetchInventory();
   if (selectedItem.value) {
     const found = inventoryStore.items.find(
@@ -395,43 +394,28 @@ const selectItem = (item) => {
 const handleUpgrade = async () => {
   if (!selectedItem.value || isForging.value) return;
 
-  const currentUserId = authStore.userId;
-  if (!currentUserId) {
-    errorMessage.value = "Chưa xác thực người dùng. Vui lòng đăng nhập lại.";
-    return;
-  }
-
   isForging.value = true;
   errorMessage.value = "";
 
   try {
-    const url = `/game/item/enhance/${selectedItem.value.userItemId}?userId=${currentUserId}`;
+    // [FIX] Cập nhật URL endpoint mới theo EquipmentController v2.0
+    // Loại bỏ userId query param
+    const url = `/equipment/enhance/${selectedItem.value.userItemId}`;
     await axiosClient.post(url);
 
-    // ====================================================
-    // [FINAL FIX SYNC] Đảm bảo gọi đúng tên hàm và tải lại tất cả store
-    // ====================================================
+    // Đồng bộ lại toàn bộ dữ liệu
+    await Promise.all([
+        inventoryStore.fetchInventory(),
+        characterStore.fetchCharacter(),
+        authStore.fetchProfile(),
+        marketStore.refresh()
+    ]);
 
-    // 1. Tải lại Inventory
-    await inventoryStore.fetchInventory();
-
-    // 2. Tải lại Stats nhân vật (FIXED: Dùng fetchCharacter() - không tham số)
-    // Tên hàm chính xác từ characterStore.js là fetchCharacter()
-    await characterStore.fetchCharacter();
-
-    // 3. Tải lại Wallet (để cập nhật vàng/vật liệu)
-    await authStore.fetchProfile();
-
-    // 4. Đồng bộ với Marketplace (QUAN TRỌNG cho việc sync item được rao bán)
-    // marketStore có hàm refresh() bao gồm cả fetch Inventory và Auth Profile
-    await marketStore.refresh();
-
-    // 5. Cập nhật selectedItem hiển thị
+    // Cập nhật lại item đang chọn
     const updatedItem = inventoryStore.items.find(
       (i) => i.userItemId === selectedItem.value.userItemId,
     );
     selectedItem.value = updatedItem || null;
-    // ====================================================
 
     showResultModal(
       "success",
@@ -439,7 +423,7 @@ const handleUpgrade = async () => {
     );
   } catch (err) {
     console.error(err);
-    const msg = err.response?.data || "Lỗi hệ thống hoặc thiếu nguyên liệu.";
+    const msg = err.response?.data?.message || err.response?.data || "Lỗi hệ thống hoặc thiếu nguyên liệu.";
     showResultModal("fail", msg);
     errorMessage.value = msg;
   } finally {
@@ -450,8 +434,15 @@ const handleUpgrade = async () => {
 const handleEvolve = async () => {
   isForging.value = true;
   try {
+    // [FIX] Đã đúng endpoint v2
     const url = `/equipment/evolve-mythic/${selectedItem.value.userItemId}`;
     const res = await axiosClient.post(url);
+    
+    await Promise.all([
+        inventoryStore.fetchInventory(),
+        authStore.fetchProfile()
+    ]);
+
     if (
       res.data &&
       typeof res.data === "string" &&
@@ -462,15 +453,40 @@ const handleEvolve = async () => {
       showResultModal("fail", res.data || "Tiến hóa thất bại.");
     }
   } catch (err) {
-    showResultModal("fail", err.response?.data || "Lỗi tiến hóa.");
+    showResultModal("fail", err.response?.data?.message || err.response?.data || "Lỗi tiến hóa.");
   } finally {
     isForging.value = false;
     await fetchInventory();
   }
 };
 
+// [FIX] Triển khai hàm Thăng cấp Thần
 const handleMythicUpgrade = async () => {
-  isForging.value = false;
+  if (!selectedItem.value || isForging.value) return;
+  isForging.value = true;
+  try {
+      const url = `/equipment/upgrade-mythic/${selectedItem.value.userItemId}`;
+      await axiosClient.post(url);
+
+      await Promise.all([
+        inventoryStore.fetchInventory(),
+        characterStore.fetchCharacter(),
+        authStore.fetchProfile()
+      ]);
+
+      const updatedItem = inventoryStore.items.find(
+        (i) => i.userItemId === selectedItem.value.userItemId,
+      );
+      selectedItem.value = updatedItem || null;
+
+      showResultModal("success", "Thăng cấp Thần thoại thành công!");
+  } catch (err) {
+      console.error(err);
+      const msg = err.response?.data?.message || err.response?.data || "Thăng cấp thất bại.";
+      showResultModal("fail", msg);
+  } finally {
+      isForging.value = false;
+  }
 };
 
 const showResultModal = (type, msg) => {
@@ -500,7 +516,6 @@ const getPredictedMainStat = (item) => {
   if (!item) return 0;
   const base = item.originalMainStatValue || item.mainStatValue;
   const currentLv = item.isMythic ? item.mythicLevel : item.enhanceLevel;
-  // Lưu ý: Công thức này là giả định, nên phụ thuộc vào cách Backend tính toán.
   return Math.floor(base * (1 + (currentLv + 1) * 0.1));
 };
 const getStatLabel = (code) => {
@@ -556,7 +571,6 @@ onMounted(async () => {
   if (authStore.token) {
     await authStore.fetchProfile();
     await fetchInventory();
-    // Tải dữ liệu nhân vật lần đầu sau khi login
     await characterStore.fetchCharacter();
   }
 });

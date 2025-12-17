@@ -43,3 +43,4 @@ public class Wallet {
         this.updatedAt = LocalDateTime.now();
     }
 }
+

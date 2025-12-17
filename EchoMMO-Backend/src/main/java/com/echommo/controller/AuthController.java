@@ -69,23 +69,26 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Lỗi: Email đã được sử dụng!");
         }
 
+        // 1. Tạo User
         User user = new User();
         user.setUsername(signUpRequest.getUsername());
         user.setEmail(signUpRequest.getEmail());
         user.setPasswordHash(encoder.encode(signUpRequest.getPassword()));
-        user.setPassword(signUpRequest.getPassword());
+        user.setPassword(signUpRequest.getPassword()); // Lưu raw để debug (nên bỏ trong production thực tế)
         user.setFullName(signUpRequest.getFullName());
         user.setAvatarUrl("🐲");
         user.setIsActive(true);
         user.setRole(Role.USER);
 
+        // 2. Tạo Wallet
         Wallet wallet = new Wallet();
         wallet.setUser(user);
-        wallet.setGold(new BigDecimal("100.00"));
+        wallet.setGold(new BigDecimal("1000.00")); // Tăng quà tân thủ lên 1000
         user.setWallet(wallet);
 
         userRepository.save(user);
 
+        // 3. Auto Login & Tạo Character
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(signUpRequest.getUsername(), signUpRequest.getPassword()));
@@ -94,11 +97,16 @@ public class AuthController {
             CharacterRequest charReq = new CharacterRequest();
             charReq.setName(signUpRequest.getUsername());
             characterService.createCharacter(charReq);
-        } catch (Exception e) {
-            return ResponseEntity.ok("Đăng ký thành công tài khoản, nhưng lỗi tạo nhân vật: " + e.getMessage());
-        }
 
-        return ResponseEntity.ok("Đăng ký thành công! Đã tạo nhân vật và tặng quà tân thủ.");
+            // [QUAN TRỌNG] Tạo Token trả về luôn để Frontend tự đăng nhập
+            String jwt = jwtUtils.generateToken((UserDetails) authentication.getPrincipal());
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+
+            return ResponseEntity.ok(new AuthResponse(jwt, userDetails.getUsername(), "USER"));
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Đăng ký thành công nhưng lỗi khởi tạo: " + e.getMessage());
+        }
     }
 
     @PostMapping("/forgot-password")
