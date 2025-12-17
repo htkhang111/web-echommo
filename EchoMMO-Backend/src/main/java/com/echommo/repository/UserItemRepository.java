@@ -13,24 +13,25 @@ import java.util.Optional;
 @Repository
 public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
+    // [THÊM MỚI] Hàm cơ bản để tìm theo CharId (Sửa lỗi cannot find symbol)
+    List<UserItem> findByCharacter_CharId(Integer charId);
+
     // 1. Get Inventory (Newest items first)
     List<UserItem> findByCharacter_CharIdOrderByAcquiredAtDesc(Integer charId);
 
-    // 2. Get currently equipped items (For calculating Battle Power)
+    // 2. Get currently equipped items
     List<UserItem> findByCharacter_CharIdAndIsEquippedTrue(Integer charId);
 
-    // 3. Find item currently in a specific slot (to unequip it before equipping new one)
+    // 3. Find item currently in a specific slot
     @Query("SELECT ui FROM UserItem ui WHERE ui.character.charId = :charId AND ui.isEquipped = true AND ui.item.slotType = :slotType")
     Optional<UserItem> findEquippedItemBySlot(@Param("charId") Integer charId, @Param("slotType") SlotType slotType);
 
-    // 4. Find specific item for Stacking (Consumables/Materials only)
-    // Warning: Use only for items where isStackable = true
+    // 4. Find specific item for Stacking
     Optional<UserItem> findByCharacter_CharIdAndItem_ItemId(Integer charId, Integer itemId);
 
-    // 5. Find a specific unique item instance (Safe for Equipment)
-    // Use this when the user clicks "Equip" on a specific sword in their bag
+    // 5. Find a specific unique item instance
     Optional<UserItem> findByUserItemIdAndCharacter_CharId(Long userItemId, Integer charId);
 
-    // 6. Find material by name (Optional - for crafting quests)
+    // 6. Find material by name
     Optional<UserItem> findByCharacter_CharIdAndItem_Name(Integer charId, String name);
 }

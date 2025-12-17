@@ -330,3 +330,38 @@ insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, t
 insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 13, null, 1, 'Vật phẩm hệ thống.', 's_sword_0.png', 'Kiếm Gỗ', 'WEAPON', 'COMMON', 'WEAPON');
 insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 14, null, 1, 'Vật phẩm hệ thống.', 'a_armor_0.png', 'Áo Vải', 'ARMOR', 'COMMON', 'ARMOR');
 insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 15, null, 1, 'Vật phẩm hệ thống.', 'r_potion.png', 'Bình Máu', 'CONSUMABLE', 'COMMON', 'CONSUMABLE');
+
+
+ALTER TABLE characters
+    ADD COLUMN gathering_item_id INT DEFAULT NULL,
+    ADD COLUMN gathering_remaining_amount INT DEFAULT 0,
+    ADD COLUMN gathering_expiry DATETIME DEFAULT NULL;
+
+SHOW COLUMNS FROM characters;
+
+USE echommo_db;
+
+-- 1. Sửa lại dữ liệu Items cho đúng tên cột mới
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE items;
+SET FOREIGN_KEY_CHECKS = 1;
+
+INSERT INTO items (item_id, name, description, type, slot_type, tier, base_rarity, base_price, image_url, atk_bonus, def_bonus, hp_bonus)
+VALUES
+    (1, 'Gỗ Xoài', 'Vật phẩm hệ thống.', 'MATERIAL', 'MATERIAL', 1, 'COMMON', 10, 'r_wood.png', 0, 0, 0),
+    (2, 'Đá', 'Vật phẩm hệ thống.', 'MATERIAL', 'MATERIAL', 1, 'COMMON', 10, 'stone_1.png', 0, 0, 0),
+    (3, 'Quặng Đồng', 'Vật phẩm hệ thống.', 'MATERIAL', 'MATERIAL', 1, 'COMMON', 10, 'r_copper_node.png', 0, 0, 0),
+    (13, 'Kiếm Gỗ', 'Vũ khí cơ bản.', 'WEAPON', 'WEAPON', 1, 'COMMON', 50, 's_sword_0.png', 5, 0, 0),
+    (15, 'Bình Máu', 'Hồi phục 50 HP.', 'CONSUMABLE', 'CONSUMABLE', 1, 'COMMON', 20, 'r_potion.png', 0, 0, 0);
+
+-- 2. Thêm dữ liệu Lời dẫn (Flavor Text) - BẮT BUỘC CÓ để không lỗi 500
+INSERT INTO flavor_text (content) VALUES
+                                      ('Bạn thấy một bầy chim sáo bay ngang qua bầu trời.'),
+                                      ('Tiếng suối chảy róc rách khiến lòng đại hiệp thanh thản.'),
+                                      ('Một ngọn gió nhẹ thổi qua, mang theo hương hoa cỏ dại.'),
+                                      ('Bạn dừng chân nghỉ ngơi dưới bóng một cây đại thụ.');
+
+-- 3. Thêm quái vật cơ bản
+INSERT INTO enemies (name, level, hp, atk, def, speed, exp_reward, gold_reward, image_url) VALUES
+                                                                                               ('Goblin', 1, 50, 10, 2, 8, 20, 5, 'monster_goblin.png'),
+                                                                                               ('Skeleton', 3, 80, 15, 5, 10, 40, 10, 'monster_skeleton.png');

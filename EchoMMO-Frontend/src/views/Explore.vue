@@ -722,82 +722,52 @@ onUnmounted(() => clearInterval(moveInterval));
                 <div class="stat-row">
                   <span class="stat-icon">❤️</span>
                   <div class="progress-bg">
-                    <div
-                      class="progress-fill hp"
-                      :style="{ width: charStore.hpPercent + '%' }"
-                    ></div>
-                    <span class="stat-text"
-                      >{{ charStore.character?.hp }}/{{
-                        charStore.character?.maxHp
-                      }}</span
-                    >
+                    <div class="progress-fill hp" :style="{ width: charStore.hpPercent + '%' }"></div>
+                    <span class="stat-text">{{ charStore.character?.hp }}/{{
+                      charStore.character?.maxHp
+                    }}</span>
                   </div>
                 </div>
                 <div class="stat-row">
                   <span class="stat-icon">⚡</span>
                   <div class="progress-bg">
-                    <div
-                      class="progress-fill energy"
-                      :style="{ width: charStore.energyPercent + '%' }"
-                    ></div>
-                    <span class="stat-text"
-                      >{{ charStore.character?.energy }}/{{
-                        charStore.character?.maxEnergy
-                      }}</span
-                    >
+                    <div class="progress-fill energy" :style="{ width: charStore.energyPercent + '%' }"></div>
+                    <span class="stat-text">{{ charStore.character?.energy }}/{{
+                      charStore.character?.maxEnergy
+                    }}</span>
                   </div>
                 </div>
               </div>
               <div class="exp-row">
                 <div class="exp-bg">
-                  <div
-                    class="exp-fill"
-                    :style="{ width: charStore.xpPercent + '%' }"
-                  ></div>
+                  <div class="exp-fill" :style="{ width: charStore.xpPercent + '%' }"></div>
                 </div>
               </div>
             </div>
           </div>
 
           <div class="stage-viewport">
-            <div
-              class="stage-background"
-              :style="{ backgroundImage: `url(${getMapBg()})` }"
-            >
-              <div
-                class="actor player"
-                :style="{
-                  left: charStore.explorationState.playerPos + '%',
-                  transform: `scaleX(${charStore.explorationState.moveDir})`,
-                }"
-              >
+            <div class="stage-background" :style="{ backgroundImage: `url(${getMapBg()})` }">
+              <div class="actor player" :style="{
+                left: charStore.explorationState.playerPos + '%',
+                transform: `scaleX(${charStore.explorationState.moveDir})`,
+              }">
                 <div class="avatar-circle">
                   <img :src="imgPlayer" class="avatar-img" />
                 </div>
                 <div class="actor-label">Bạn</div>
               </div>
-              <div
-                class="actor target"
-                v-if="showTarget"
-                :style="{
-                  left:
-                    charStore.explorationState.playerPos +
-                    15 * charStore.explorationState.moveDir +
-                    '%',
-                }"
-              >
-                <div
-                  class="avatar-target"
-                  :class="{
-                    'is-enemy': isEncounter,
-                    'is-reward': !isEncounter,
-                  }"
-                >
-                  <img
-                    v-if="targetImage"
-                    :src="targetImage"
-                    class="avatar-img"
-                  />
+              <div class="actor target" v-if="showTarget" :style="{
+                left:
+                  charStore.explorationState.playerPos +
+                  15 * charStore.explorationState.moveDir +
+                  '%',
+              }">
+                <div class="avatar-target" :class="{
+                  'is-enemy': isEncounter,
+                  'is-reward': !isEncounter,
+                }">
+                  <img v-if="targetImage" :src="targetImage" class="avatar-img" />
                   <div v-else class="text-3xl">🎁</div>
                 </div>
                 <div class="actor-label target-name">{{ targetName }}</div>
@@ -807,31 +777,19 @@ onUnmounted(() => clearInterval(moveInterval));
 
           <div class="action-panel">
             <template v-if="!isEncounter">
-              <button
-                class="btn-action map-btn"
-                @click="showMapModal = true"
-                :disabled="isMoving"
-              >
+              <button class="btn-action map-btn" @click="showMapModal = true" :disabled="isMoving">
                 <div class="btn-content">
                   <span>🗺️ {{ currentMapName }}</span>
                 </div>
               </button>
-              <button
-                class="btn-action main-btn"
-                @click="startExploration"
-                :disabled="isMoving"
-              >
+              <button class="btn-action main-btn" @click="startExploration" :disabled="isMoving">
                 <div class="btn-content">
                   <i class="fas fa-walking"></i>
                   <span v-if="!isMoving">HÀNH TẨU</span>
                   <span v-else>... ({{ countdown }}s)</span>
                 </div>
               </button>
-              <button
-                class="btn-action sub-btn"
-                @click="$router.push('/village')"
-                :disabled="isMoving"
-              >
+              <button class="btn-action sub-btn" @click="$router.push('/village')" :disabled="isMoving">
                 <i class="fas fa-home"></i>
               </button>
             </template>
@@ -873,24 +831,14 @@ onUnmounted(() => clearInterval(moveInterval));
       </div>
     </div>
 
-    <div
-      v-if="showMapModal"
-      class="modal-overlay"
-      @click.self="showMapModal = false"
-    >
+    <div v-if="showMapModal" class="modal-overlay" @click.self="showMapModal = false">
       <div class="map-modal-card">
         <div class="map-header">CHỌN KHU VỰC</div>
         <div class="map-grid">
-          <div
-            v-for="map in maps"
-            :key="map.id"
-            class="map-item"
-            :class="{
-              active: currentMapId === map.id,
-              locked: userLv < map.minLv,
-            }"
-            @click="selectMap(map)"
-          >
+          <div v-for="map in maps" :key="map.id" class="map-item" :class="{
+            active: currentMapId === map.id,
+            locked: userLv < map.minLv,
+          }" @click="selectMap(map)">
             <div class="map-info">
               <div class="map-name">{{ map.name }}</div>
               <div class="map-lv">Lv.{{ map.minLv }}-{{ map.maxLv }}</div>
@@ -910,8 +858,7 @@ onUnmounted(() => clearInterval(moveInterval));
             <img :src="targetImage" class="enemy-preview-img" />
           </div>
           <p>
-            Gặp <strong>{{ targetName }}</strong
-            >!
+            Gặp <strong>{{ targetName }}</strong>!
           </p>
         </div>
         <div class="modal-footer">
@@ -1028,37 +975,34 @@ const handleResult = async () => {
   clearInterval(moveInterval);
   isMoving.value = false;
 
-  const eventChance = Math.random() * 100;
-  if (eventChance < 20) {
-    addLog(
-      `<span style="color:#00e676; font-weight:bold;">🌿 Phát hiện khu vực tài nguyên!</span>`,
-    );
-    setTimeout(() => {
-      router.push("/gathering");
-    }, 800);
-    return;
-  }
+  // [FIX] BỎ HOÀN TOÀN ĐOẠN RANDOM CLIENT
+  // const eventChance = Math.random() * 100; ... (XÓA)
 
   try {
     const res = await charStore.explore({ mapId: currentMapId.value });
+
+    // [FIX] Kiểm tra type từ Server
+    if (res.type === "GATHERING") {
+      addLog(`<span style="color:#00e676; font-weight:bold;">🌿 ${res.message}</span>`);
+      setTimeout(() => {
+        router.push("/gathering");
+      }, 800);
+      return;
+    }
+
     if (res.type === "ITEM" && res.rewardName) {
+      // ... giữ nguyên code hiển thị item
       showTarget.value = true;
       targetName.value = res.rewardName;
-      targetImage.value =
-        getItemImage(res.rewardName) || getItemImage("GOLD");
+      targetImage.value = getItemImage(res.rewardName) || getItemImage("GOLD"); // Có thể dùng res.rewardItemId để lấy ảnh chuẩn hơn nếu muốn
       addLog(`<span style="color:#00e676;">${res.message}</span>`);
     } else if (res.type === "ENEMY") {
+      // ... giữ nguyên code enemy
       isEncounter.value = true;
       showTarget.value = true;
       targetName.value = res.rewardName;
-      targetImage.value = new URL(
-        `../assets/enemy/idle_goblin.png`,
-        import.meta.url,
-      ).href;
-      battleStore.setEncounter({
-        name: res.rewardName,
-        img: targetImage.value,
-      });
+      targetImage.value = new URL(`../assets/enemy/idle_goblin.png`, import.meta.url).href;
+      battleStore.setEncounter({ name: res.rewardName, img: targetImage.value });
       addLog(`<span style="color:#ef5350;">⚠️ ${res.message}</span>`);
     } else {
       addLog(`<span style="color:#aaa;">${res.message}</span>`);
@@ -1088,7 +1032,8 @@ onUnmounted(() => clearInterval(moveInterval));
   background: #1a120b;
   color: #e0d5c1;
   font-family: "Noto Serif TC", serif;
-  overflow: hidden; /* Tránh scroll trang chính */
+  overflow: hidden;
+  /* Tránh scroll trang chính */
 }
 
 .explore-layout {
@@ -1097,7 +1042,8 @@ onUnmounted(() => clearInterval(moveInterval));
   gap: 15px;
   max-width: 1600px;
   margin: 0 auto;
-  height: calc(100vh - 30px); /* Full màn hình trừ padding */
+  height: calc(100vh - 30px);
+  /* Full màn hình trừ padding */
 }
 
 .row {
@@ -1106,12 +1052,14 @@ onUnmounted(() => clearInterval(moveInterval));
 }
 
 .top-row {
-  flex: 6; /* Chiếm 6 phần chiều cao */
+  flex: 6;
+  /* Chiếm 6 phần chiều cao */
   min-height: 0;
 }
 
 .bottom-row {
-  flex: 4; /* Chiếm 4 phần chiều cao */
+  flex: 4;
+  /* Chiếm 4 phần chiều cao */
   min-height: 0;
 }
 
@@ -1148,7 +1096,8 @@ onUnmounted(() => clearInterval(moveInterval));
   font-weight: bold;
   font-size: 0.85em;
   text-transform: uppercase;
-  flex-shrink: 0; /* Không bị co lại */
+  flex-shrink: 0;
+  /* Không bị co lại */
 }
 
 /* --- GAME COMPONENTS (Style Cũ - được chỉnh sửa để fit vào khung mới) --- */
@@ -1178,16 +1127,19 @@ onUnmounted(() => clearInterval(moveInterval));
   flex-direction: column;
   gap: 4px;
 }
+
 .stat-group {
   display: flex;
   gap: 10px;
 }
+
 .stat-row {
   flex: 1;
   display: flex;
   align-items: center;
   gap: 5px;
 }
+
 .progress-bg {
   flex: 1;
   height: 14px;
@@ -1197,16 +1149,20 @@ onUnmounted(() => clearInterval(moveInterval));
   position: relative;
   overflow: hidden;
 }
+
 .progress-fill {
   height: 100%;
   transition: width 0.3s ease;
 }
+
 .progress-fill.hp {
   background: linear-gradient(to right, #c62828, #e53935);
 }
+
 .progress-fill.energy {
   background: linear-gradient(to right, #8a1c1c, #b71c1c);
 }
+
 .stat-text {
   position: absolute;
   top: 50%;
@@ -1217,11 +1173,13 @@ onUnmounted(() => clearInterval(moveInterval));
   text-shadow: 1px 1px 0 #000;
   z-index: 2;
 }
+
 .exp-row .exp-bg {
   height: 4px;
   background: #222;
   width: 100%;
 }
+
 .exp-fill {
   height: 100%;
   background: #29b6f6;
@@ -1265,6 +1223,7 @@ onUnmounted(() => clearInterval(moveInterval));
   align-items: center;
   filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.5));
 }
+
 .avatar-img {
   width: 100%;
   height: 100%;
@@ -1283,6 +1242,7 @@ onUnmounted(() => clearInterval(moveInterval));
   padding: 0 15px;
   flex-shrink: 0;
 }
+
 .btn-action {
   border: none;
   border-radius: 6px;
@@ -1295,20 +1255,24 @@ onUnmounted(() => clearInterval(moveInterval));
   color: #fff;
   transition: transform 0.1s;
 }
+
 .btn-action:active {
   transform: scale(0.95);
 }
+
 .map-btn {
   flex: 1;
   background: #2c3e50;
   border: 1px solid #34495e;
 }
+
 .main-btn {
   flex: 2;
   background: linear-gradient(to bottom, #4e342e, #3e2723);
   border: 1px solid #c5a059;
   color: #c5a059;
 }
+
 .sub-btn {
   flex: 0.5;
   background: #3e2723;
@@ -1323,12 +1287,15 @@ onUnmounted(() => clearInterval(moveInterval));
   padding: 10px;
   overflow-y: auto;
 }
-.log-item, .log-line {
+
+.log-item,
+.log-line {
   font-size: 0.9em;
   margin-bottom: 6px;
   border-bottom: 1px solid rgba(93, 64, 55, 0.2);
   padding-bottom: 4px;
 }
+
 .log-time {
   color: #8d6e63;
   margin-right: 5px;
@@ -1345,6 +1312,7 @@ onUnmounted(() => clearInterval(moveInterval));
   align-items: center;
   justify-content: center;
 }
+
 .map-modal-card {
   width: 90%;
   max-width: 500px;
@@ -1354,12 +1322,14 @@ onUnmounted(() => clearInterval(moveInterval));
   padding: 15px;
   color: #fff;
 }
+
 .map-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin-bottom: 15px;
 }
+
 .map-item {
   background: #333;
   padding: 10px;
@@ -1368,19 +1338,23 @@ onUnmounted(() => clearInterval(moveInterval));
   border: 1px solid #444;
   position: relative;
 }
+
 .map-item.active {
   border-color: #00e676;
   background: #1b5e20;
 }
+
 .map-item.locked {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
 .lock-icon {
   position: absolute;
   right: 10px;
   top: 10px;
 }
+
 .close-btn {
   width: 100%;
   padding: 10px;
@@ -1390,6 +1364,7 @@ onUnmounted(() => clearInterval(moveInterval));
   font-weight: bold;
   cursor: pointer;
 }
+
 /* Encounter Modal */
 .modal-card {
   width: 350px;
@@ -1397,6 +1372,7 @@ onUnmounted(() => clearInterval(moveInterval));
   border: 2px solid #b71c1c;
   border-radius: 12px;
 }
+
 .modal-header {
   background: #b71c1c;
   color: #fff;
@@ -1404,20 +1380,24 @@ onUnmounted(() => clearInterval(moveInterval));
   text-align: center;
   font-weight: bold;
 }
+
 .modal-body {
   padding: 20px;
   text-align: center;
 }
+
 .enemy-preview-img {
-    width: 100px;
-    height: 100px;
-    object-fit: contain;
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
 }
+
 .modal-footer {
   padding: 15px;
   display: flex;
   gap: 15px;
 }
+
 .modal-btn {
   flex: 1;
   padding: 10px;
@@ -1426,10 +1406,12 @@ onUnmounted(() => clearInterval(moveInterval));
   border: none;
   border-radius: 4px;
 }
+
 .modal-btn.flee {
   background: #555;
   color: #ccc;
 }
+
 .modal-btn.fight {
   background: #d32f2f;
   color: #fff;
@@ -1439,6 +1421,7 @@ onUnmounted(() => clearInterval(moveInterval));
 .custom-scroll::-webkit-scrollbar {
   width: 4px;
 }
+
 .custom-scroll::-webkit-scrollbar-thumb {
   background: #5d4037;
 }
@@ -1448,7 +1431,12 @@ onUnmounted(() => clearInterval(moveInterval));
     flex-direction: column;
     height: auto;
   }
-  .top-row, .bottom-row { flex: none; }
+
+  .top-row,
+  .bottom-row {
+    flex: none;
+  }
+
   .game-main-panel,
   .log-panel,
   .chat-expanded-panel,

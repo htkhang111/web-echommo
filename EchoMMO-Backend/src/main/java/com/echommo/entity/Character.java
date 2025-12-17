@@ -7,13 +7,15 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+import lombok.EqualsAndHashCode;
 import java.time.LocalDateTime;
 
 @Entity
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder // Thêm Builder để dễ tạo object mới
+@Builder
 @Table(name = "characters")
 public class Character {
 
@@ -22,36 +24,22 @@ public class Character {
     @Column(name = "char_id")
     private Integer charId;
 
-    // --- MỐI QUAN HỆ ---
-
-    // Ngắt vòng lặp JSON: Character -> User -> Character
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     @JsonIgnore
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     private User user;
-
-    // Lưu ý: Đã XÓA List<UserItem> inventory ở đây để CHẶN ĐỨNG lỗi 500 bên Market.
-    // Muốn lấy item, hãy gọi InventoryService.
-
-    // --- THÔNG TIN CƠ BẢN ---
 
     @Column(nullable = false, unique = true)
     private String name;
 
-    @Builder.Default // Giá trị mặc định khi dùng Builder
-    private Integer level = 1;
-
-    // [GÓP Ý] Nên dùng Long cho EXP vì lên level cao số này rất to (vượt 2 tỷ của Integer)
-    @Builder.Default
-    private Long currentExp = 0L;
-
+    @Builder.Default private Integer level = 1;
+    @Builder.Default private Long currentExp = 0L;
     @Column(name = "character_class")
-    @Builder.Default
-    private String characterClass = "Nhà Thám Hiểm";
-
+    @Builder.Default private String characterClass = "Nhà Thám Hiểm";
     @Enumerated(EnumType.STRING)
-    @Builder.Default
-    private CharacterStatus status = CharacterStatus.IDLE;
+    @Builder.Default private CharacterStatus status = CharacterStatus.IDLE;
 
     // --- MAIN STATS ---
     @Builder.Default private Integer statPoints = 0;
@@ -67,31 +55,31 @@ public class Character {
     @Builder.Default private Integer maxHp = 100;
     @Builder.Default private Integer currentEnergy = 50;
     @Builder.Default private Integer maxEnergy = 50;
-
     @Builder.Default private Integer baseAtk = 10;
     @Builder.Default private Integer baseDef = 5;
     @Builder.Default private Integer baseSpeed = 10;
+    @Builder.Default private Integer baseCritRate = 50;
+    @Builder.Default private Integer baseCritDmg = 150;
+    @Builder.Default private String currentLocation = "Làng Tân Thủ";
+    @Builder.Default @Column(name = "monster_kills") private Integer monsterKills = 0;
 
-    @Builder.Default private Integer baseCritRate = 50; // 5.0%
-    @Builder.Default private Integer baseCritDmg = 150; // 150%
-
-    @Builder.Default
-    private String currentLocation = "Làng Tân Thủ";
-
-    @Builder.Default
-    @Column(name = "monster_kills")
-    private Integer monsterKills = 0;
     // --- SPA SYSTEM ---
-    @Column(name = "spa_start_time")
-    private LocalDateTime spaStartTime;
+    @Column(name = "spa_start_time") private LocalDateTime spaStartTime;
+    @Column(name = "spa_end_time") private LocalDateTime spaEndTime;
+    @Column(name = "spa_package_type") private String spaPackageType;
 
-    @Column(name = "spa_end_time")
-    private LocalDateTime spaEndTime;
+    // --- [NEW] GATHERING SECURITY STATE ---
+    @Column(name = "gathering_item_id")
+    private Integer gatheringItemId;
 
-    @Column(name = "spa_package_type")
-    private String spaPackageType;
+    @Column(name = "gathering_remaining_amount")
+    @Builder.Default
+    private Integer gatheringRemainingAmount = 0;
 
-    // --- TIME TRACKING ---
+    @Column(name = "gathering_expiry")
+    private LocalDateTime gatheringExpiry;
+
+    // --- TIME ---
     private LocalDateTime createdAt;
     private LocalDateTime lastActive;
 

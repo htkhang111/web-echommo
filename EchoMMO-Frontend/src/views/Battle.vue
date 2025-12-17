@@ -1,4 +1,4 @@
-<template>
+<!-- <template>
   <div class="page-container battle-page">
     <div class="battle-bg-layer"></div>
     <div class="battle-layout">
@@ -1045,4 +1045,1339 @@ onUnmounted(() => {
     transform: scale(1);
   }
 }
+</style> -->
+<!-- <template>
+  <div class="page-container battle-page">
+    <div class="battle-bg-layer"></div>
+    <div class="battle-layout">
+      
+      <aside class="side-panel left-panel">
+        <div class="panel-header">
+          <i class="fas fa-skull text-red"></i> BẢNG SÁT THẦN
+        </div>
+        
+        <div class="leaderboard-list custom-scroll">
+          <div v-if="lbStore.loadingMonsters" class="loading-mini">
+             <div class="spinner"></div> Đang tải...
+          </div>
+
+          <div 
+            v-else 
+            class="rank-item" 
+            v-for="(entry, index) in lbStore.topMonsters" 
+            :key="index"
+          >
+            <div class="rank-num" :class="'top-' + (index + 1)">{{ index + 1 }}</div>
+            <div class="rank-avatar">
+              <span v-if="entry.avatar" style="font-size: 1.2em">{{ entry.avatar }}</span>
+              <img v-else src="https://cdn-icons-png.flaticon.com/512/149/149071.png" />
+            </div>
+            <div class="rank-info">
+              <div class="rank-name">{{ entry.username }}</div>
+              <div class="rank-power text-red">
+                 <i class="fas fa-skull-crossbones"></i> {{ entry.value }}
+              </div>
+            </div>
+          </div>
+          
+          <div v-if="!lbStore.loadingMonsters && lbStore.topMonsters.length === 0" class="empty-mini">
+             Chưa có ai
+          </div>
+        </div>
+      </aside>
+
+      <main class="center-panel">
+        <div
+          class="combat-arena"
+          v-if="battleStore.enemy && battleStore.status !== 'LOADING' && battleStore.status !== 'ERROR'"
+        >
+          <div class="vs-badge">VS</div>
+
+          <div class="fighter-card enemy" :class="{ 'hit-anim': isEnemyHit }">
+            <div class="fighter-visual">
+              <div class="fighter-circle brown-ring">
+                <img :src="getEnemyAsset(battleStore.enemy.name)" class="fighter-img" />
+              </div>
+              <div class="damage-text" v-if="isEnemyHit">-{{ lastDamage }}</div>
+            </div>
+            <div class="fighter-stats">
+              <div class="name-tag red-tag">
+                {{ battleStore.enemy.name }} (Lv.{{ battleStore.enemy.level || "?" }})
+              </div>
+              <div class="stat-bar-box">
+                <div
+                  class="bar-fill hp-fill"
+                  :style="{ width: percent(battleStore.enemyHp, battleStore.enemyMaxHp) + '%' }"
+                ></div>
+                <span class="bar-text">{{ battleStore.enemyHp }} / {{ battleStore.enemyMaxHp }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="fighter-card player"
+            :class="{ 'hit-anim': isPlayerHit, attacking: isPlayerAttacking }"
+          >
+            <div class="fighter-visual">
+              <div class="fighter-circle green-ring">
+                <img :src="getPlayerAsset()" class="fighter-img" />
+              </div>
+              <div class="damage-text player-dmg" v-if="isPlayerHit">
+                -{{ lastDamageTaken }}
+              </div>
+            </div>
+            <div class="fighter-stats">
+              <div class="name-tag blue-tag">
+                {{ authStore.user?.username }}
+              </div>
+              <div class="stat-bar-box">
+                <div
+                  class="bar-fill hp-fill"
+                  :style="{ width: percent(battleStore.playerHp, battleStore.playerMaxHp) + '%' }"
+                ></div>
+                <span class="bar-text">{{ battleStore.playerHp }} / {{ battleStore.playerMaxHp }}</span>
+              </div>
+              <div class="stat-bar-box energy-box">
+                <div
+                  class="bar-fill energy-fill"
+                  :style="{
+                    width: percent(charStore.character?.energy, charStore.character?.maxEnergy) + '%',
+                  }"
+                ></div>
+                <span class="bar-text">
+                  <i class="fas fa-bolt"></i> {{ charStore.character?.energy || 0 }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="combat-controls">
+            <div v-if="showQTE" class="qte-overlay">
+              <button class="qte-button pixel-btn danger" @click="handleBlock">
+                🛡️ ĐỠ ĐÒN! ({{ qteTimer.toFixed(1) }}s)
+              </button>
+            </div>
+
+            <div v-else-if="battleStore.status === 'ONGOING'" class="ongoing-actions">
+              <div class="auto-fight-btn">
+                <div class="spinner"></div> AUTO FIGHT
+              </div>
+              <button
+                class="btn-skill"
+                @click="activateBuff"
+                :disabled="nextAttackBuffed || (charStore.character?.energy || 0) < 5"
+              >
+                <span v-if="!nextAttackBuffed">🔥 TỤ LỰC (5⚡)</span>
+                <span v-else>SẴN SÀNG!</span>
+              </button>
+            </div>
+
+            <div v-else class="result-actions">
+              <div class="result-text" :class="battleStore.status">
+                {{ battleStore.status === "VICTORY" ? "CHIẾN THẮNG!" : "THẤT BẠI..." }}
+              </div>
+              <div v-if="battleStore.droppedItem" class="loot-display">
+                🎁 Nhặt được: {{ battleStore.droppedItem.name }}
+              </div>
+              <div class="btn-group">
+                <button class="btn-nav forest-btn" @click="$router.push('/explore')">
+                  🌲 Về Rừng
+                </button>
+                <button class="btn-nav" @click="$router.push('/village')">
+                  🏠 Về Làng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="loading-arena">
+          <div v-if="battleStore.status === 'ERROR'" class="error-box">
+            <h2 class="text-red">⚠️ LỖI GAME</h2>
+            <p v-for="(err, idx) in battleStore.combatLogs" :key="idx">
+              {{ err }}
+            </p>
+            <div class="btn-group">
+              <button class="btn-nav forest-btn" @click="$router.push('/explore')">
+                🌲 Thử Lại
+              </button>
+              <button @click="$router.push('/village')" class="btn-nav">
+                🏠 Về Làng
+              </button>
+            </div>
+          </div>
+          <div v-else>
+            <i class="fas fa-circle-notch fa-spin"></i>
+            <h2>⚔️ Đang tìm đối thủ...</h2>
+          </div>
+        </div>
+
+        <div class="chat-section">
+          <ChatPanel height="100%" />
+        </div>
+      </main>
+
+      <aside class="side-panel right-panel">
+        <div class="char-detail-card">
+          <div class="panel-header">THÔNG TIN</div>
+          <div class="detail-row">
+            <span><i class="fas fa-fist-raised"></i> Tấn Công</span>
+            <span class="val">{{ charStore.character?.baseAtk || 0 }}</span>
+          </div>
+          <div class="detail-row">
+            <span><i class="fas fa-shield-alt"></i> Phòng Thủ</span>
+            <span class="val">{{ charStore.character?.baseDef || 0 }}</span>
+          </div>
+          <div class="detail-row">
+            <span><i class="fas fa-wind"></i> Thân Pháp</span>
+            <span class="val">{{ charStore.character?.baseSpeed || 0 }}</span>
+          </div>
+          <div class="detail-row">
+            <span><i class="fas fa-bolt"></i> Chí Mạng</span>
+            <span class="val">{{ charStore.character?.baseCritRate || 0 }}%</span>
+          </div>
+        </div>
+
+        <div class="combat-log-panel">
+          <div class="panel-header">NHẬT KÝ TRẬN ĐẤU</div>
+          <div class="logs-container custom-scroll" ref="logContainer">
+            <div
+              v-for="(log, idx) in battleStore.combatLogs"
+              :key="idx"
+              class="log-entry"
+              :class="getLogClass(log)"
+            >
+              {{ formatLog(log) }}
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { useBattleStore } from "@/stores/battleStore";
+import { useCharacterStore } from "@/stores/characterStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useRouter } from "vue-router";
+// [MỚI] Import store Leaderboard
+import { useLeaderboardStore } from "@/stores/leaderboardStore";
+
+import { getEnemyImage, getCurrentSkin } from "@/utils/assetHelper";
+import ChatPanel from "@/components/ChatPanel.vue";
+
+const battleStore = useBattleStore();
+const charStore = useCharacterStore();
+const authStore = useAuthStore();
+// [MỚI] Khởi tạo store Leaderboard
+const lbStore = useLeaderboardStore();
+
+const router = useRouter();
+
+const logContainer = ref(null);
+const isEnemyHit = ref(false);
+const isPlayerHit = ref(false);
+const isPlayerAttacking = ref(false);
+const nextAttackBuffed = ref(false);
+const lastDamage = ref(0);
+const lastDamageTaken = ref(0);
+
+const showQTE = ref(false);
+const qteTimer = ref(0);
+let qteInterval = null;
+let autoInterval = null;
+
+// --- HELPERS ---
+const percent = (cur, max) => (max > 0 ? (cur / max) * 100 : 0);
+const getEnemyAsset = (name) => getEnemyImage(name, "idle");
+const getPlayerAsset = () => {
+  const skin = getCurrentSkin(authStore.user?.avatarUrl);
+  return isPlayerAttacking.value ? skin.sprites.attack : skin.sprites.idle;
+};
+const getLogClass = (log) => {
+  if (!log) return "log-normal";
+  if (log.includes("Bạn gây") || log.includes("BẠO KÍCH")) return "log-player";
+  if (log.includes("bị đánh") || log.includes("mất")) return "log-enemy";
+  if (log.includes("Thắng") || log.includes("EXP")) return "log-win";
+  return "log-normal";
+};
+const formatLog = (log) => (log ? log.replace(/<[^>]*>/g, "") : "");
+
+// --- LOGIC ---
+const startBattle = async () => {
+  await battleStore.startBattle();
+  if (battleStore.isReady) startAutoLoop();
+};
+
+const startAutoLoop = () => {
+  if (autoInterval) clearInterval(autoInterval);
+  autoInterval = setInterval(runAutoTurn, 1500);
+};
+
+const activateBuff = () => {
+  if (charStore.character?.energy >= 5) {
+    charStore.character.energy -= 5;
+    nextAttackBuffed.value = true;
+  }
+};
+
+const runAutoTurn = async () => {
+  if (!battleStore.isReady || battleStore.status !== "ONGOING" || showQTE.value)
+    return;
+
+  isPlayerAttacking.value = true;
+  setTimeout(() => (isPlayerAttacking.value = false), 500);
+
+  const prevEnemyHp = battleStore.enemyHp;
+  const prevPlayerHp = battleStore.playerHp;
+
+  const res = await battleStore.autoTurn(nextAttackBuffed.value);
+
+  if (!res) {
+    clearInterval(autoInterval);
+    return;
+  }
+
+  if (res.status === "QTE_ACTION" || res.qteTriggered) {
+    triggerQTE();
+    return;
+  }
+
+  if (nextAttackBuffed.value) nextAttackBuffed.value = false;
+
+  const dmgDealt = prevEnemyHp - res.enemyHp;
+  if (dmgDealt > 0) {
+    lastDamage.value = dmgDealt;
+    isEnemyHit.value = true;
+    setTimeout(() => (isEnemyHit.value = false), 300);
+  }
+
+  const dmgTaken = prevPlayerHp - res.playerHp;
+  if (dmgTaken > 0) {
+    setTimeout(() => {
+      lastDamageTaken.value = dmgTaken;
+      isPlayerHit.value = true;
+      setTimeout(() => (isPlayerHit.value = false), 300);
+    }, 600);
+  }
+};
+
+const triggerQTE = () => {
+  clearInterval(autoInterval);
+  showQTE.value = true;
+  qteTimer.value = 0.75;
+  qteInterval = setInterval(() => {
+    qteTimer.value -= 0.05;
+    if (qteTimer.value <= 0) failQTE();
+  }, 50);
+};
+
+const handleBlock = async () => {
+  clearInterval(qteInterval);
+  showQTE.value = false;
+  await battleStore.sendAction("BLOCK");
+  startAutoLoop();
+};
+
+const failQTE = async () => {
+  clearInterval(qteInterval);
+  showQTE.value = false;
+  isPlayerHit.value = true;
+  setTimeout(() => (isPlayerHit.value = false), 500);
+  await battleStore.sendAction("IGNORE_QTE");
+  startAutoLoop();
+};
+
+watch(
+  () => battleStore.combatLogs,
+  () => {
+    nextTick(() => {
+      if (logContainer.value)
+        logContainer.value.scrollTop = logContainer.value.scrollHeight;
+    });
+  },
+  { deep: true }
+);
+
+watch(
+  () => battleStore.status,
+  (st) => {
+    if (st !== "ONGOING") {
+      clearInterval(autoInterval);
+      if (qteInterval) clearInterval(qteInterval);
+    }
+  }
+);
+
+onMounted(async () => {
+  await charStore.fetchCharacter();
+  
+  // [MỚI] Gọi API lấy bảng Sát Thần khi vào trận
+  await lbStore.fetchMonsterBoard();
+
+  if (!battleStore.enemy) await startBattle();
+  else if (battleStore.status === "ONGOING") startAutoLoop();
+});
+
+onUnmounted(() => {
+  clearInterval(autoInterval);
+  if (qteInterval) clearInterval(qteInterval);
+  battleStore.resetBattle();
+});
+</script>
+
+<style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Cinzel:wght@700&display=swap");
+
+:root {
+  --bg-dark: #121212;
+  --bg-panel: #1e1e1e;
+  --border-color: #333;
+  --text-main: #e0e0e0;
+  --text-muted: #aaa;
+  --hp-red: #e53935;
+  --energy-blue: #1e88e5;
+  --gold: #fdd835;
+  --green-player: #43a047;
+}
+
+.battle-page {
+  background-color: var(--bg-dark);
+  min-height: calc(100vh - 60px);
+  color: var(--text-main);
+  font-family: "Inter", sans-serif;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.battle-bg-layer {
+  position: absolute;
+  inset: 0;
+  background-image: url("@/assets/Background/b_doanhtrai.png");
+  background-size: cover;
+  background-position: center;
+  opacity: 0.15;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.battle-layout {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 250px 1fr 250px;
+  gap: 15px;
+  max-width: 1400px;
+  margin: 0 auto;
+  height: calc(100vh - 80px);
+}
+
+.side-panel,
+.center-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.center-panel {
+  min-width: 0;
+}
+
+.leaderboard-list,
+.combat-arena,
+.chat-section,
+.char-detail-card,
+.combat-log-panel {
+  background: rgba(30, 30, 30, 0.9);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.chat-section {
+  flex: 1; 
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden; 
+  min-height: 200px; 
+  background: transparent;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.panel-header {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px;
+  font-weight: bold;
+  font-size: 0.9em;
+  border-bottom: 1px solid var(--border-color);
+  text-align: center;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.leaderboard-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.rank-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #333;
+  gap: 10px;
+}
+
+.rank-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.8em;
+}
+
+.rank-num.top-1 { background: var(--gold); color: #000; }
+.rank-num.top-2 { background: #c0c0c0; color: #000; }
+.rank-num.top-3 { background: #cd7f32; color: #000; }
+
+.rank-avatar img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #000;
+}
+
+.rank-info { flex: 1; }
+.rank-name { font-size: 0.9em; font-weight: bold; }
+.rank-power { font-size: 0.75em; color: var(--text-muted); }
+
+.combat-arena {
+  flex: 2;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle, #2a1a1a 0%, #1a0f0f 80%);
+  border: 1px solid #5c2b2b;
+  padding: 20px;
+}
+
+.vs-badge {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Cinzel", serif;
+  font-size: 3em;
+  font-weight: 900;
+  color: #3e2723;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  z-index: 0;
+  opacity: 0.5;
+}
+
+.fighter-card {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 140px;
+  z-index: 5;
+  transition: transform 0.1s;
+}
+
+.fighter-card.player.attacking { transform: translateX(40px) scale(1.1); }
+.fighter-card.player { bottom: 100px; left: 10%; }
+.fighter-card.enemy { top: 60px; right: 10%; }
+
+.fighter-visual { position: relative; }
+.fighter-circle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.green-ring { border: 3px solid var(--green-player); }
+.brown-ring { border: 3px solid #8d6e63; }
+
+.fighter-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.hit-anim .fighter-img {
+  filter: brightness(2) sepia(1) hue-rotate(-50deg);
+  transform: translateX(-5px);
+}
+
+.damage-text {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.5em;
+  font-weight: bold;
+  color: #ffeb3b;
+  text-shadow: 2px 2px 0 #b71c1c;
+  animation: floatUp 0.5s ease-out forwards;
+}
+
+.player-dmg { color: #ff5252; }
+
+.fighter-stats {
+  width: 100%;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.name-tag {
+  font-size: 0.8em;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 4px;
+}
+.red-tag { background: #b71c1c; color: white; }
+.blue-tag { background: #1565c0; color: white; }
+
+.stat-bar-box {
+  width: 100%;
+  height: 14px;
+  background: #333;
+  border-radius: 2px;
+  position: relative;
+  margin-bottom: 2px;
+  border: 1px solid #000;
+}
+.energy-box { height: 6px; width: 80%; margin: 0 auto; }
+.bar-fill { height: 100%; transition: width 0.3s; }
+.hp-fill { background: linear-gradient(to right, #d32f2f, #f44336); }
+.energy-fill { background: linear-gradient(to right, #1976d2, #42a5f5); }
+
+.bar-text {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65em; font-weight: bold;
+  text-shadow: 1px 1px 0 #000;
+  z-index: 2;
+}
+
+.combat-controls {
+  position: absolute;
+  bottom: 20px;
+  width: 100%;
+  text-align: center;
+}
+.ongoing-actions {
+  display: flex; justify-content: center; gap: 15px; align-items: center;
+}
+.auto-fight-btn {
+  background: #333; color: #aaa; padding: 8px 15px;
+  border-radius: 20px; font-size: 0.8em; font-weight: bold;
+  display: flex; gap: 5px; align-items: center;
+}
+.spinner {
+  width: 12px; height: 12px;
+  border: 2px solid #aaa; border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s infinite linear;
+}
+.btn-skill {
+  background: var(--gold); color: #000; font-weight: bold;
+  border: none; padding: 10px 20px; border-radius: 4px;
+  cursor: pointer; box-shadow: 0 0 10px rgba(253, 216, 53, 0.3);
+  transition: 0.2s;
+}
+.btn-skill:disabled {
+  background: #555; color: #888; cursor: not-allowed; box-shadow: none;
+}
+.qte-overlay {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%); z-index: 100;
+}
+.qte-button {
+  font-size: 2rem; padding: 20px 40px; background: #e74c3c;
+  color: white; border: 4px solid #c0392b;
+  animation: pulse 0.5s infinite; cursor: pointer;
+}
+.result-text {
+  font-size: 2em; font-weight: 900; margin-bottom: 10px;
+  text-shadow: 0 0 10px black;
+}
+.result-text.VICTORY { color: #4caf50; }
+.result-text.DEFEAT { color: #f44336; }
+
+.btn-group {
+  display: flex; gap: 15px; justify-content: center; margin-top: 10px;
+}
+.btn-nav {
+  background: #3e2723; color: #fff; border: 1px solid #5d4037;
+  padding: 10px 20px; cursor: pointer; border-radius: 4px;
+  font-weight: bold; transition: transform 0.1s;
+}
+.btn-nav:active { transform: scale(0.95); }
+.forest-btn {
+  background: #2e7d32; border-color: #1b5e20;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+.forest-btn:hover { background: #388e3c; }
+
+.char-detail-card { padding: 10px; margin-bottom: 15px; }
+.detail-row {
+  display: flex; justify-content: space-between;
+  padding: 5px 0; border-bottom: 1px dashed #333; font-size: 0.9em;
+}
+.detail-row .val { color: var(--gold); font-weight: bold; }
+
+.combat-log-panel { flex: 1; display: flex; flex-direction: column; }
+.logs-container {
+  flex: 1; padding: 10px; overflow-y: auto;
+  font-size: 0.8em; font-family: monospace;
+}
+.log-entry { margin-bottom: 4px; }
+.log-player { color: #fff176; }
+.log-enemy { color: #ef9a9a; }
+.log-win { color: #a5d6a7; font-weight: bold; }
+.log-normal { color: #bdbdbd; }
+
+.loading-arena {
+  flex: 2; display: flex; justify-content: center;
+  align-items: center; flex-direction: column;
+  color: #aaa; font-size: 1.2em;
+}
+.error-box { text-align: center; }
+.text-red { color: #ff5252; }
+.loot-display { margin-bottom: 10px; font-weight: bold; color: gold; }
+
+.loading-mini, .empty-mini {
+  padding: 20px; text-align: center; color: #aaa;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .battle-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    height: auto;
+    padding-bottom: 60px;
+  }
+  .center-panel { order: 1; }
+  .right-panel { order: 2; }
+  .left-panel { order: 3; display: none; }
+  .combat-arena { height: 400px; }
+  .chat-section { height: 250px; min-height: auto; }
+  .fighter-card.player { left: 5%; bottom: 80px; }
+  .fighter-card.enemy { right: 5%; top: 40px; }
+}
+
+@keyframes floatUp {
+  0% { transform: translate(-50%, 0); opacity: 1; }
+  100% { transform: translate(-50%, -30px); opacity: 0; }
+}
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+</style> -->
+<template>
+  <div class="page-container battle-page">
+    <div class="battle-bg-layer"></div>
+    <div class="battle-layout">
+      
+      <aside class="side-panel left-panel">
+        <div class="panel-header">
+          <i class="fas fa-skull text-red"></i> BẢNG SÁT THẦN
+        </div>
+        
+        <div class="leaderboard-list custom-scroll">
+          <div v-if="lbStore.loadingMonsters" class="loading-mini">
+             <div class="spinner"></div>
+          </div>
+
+          <div 
+            v-else 
+            class="rank-item" 
+            v-for="(entry, index) in lbStore.topMonsters" 
+            :key="index"
+          >
+            <div class="rank-num" :class="'top-' + (index + 1)">{{ index + 1 }}</div>
+            
+            <div class="rank-content">
+               <div class="rank-name" :class="{'text-gold': index === 0}">{{ entry.username }}</div>
+               <div class="rank-sub">
+                 <i class="fas fa-skull-crossbones text-red"></i> 
+                 <span class="kill-count">{{ entry.value }}</span>
+               </div>
+            </div>
+            
+            <div class="rank-avatar-mini">
+               <img v-if="!entry.avatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" />
+               <span v-else>{{ entry.avatar }}</span>
+            </div>
+          </div>
+          
+          <div v-if="!lbStore.loadingMonsters && lbStore.topMonsters.length === 0" class="empty-mini">
+             Chưa có dữ liệu
+          </div>
+        </div>
+      </aside>
+
+      <main class="center-panel">
+        <div class="arena-wrapper">
+            <div
+              class="combat-arena"
+              v-if="battleStore.enemy"
+            >
+              <div class="vs-badge">VS</div>
+
+              <div class="fighter-card enemy" :class="{ 'hit-anim': isEnemyHit }">
+                <div class="fighter-visual">
+                  <div class="fighter-circle brown-ring">
+                    <img :src="getEnemyAsset(battleStore.enemy.name)" class="fighter-img" />
+                  </div>
+                  <div class="damage-text" v-if="isEnemyHit">-{{ lastDamage }}</div>
+                </div>
+                <div class="fighter-stats">
+                  <div class="name-tag red-tag">{{ battleStore.enemy.name }}</div>
+                  <div class="stat-bar-box">
+                    <div class="bar-fill hp-fill" :style="{ width: percent(battleStore.enemyHp, battleStore.enemyMaxHp) + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="fighter-card player" :class="{ 'hit-anim': isPlayerHit, attacking: isPlayerAttacking }">
+                <div class="fighter-visual">
+                  <div class="fighter-circle green-ring">
+                    <img :src="getPlayerAsset()" class="fighter-img" />
+                  </div>
+                  <div class="damage-text player-dmg" v-if="isPlayerHit">
+                    -{{ lastDamageTaken }}
+                  </div>
+                </div>
+                <div class="fighter-stats">
+                  <div class="name-tag blue-tag">{{ authStore.user?.username }}</div>
+                  <div class="stat-bar-box">
+                    <div class="bar-fill hp-fill" :style="{ width: percent(battleStore.playerHp, battleStore.playerMaxHp) + '%' }"></div>
+                  </div>
+                  <div class="stat-bar-box energy-box">
+                    <div class="bar-fill energy-fill" :style="{ width: percent(charStore.character?.energy, charStore.character?.maxEnergy) + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="combat-controls">
+                <div v-if="showQTE" class="qte-overlay">
+                   <button class="qte-button pixel-btn danger" @click="handleBlock">
+                     🛡️ ĐỠ ĐÒN! ({{ qteTimer.toFixed(1) }}s)
+                   </button>
+                </div>
+
+                <div v-else-if="battleStore.status === 'ONGOING'" class="ongoing-actions">
+                   <button class="btn-skill" @click="activateBuff" :disabled="nextAttackBuffed || (charStore.character?.energy || 0) < 5">
+                      <span v-if="!nextAttackBuffed">🔥 TỤ LỰC (5⚡)</span>
+                      <span v-else>SẴN SÀNG!</span>
+                   </button>
+                </div>
+
+                <div v-else class="result-overlay">
+                   <div class="result-content">
+                     <div class="result-title" :class="battleStore.status">
+                        {{ battleStore.status === "VICTORY" ? "CHIẾN THẮNG" : "THẤT BẠI" }}
+                     </div>
+                     
+                     <div v-if="battleStore.droppedItem" class="loot-display">
+                        <div class="loot-icon">🎁</div>
+                        <div class="loot-name">{{ battleStore.droppedItem.name }}</div>
+                     </div>
+                     <div v-else-if="battleStore.status === 'VICTORY'" class="loot-display">
+                        <span style="color: #aaa; font-size: 0.9em;">(Không nhặt được gì)</span>
+                     </div>
+
+                     <div class="btn-group-large">
+                        <button class="btn-big forest" @click="$router.push('/explore')">
+                           <i class="fas fa-tree"></i> Về Rừng
+                        </button>
+                        <button class="btn-big village" @click="$router.push('/village')">
+                           <i class="fas fa-home"></i> Về Làng
+                        </button>
+                     </div>
+                   </div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="loading-arena">
+              <div v-if="battleStore.status === 'ERROR'" class="error-box">
+                <h3 class="text-red">LỖI</h3>
+                <p>{{ battleStore.combatLogs[0] }}</p>
+                <button @click="$router.push('/village')" class="btn-big village">🏠 Về Làng</button>
+              </div>
+              <div v-else class="searching-anim">
+                <div class="swords-cross">⚔️</div>
+                <h3>Đang tìm đối thủ...</h3>
+              </div>
+            </div>
+        </div>
+
+        <div class="chat-section-wrapper">
+          <ChatPanel height="100%" />
+        </div>
+      </main>
+
+      <aside class="side-panel right-panel">
+        <div class="char-detail-card">
+          <div class="panel-header">CHỈ SỐ</div>
+          <div class="detail-row"><span>⚔️ Tấn Công</span><span class="val">{{ charStore.character?.baseAtk || 0 }}</span></div>
+          <div class="detail-row"><span>🛡️ Phòng Thủ</span><span class="val">{{ charStore.character?.baseDef || 0 }}</span></div>
+          <div class="detail-row"><span>🦶 Thân Pháp</span><span class="val">{{ charStore.character?.baseSpeed || 0 }}</span></div>
+          <div class="detail-row"><span>⚡ Chí Mạng</span><span class="val">{{ charStore.character?.baseCritRate || 0 }}%</span></div>
+        </div>
+
+        <div class="combat-log-panel">
+          <div class="panel-header">NHẬT KÝ</div>
+          <div class="logs-container custom-scroll" ref="logContainer">
+            <div v-for="(log, idx) in battleStore.combatLogs" :key="idx" class="log-entry" :class="getLogClass(log)">
+              {{ formatLog(log) }}
+            </div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { useBattleStore } from "@/stores/battleStore";
+import { useCharacterStore } from "@/stores/characterStore";
+import { useAuthStore } from "@/stores/authStore";
+import { useLeaderboardStore } from "@/stores/leaderboardStore";
+import { useRouter } from "vue-router";
+import { getEnemyImage, getCurrentSkin } from "@/utils/assetHelper";
+import ChatPanel from "@/components/ChatPanel.vue";
+
+const battleStore = useBattleStore();
+const charStore = useCharacterStore();
+const authStore = useAuthStore();
+const lbStore = useLeaderboardStore();
+const router = useRouter();
+
+const logContainer = ref(null);
+const isEnemyHit = ref(false);
+const isPlayerHit = ref(false);
+const isPlayerAttacking = ref(false);
+const nextAttackBuffed = ref(false);
+const lastDamage = ref(0);
+const lastDamageTaken = ref(0);
+
+const showQTE = ref(false);
+const qteTimer = ref(0);
+let qteInterval = null;
+let autoInterval = null;
+
+// --- HELPERS ---
+const percent = (cur, max) => (max > 0 ? (cur / max) * 100 : 0);
+const getEnemyAsset = (name) => getEnemyImage(name, "idle");
+const getPlayerAsset = () => {
+  const skin = getCurrentSkin(authStore.user?.avatarUrl);
+  return isPlayerAttacking.value ? skin.sprites.attack : skin.sprites.idle;
+};
+const getLogClass = (log) => {
+  if (!log) return "log-normal";
+  if (log.includes("Bạn gây") || log.includes("BẠO KÍCH")) return "log-player";
+  if (log.includes("bị đánh") || log.includes("mất")) return "log-enemy";
+  if (log.includes("Thắng") || log.includes("EXP")) return "log-win";
+  return "log-normal";
+};
+const formatLog = (log) => (log ? log.replace(/<[^>]*>/g, "") : "");
+
+// --- LOGIC ---
+const startBattle = async () => {
+  battleStore.resetBattle();
+  await battleStore.startBattle();
+  if (battleStore.isReady) startAutoLoop();
+};
+
+const startAutoLoop = () => {
+  if (autoInterval) clearInterval(autoInterval);
+  autoInterval = setInterval(runAutoTurn, 1500);
+};
+
+const activateBuff = () => {
+  if (charStore.character?.energy >= 5) {
+    charStore.character.energy -= 5;
+    nextAttackBuffed.value = true;
+  }
+};
+
+const runAutoTurn = async () => {
+  if (!battleStore.isReady || battleStore.status !== "ONGOING" || showQTE.value) return;
+  
+  isPlayerAttacking.value = true;
+  setTimeout(() => (isPlayerAttacking.value = false), 500);
+
+  const prevEnemyHp = battleStore.enemyHp;
+  const prevPlayerHp = battleStore.playerHp;
+
+  const res = await battleStore.autoTurn(nextAttackBuffed.value);
+
+  if (!res) {
+    clearInterval(autoInterval);
+    return;
+  }
+
+  if (res.status === "QTE_ACTION" || res.qteTriggered) {
+    triggerQTE();
+    return;
+  }
+
+  if (nextAttackBuffed.value) nextAttackBuffed.value = false;
+
+  const dmgDealt = prevEnemyHp - res.enemyHp;
+  if (dmgDealt > 0) {
+    lastDamage.value = dmgDealt;
+    isEnemyHit.value = true;
+    setTimeout(() => (isEnemyHit.value = false), 300);
+  }
+
+  const dmgTaken = prevPlayerHp - res.playerHp;
+  if (dmgTaken > 0) {
+    setTimeout(() => {
+      lastDamageTaken.value = dmgTaken;
+      isPlayerHit.value = true;
+      setTimeout(() => (isPlayerHit.value = false), 300);
+    }, 600);
+  }
+};
+
+const triggerQTE = () => {
+  clearInterval(autoInterval);
+  showQTE.value = true;
+  qteTimer.value = 0.75;
+  qteInterval = setInterval(() => {
+    qteTimer.value -= 0.05;
+    if (qteTimer.value <= 0) failQTE();
+  }, 50);
+};
+
+const handleBlock = async () => {
+  clearInterval(qteInterval);
+  showQTE.value = false;
+  await battleStore.sendAction("BLOCK");
+  startAutoLoop();
+};
+
+const failQTE = async () => {
+  clearInterval(qteInterval);
+  showQTE.value = false;
+  isPlayerHit.value = true;
+  setTimeout(() => (isPlayerHit.value = false), 500);
+  await battleStore.sendAction("IGNORE_QTE");
+  startAutoLoop();
+};
+
+watch(() => battleStore.combatLogs, () => {
+  nextTick(() => {
+    if (logContainer.value) logContainer.value.scrollTop = logContainer.value.scrollHeight;
+  });
+}, { deep: true });
+
+watch(() => battleStore.status, (st) => {
+  if (st !== "ONGOING") {
+    clearInterval(autoInterval);
+    if (qteInterval) clearInterval(qteInterval);
+  }
+});
+
+onMounted(async () => {
+  await charStore.fetchCharacter();
+  lbStore.fetchMonsterBoard();
+  if (battleStore.enemy && battleStore.status === "ONGOING") {
+     startAutoLoop();
+  } else {
+     startBattle();
+  }
+});
+
+onUnmounted(() => {
+  clearInterval(autoInterval);
+  if (qteInterval) clearInterval(qteInterval);
+});
+</script>
+
+<style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Cinzel:wght@700;900&display=swap");
+
+:root {
+  --bg-dark: #121212;
+  --bg-panel: #1e1e1e;
+  --border-color: #333;
+  --text-main: #e0e0e0;
+  --text-muted: #aaa;
+  --gold: #fdd835;
+  --red: #b71c1c;
+}
+
+.battle-page {
+  background-color: var(--bg-dark);
+  height: calc(100vh - 60px);
+  color: var(--text-main);
+  font-family: "Inter", sans-serif;
+  overflow: hidden;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.battle-bg-layer {
+  position: absolute; inset: 0;
+  background-image: url("@/assets/Background/b_doanhtrai.png");
+  background-size: cover; background-position: center;
+  opacity: 0.15; z-index: 0; pointer-events: none;
+}
+
+/* === LAYOUT === */
+.battle-layout {
+  position: relative; z-index: 10;
+  display: grid;
+  grid-template-columns: 240px 1fr 240px;
+  gap: 12px;
+  max-width: 1600px;
+  margin: 0 auto;
+  height: 100%;
+}
+
+.side-panel, .center-panel {
+  display: flex; flex-direction: column;
+  height: 100%; overflow: hidden;
+}
+
+/* PANEL STYLE */
+.leaderboard-list, .combat-log-panel, .char-detail-card {
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+
+.leaderboard-list { flex: 1; }
+.combat-log-panel { flex: 1; margin-top: 10px; }
+
+.panel-header {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px; font-weight: bold; font-size: 0.9em;
+  border-bottom: 1px solid var(--border-color);
+  text-align: center; color: var(--gold); letter-spacing: 1px;
+}
+
+/* === BẢNG XẾP HẠNG SÁT THẦN (Màu xịn) === */
+.rank-item {
+  display: flex; align-items: center; padding: 10px 12px;
+  border-bottom: 1px solid #333; gap: 10px; transition: 0.2s;
+}
+.rank-item:hover { background: rgba(255,255,255,0.05); }
+
+.rank-num {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #444; color: #fff; display: flex;
+  align-items: center; justify-content: center;
+  font-weight: bold; font-size: 0.75em;
+  border: 2px solid transparent;
+}
+
+/* TOP 1 - Vàng */
+.top-1 { 
+  background: linear-gradient(135deg, #FFD700, #FDB931); 
+  color: #000; border-color: #FFECB3; 
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+}
+/* TOP 2 - Bạc */
+.top-2 { 
+  background: linear-gradient(135deg, #E0E0E0, #BDBDBD); 
+  color: #000; border-color: #FFF; 
+  box-shadow: 0 0 8px rgba(192, 192, 192, 0.5);
+}
+/* TOP 3 - Đồng */
+.top-3 { 
+  background: linear-gradient(135deg, #CD7F32, #A0522D); 
+  color: #fff; border-color: #F4A460;
+  box-shadow: 0 0 8px rgba(205, 127, 50, 0.5);
+}
+
+.text-gold { color: #FFD700 !important; text-shadow: 0 0 5px rgba(255,215,0,0.5); }
+
+.rank-content { flex: 1; overflow: hidden; }
+.rank-name { font-weight: bold; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-sub { font-size: 0.8em; color: #aaa; display: flex; align-items: center; gap: 5px; }
+.kill-count { color: #ff5252; font-weight: bold; }
+.rank-avatar-mini img { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #555; }
+
+/* === CENTER PANEL & ARENA === */
+.arena-wrapper {
+  flex: 1; display: flex; flex-direction: column;
+  min-height: 0; margin-bottom: 10px; position: relative;
+}
+
+.chat-section-wrapper {
+  height: 250px; flex-shrink: 0;
+  background: rgba(0,0,0,0.5); border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+
+.combat-arena, .loading-arena {
+  width: 100%; height: 100%;
+  /* Nền đẹp hơn */
+  background: radial-gradient(circle at center, #2a1a1a 0%, #0a0a0a 100%);
+  border: 1px solid #5c2b2b;
+  border-radius: 8px;
+  position: relative;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  box-shadow: inset 0 0 50px rgba(0,0,0,0.8); /* Vignette */
+}
+
+/* Loading Animation */
+.swords-cross { font-size: 3em; animation: clash 1s infinite alternate; margin-bottom: 10px; }
+@keyframes clash { from { transform: rotate(0deg) scale(1); } to { transform: rotate(15deg) scale(1.1); } }
+
+/* Fighter Cards */
+.fighter-card { position: absolute; width: 120px; text-align: center; z-index: 5; transition: 0.2s; }
+.fighter-card.player { bottom: 80px; left: 15%; }
+.fighter-card.enemy { top: 40px; right: 15%; }
+
+.fighter-circle {
+  width: 90px; height: 90px; border-radius: 50%;
+  background: rgba(0,0,0,0.6); margin: 0 auto;
+  overflow: hidden; border: 3px solid #555;
+  box-shadow: 0 0 20px rgba(0,0,0,0.6);
+}
+.green-ring { border-color: #43a047; box-shadow: 0 0 10px #43a047; }
+.brown-ring { border-color: #8d6e63; box-shadow: 0 0 10px #8d6e63; }
+.fighter-img { width: 100%; height: 100%; object-fit: contain; }
+
+.stat-bar-box { width: 100%; height: 10px; background: #222; margin-top: 4px; border-radius: 3px; overflow: hidden; border: 1px solid #000; }
+.bar-fill { height: 100%; transition: width 0.3s; }
+.hp-fill { background: linear-gradient(to bottom, #ef5350, #c62828); }
+.energy-fill { background: linear-gradient(to bottom, #42a5f5, #1565c0); }
+.name-tag { font-size: 0.8em; font-weight: bold; padding: 2px 8px; border-radius: 4px; color: white; display: inline-block; text-shadow: 1px 1px 0 #000; margin-bottom: 2px;}
+.red-tag { background: #b71c1c; } .blue-tag { background: #0d47a1; }
+
+/* === KẾT QUẢ TRẬN ĐẤU (OVERLAY) === */
+.combat-controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+/* Cho phép click vào nút con */
+.ongoing-actions, .qte-overlay, .result-overlay button { pointer-events: auto; }
+
+.ongoing-actions {
+  position: absolute; bottom: 20px; width: 100%; text-align: center;
+}
+
+.result-overlay {
+  position: absolute; inset: 0;
+  background: rgba(0, 0, 0, 0.85); /* Nền tối mờ che sàn đấu */
+  display: flex; justify-content: center; align-items: center;
+  z-index: 50;
+  animation: fadeIn 0.3s ease-out;
+  pointer-events: auto; /* Chặn click xuống dưới */
+}
+
+.result-content {
+  text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 15px;
+}
+
+.result-title {
+  font-family: 'Cinzel', serif;
+  font-size: 3.5rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.result-title.VICTORY {
+  color: #FFD700; /* Vàng kim */
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 2px 2px 0 #B8860B;
+  animation: zoomIn 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+.result-title.DEFEAT {
+  color: #B0BEC5; /* Xám bạc */
+  text-shadow: 0 0 10px rgba(0,0,0,0.8), 2px 2px 0 #37474F;
+}
+
+.loot-display {
+  font-size: 1.2rem; color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px 20px; border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex; align-items: center; gap: 10px;
+}
+.loot-name { color: #FFD700; font-weight: bold; }
+
+/* === NÚT BẤM TO (BIG BUTTONS) === */
+.btn-group-large {
+  display: flex; gap: 20px; margin-top: 10px;
+}
+
+.btn-big {
+  padding: 12px 24px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  font-family: 'Inter', sans-serif;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+.btn-big:hover { transform: translateY(-2px) scale(1.05); filter: brightness(1.1); }
+.btn-big:active { transform: translateY(0) scale(0.98); }
+
+.forest { 
+  background: linear-gradient(to bottom, #43a047, #2e7d32); 
+  border-bottom: 4px solid #1b5e20;
+}
+.village { 
+  background: linear-gradient(to bottom, #8d6e63, #6d4c41); 
+  border-bottom: 4px solid #4e342e;
+}
+
+/* Logs */
+.logs-container { padding: 10px; font-size: 0.8em; line-height: 1.4; overflow-y: auto; font-family: monospace; }
+.log-entry { margin-bottom: 3px; }
+.log-player { color: #fff176; } .log-enemy { color: #ef9a9a; } .log-win { color: #a5d6a7; } .log-normal { color: #aaa; }
+
+@media (max-width: 900px) {
+  .battle-layout { grid-template-columns: 1fr; grid-template-rows: 1fr 200px; height: auto; overflow-y: auto; }
+  .left-panel, .right-panel { display: none; }
+  .battle-page { height: auto; overflow: auto; }
+  .arena-wrapper { height: 400px; }
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes zoomIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes floatUp { 0% { transform: translate(-50%, 0); opacity: 1; } 100% { transform: translate(-50%, -30px); opacity: 0; } }
 </style>

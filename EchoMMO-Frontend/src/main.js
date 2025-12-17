@@ -16,7 +16,8 @@ app.use(i18n);
 console.log(
   "%c ECHO-MMO %c GIANG HỒ DẬY SÓNG ",
   "background: #3e2723; color: #fbc02d; font-size: 24px; font-weight: 900; padding: 10px 15px; border-left: 5px solid #fbc02d; border-radius: 4px 0 0 4px; font-family: 'Times New Roman', serif;",
-  "background: #b71c1c; color: #fff; font-size: 24px; font-weight: 700; padding: 10px 15px; border-radius: 0 4px 4px 0; font-family: 'Times New Roman', serif; text-shadow: 2px 2px 0px #000;"
+  "background: #b71c1c; color: #fff; font-size: 24px; font-weight: 700; padding: 10px 15px; border-radius: 0 4px 4px 0; font-family: 'Times New Roman', serif; text-shadow: 2px 2px 0px #000;",
+  "F12 làm gì? -.-"
 );
 
 console.log(

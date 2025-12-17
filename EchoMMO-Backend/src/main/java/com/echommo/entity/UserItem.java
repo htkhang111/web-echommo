@@ -1,7 +1,124 @@
+//package com.echommo.entity;
+//
+//import com.echommo.enums.Rarity;
+//import com.fasterxml.jackson.annotation.JsonIgnore; // [FIX] Import mới
+//import jakarta.persistence.*;
+//import lombok.*;
+//import java.math.BigDecimal;
+//import java.time.LocalDateTime;
+//
+//@Entity
+//@Table(name = "user_items")
+//@Data
+//@Builder
+//@NoArgsConstructor
+//@AllArgsConstructor
+//public class UserItem {
+//    @Id
+//    @GeneratedValue(strategy = GenerationType.IDENTITY)
+//    private Long userItemId;
+//
+//    // [FIX] Dùng @JsonIgnore để ngắt hoàn toàn việc tải ngược lại Character
+//    // Tránh lỗi LazyInitializationException và vòng lặp vô tận
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "char_id", nullable = false)
+//    @JsonIgnore
+//    private Character character;
+//
+//    @ManyToOne(fetch = FetchType.EAGER)
+//    @JoinColumn(name = "item_id", nullable = false)
+//    private Item item;
+//
+//    @Builder.Default
+//    @Column(name = "is_equipped")
+//    private Boolean isEquipped = false;
+//
+//    @Builder.Default
+//    private Integer quantity = 1;
+//
+//    @Column(name = "acquired_at")
+//    private LocalDateTime acquiredAt;
+//
+//    @Builder.Default
+//    @Column(name = "enhance_level")
+//    private Integer enhancementLevel = 0;
+//
+//    @Enumerated(EnumType.STRING)
+//    private Rarity rarity;
+//
+//    @Column(name = "main_stat_type")
+//    private String mainStatType;
+//
+//    @Column(name = "main_stat_value")
+//    private BigDecimal mainStatValue;
+//
+//    @Column(name = "sub_stats", columnDefinition = "TEXT")
+//    private String subStats;
+//
+//    @Builder.Default
+//    @Column(name = "is_mythic")
+//    private boolean isMythic = false;
+//
+//    @Builder.Default
+//    @Column(name = "mythic_level")
+//    private Integer mythicLevel = 0;
+//
+//    @Column(name = "original_main_stat_value")
+//    private BigDecimal originalMainStatValue;
+//
+//    // --- GETTER/SETTER THỦ CÔNG (Để tương thích code cũ) ---
+//    public Long getUserItemId() { return userItemId; }
+//
+//    public Character getCharacter() { return character; }
+//    public void setCharacter(Character character) { this.character = character; }
+//
+//    public Item getItem() { return item; }
+//    public void setItem(Item item) { this.item = item; }
+//
+//    public Boolean getIsEquipped() { return isEquipped; }
+//    public void setIsEquipped(Boolean equipped) { isEquipped = equipped; }
+//
+//    public Integer getQuantity() { return quantity; }
+//    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+//
+//    public Integer getEnhancementLevel() { return enhancementLevel; }
+//    public void setEnhancementLevel(Integer enhancementLevel) { this.enhancementLevel = enhancementLevel; }
+//
+//    public String getMainStatType() { return mainStatType; }
+//    public void setMainStatType(String mainStatType) { this.mainStatType = mainStatType; }
+//
+//    public BigDecimal getMainStatValue() { return mainStatValue; }
+//    public void setMainStatValue(BigDecimal mainStatValue) { this.mainStatValue = mainStatValue; }
+//
+//    public String getSubStats() { return subStats; }
+//    public void setSubStats(String subStats) { this.subStats = subStats; }
+//
+//    public Rarity getRarity() { return rarity; }
+//    public void setRarity(Rarity rarity) { this.rarity = rarity; }
+//
+//    public void setAcquiredAt(LocalDateTime acquiredAt) { this.acquiredAt = acquiredAt; }
+//
+//    public boolean isMythic() { return isMythic; }
+//    public void setMythic(boolean mythic) { isMythic = mythic; }
+//    public Integer getMythicLevel() { return mythicLevel; }
+//    public void setMythicLevel(Integer mythicLevel) { this.mythicLevel = mythicLevel; }
+//    public BigDecimal getOriginalMainStatValue() { return originalMainStatValue; }
+//    public void setOriginalMainStatValue(BigDecimal val) { this.originalMainStatValue = val; }
+//
+//    // Alias
+//    public Integer getEnhanceLevel() { return enhancementLevel; }
+//    public void setEnhanceLevel(Integer level) { this.enhancementLevel = level; }
+//
+//    @PrePersist
+//    protected void onCreate() { if (acquiredAt == null) acquiredAt = LocalDateTime.now(); }
+//
+//}
+
+
 package com.echommo.entity;
 
 import com.echommo.enums.Rarity;
-import com.fasterxml.jackson.annotation.JsonIgnore; // [FIX] Import mới
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -18,8 +135,7 @@ public class UserItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long userItemId;
 
-    // [FIX] Dùng @JsonIgnore để ngắt hoàn toàn việc tải ngược lại Character
-    // Tránh lỗi LazyInitializationException và vòng lặp vô tận
+    // Ngắt vòng lặp JSON khi load dữ liệu
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "char_id", nullable = false)
     @JsonIgnore
@@ -66,7 +182,8 @@ public class UserItem {
     @Column(name = "original_main_stat_value")
     private BigDecimal originalMainStatValue;
 
-    // --- GETTER/SETTER THỦ CÔNG (Để tương thích code cũ) ---
+    // --- GETTER/SETTER THỦ CÔNG ---
+
     public Long getUserItemId() { return userItemId; }
 
     public Character getCharacter() { return character; }
@@ -105,10 +222,24 @@ public class UserItem {
     public BigDecimal getOriginalMainStatValue() { return originalMainStatValue; }
     public void setOriginalMainStatValue(BigDecimal val) { this.originalMainStatValue = val; }
 
-    // Alias
+    // Alias: Giữ lại cái này cho tương thích code cũ nếu có gọi getEnhanceLevel
     public Integer getEnhanceLevel() { return enhancementLevel; }
     public void setEnhanceLevel(Integer level) { this.enhancementLevel = level; }
 
     @PrePersist
     protected void onCreate() { if (acquiredAt == null) acquiredAt = LocalDateTime.now(); }
+
+    // ==================================================================
+    // [QUAN TRỌNG] PHẦN FIX LỖI "Cannot find symbol method getLevel()"
+    // ==================================================================
+
+    // Service đang gọi .getLevel(), ta trỏ nó về biến enhancementLevel
+    public Integer getLevel() {
+        return this.enhancementLevel != null ? this.enhancementLevel : 0;
+    }
+
+    // Service đang gọi .setLevel(), ta trỏ nó về biến enhancementLevel
+    public void setLevel(Integer level) {
+        this.enhancementLevel = level;
+    }
 }

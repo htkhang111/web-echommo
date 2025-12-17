@@ -5,33 +5,55 @@ import com.echommo.service.ExplorationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.Map;
+import java.util.HashMap;
 
 @RestController
-// [SỬA QUAN TRỌNG] Đổi thành /exploration để khớp với Frontend
 @RequestMapping("/api/exploration")
-@CrossOrigin(origins = "http://localhost:5173") // Cho phép Frontend gọi
+@CrossOrigin(origins = "http://localhost:5173")
 public class ExplorationController {
 
     @Autowired
     private ExplorationService explorationService;
 
-    // API Khám phá (Đánh quái/Nhặt đồ)
-    // URL: /api/exploration/explore?mapId=MAP_01
+    // API Khám phá - Thêm bọc try-catch để bắt lỗi 500
     @PostMapping("/explore")
-    public ResponseEntity<ExplorationResponse> explore(@RequestParam String mapId) {
-        return ResponseEntity.ok(explorationService.explore(mapId));
+    public ResponseEntity<?> explore(@RequestParam String mapId) {
+        try {
+            return ResponseEntity.ok(explorationService.explore(mapId));
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(400).body(error);
+        }
     }
 
-    // API Thu hoạch (Đào khoáng/Chặt cây)
-    // URL: /api/exploration/gather
+    // API Thu hoạch
     @PostMapping("/gather")
-    public ResponseEntity<Map<String, Object>> gather(@RequestBody Map<String, Object> req) {
-        String type = (String) req.get("type");
-        // Ép kiểu an toàn tránh lỗi
-        int amount = Integer.parseInt(req.get("amount").toString());
+    public ResponseEntity<?> gather(@RequestBody Map<String, Object> req) {
+        try {
+            // Kiểm tra itemId đầu vào
+            if (req.get("itemId") == null) {
+                throw new RuntimeException("Thiếu ID vật phẩm!");
+            }
 
-        return ResponseEntity.ok(explorationService.gatherResource(type, amount));
+            int itemId = Integer.parseInt(req.get("itemId").toString());
+            int amount = 1;
+
+            // Xử lý amount an toàn hơn
+            if (req.get("amount") != null) {
+                try {
+                    amount = (int) Double.parseDouble(req.get("amount").toString());
+                } catch (NumberFormatException e) {
+                    amount = 1;
+                }
+            }
+
+            return ResponseEntity.ok(explorationService.gatherResource(itemId, amount));
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("message", "Lỗi thu hoạch: " + e.getMessage());
+            return ResponseEntity.status(400).body(error);
+        }
     }
 }
