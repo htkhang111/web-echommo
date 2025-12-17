@@ -1,65 +1,50 @@
 package com.echommo.controller;
 
 import com.echommo.dto.CreateListingRequest;
+import com.echommo.entity.MarketListing;
 import com.echommo.service.MarketplaceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/player-market")
+@RequestMapping("/api/market/player")
 public class PlayerMarketController {
 
-    @Autowired private MarketplaceService service;
+    @Autowired
+    private MarketplaceService service;
 
-    @GetMapping("/listings")
-    public ResponseEntity<?> getListings() {
+    @GetMapping("/active")
+    public ResponseEntity<List<MarketListing>> getActiveListings() {
         return ResponseEntity.ok(service.getPlayerListings());
     }
 
-    @GetMapping("/my-listings")
-    public ResponseEntity<?> getMyListings() {
+    @GetMapping("/my")
+    public ResponseEntity<List<MarketListing>> getMyListings() {
+        // Gọi phương thức getMyListings() đã fix trong MarketplaceService
         return ResponseEntity.ok(service.getMyListings());
     }
 
-    @PostMapping("/create")
-    public ResponseEntity<?> createListing(@RequestBody CreateListingRequest req) {
-        try {
-            return ResponseEntity.ok(service.createListing(req));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    @PostMapping("/buy/{id}")
-    public ResponseEntity<?> buyListingByPath(@PathVariable Integer id, @RequestBody(required = false) Map<String, Integer> body) {
-        try {
-            int quantity = (body != null && body.containsKey("quantity")) ? body.get("quantity") : 1;
-            return ResponseEntity.ok(service.buyPlayerListing(id, quantity));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    @PostMapping("/list")
+    public ResponseEntity<String> createListing(@RequestBody CreateListingRequest req) {
+        // Gọi phương thức createListing(CreateListingRequest)
+        return ResponseEntity.ok(service.createListing(req));
     }
 
     @PostMapping("/buy")
-    public ResponseEntity<?> buyListing(@RequestBody Map<String, Object> body) {
-        try {
-            Integer listingId = ((Number) body.get("listingId")).intValue();
-            Integer quantity = ((Number) body.get("quantity")).intValue();
-            return ResponseEntity.ok(service.buyPlayerListing(listingId, quantity));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<String> buy(@RequestBody Map<String, Object> req) {
+        Integer listingId = Integer.parseInt(req.get("listingId").toString());
+        Integer qty = Integer.parseInt(req.get("quantity").toString());
+        // Gọi buyPlayerListing(Integer, Integer)
+        return ResponseEntity.ok(service.buyPlayerListing(listingId, qty));
     }
 
     @PostMapping("/cancel/{id}")
-    public ResponseEntity<?> cancelListing(@PathVariable Integer id) {
-        try {
-            return ResponseEntity.ok(service.cancelListing(id));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+    public ResponseEntity<String> cancel(@PathVariable Integer id) {
+        // Gọi cancelListing(Integer)
+        return ResponseEntity.ok(service.cancelListing(id));
     }
 }

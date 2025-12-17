@@ -40,7 +40,7 @@ import java.util.Optional;
 public interface CharacterRepository extends JpaRepository<Character, Integer> {
 
     // Tìm nhân vật theo User ID
-    Optional<Character> findByUser_UserId(Integer userId);
+    Optional<Character> findByUser_UserId(long userId);
 
     // PHƯƠNG THỨC MỚI CẦN THÊM LẠI: Kiểm tra tên nhân vật đã tồn tại
     boolean existsByName(String name); // <<< THÊM LẠI DÒNG NÀY

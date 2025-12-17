@@ -389,3 +389,59 @@ VALUES (1, 1, false, 1, NOW());
 
 USE echommo_db;
 DROP TABLE battle_sessions;
+
+USE echommo_db;
+-- 1. Xóa liên kết cũ với bảng Users
+ALTER TABLE user_items DROP FOREIGN KEY FK_UserItem_User;
+ALTER TABLE user_items DROP COLUMN user_id;
+
+-- 2. Thêm cột char_id mới để liên kết với bảng Characters
+ALTER TABLE user_items ADD COLUMN char_id INT NOT NULL AFTER user_item_id;
+
+-- 3. Tạo liên kết mới (Item giờ thuộc về Character)
+ALTER TABLE user_items
+ADD CONSTRAINT FK_Item_Character
+FOREIGN KEY (char_id) REFERENCES characters(char_id) ON DELETE CASCADE;
+
+SHOW CREATE TABLE user_items;
+TRUNCATE TABLE user_items;
+-- 1. Xóa khóa ngoại cũ (Dùng đúng cái tên mã hóa vừa tìm thấy)
+ALTER TABLE user_items DROP FOREIGN KEY FK55mpmb46vtbmw6xljldr2wvvf;
+
+-- 2. Xóa index cũ đi kèm (thường có cùng tên) để sạch sẽ
+ALTER TABLE user_items DROP INDEX FK55mpmb46vtbmw6xljldr2wvvf;
+
+-- 3. Xóa cột user_id
+ALTER TABLE user_items DROP COLUMN user_id;
+
+-- 4. Thêm cột char_id mới
+ALTER TABLE user_items ADD COLUMN char_id INT NOT NULL AFTER user_item_id;
+
+-- 5. Tạo liên kết mới tới bảng Characters
+ALTER TABLE user_items
+ADD CONSTRAINT FK_Item_Character
+FOREIGN KEY (char_id) REFERENCES characters(char_id) ON DELETE CASCADE;
+
+USE echommo_db;
+
+-- 1. Xóa các giao dịch chợ đang treo (vì nó liên kết với UserItem cũ)SET FOREIGN_KEY_CHECKS = 0;
+
+USE echommo_db;
+
+-- 1. Tắt kiểm tra khóa ngoại (Để MySQL cho phép xóa bảng cha)
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- 2. Xóa sạch dữ liệu (TRUNCATE sẽ reset ID về 1 luôn)
+TRUNCATE TABLE market_listings;
+TRUNCATE TABLE user_items;
+TRUNCATE TABLE battle_sessions;
+TRUNCATE TABLE daily_quests;
+-- Nếu muốn xóa luôn nhân vật để tạo lại từ đầu thì bỏ comment dòng dưới:
+-- TRUNCATE TABLE characters;
+
+-- 3. Bật lại kiểm tra khóa ngoại (An toàn cho sau này)
+SET FOREIGN_KEY_CHECKS = 1;
+
+SELECT 'Đã dọn dẹp sạch sẽ database!' AS Status;
+
+ALTER TABLE market_listings ADD COLUMN enhance_level INT DEFAULT 0;
