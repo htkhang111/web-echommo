@@ -6,7 +6,7 @@
     </div>
 
     <div class="nav-header">
-      <button class="btn-wood-back" @click="$router.push('/explore')">
+      <button class="btn-wood-back" @click="goBack">
         <i class="fas fa-chevron-left"></i> RỜI KHỎI
       </button>
     </div>
@@ -61,31 +61,26 @@
       <div class="progress-container">
         <div class="progress-label">
           <span>Tiến độ</span>
-          <span>{{ Math.round((1 - remainingNode / maxNode) * 100) }}%</span>
+          <span>{{ progressPercent }}%</span>
         </div>
         <div class="progress-track">
           <div
             class="progress-fill"
-            :style="{ width: (1 - remainingNode / maxNode) * 100 + '%' }"
+            :style="{ width: progressPercent + '%' }"
           ></div>
         </div>
       </div>
 
       <div class="action-zone">
         <div class="energy-tag">
-          <i class="fas fa-bolt"></i> Nội Năng:
-          {{ charStore.character?.energy || 0 }}
+          <i class="fas fa-bolt"></i> Nội Năng: {{ currentEnergy }}
         </div>
 
         <div class="btn-grid">
           <button
             class="btn-wood action-btn"
             @click="handleGather(1)"
-            :disabled="
-              isGathering ||
-              remainingNode <= 0 ||
-              (charStore.character?.energy || 0) < 1
-            "
+            :disabled="!canGather"
           >
             <span class="btn-main">KHAI THÁC</span>
             <span class="btn-sub">Tốn 1 <i class="fas fa-bolt"></i></span>
@@ -94,11 +89,7 @@
           <button
             class="btn-seal action-btn"
             @click="handleGatherAll"
-            :disabled="
-              isGathering ||
-              remainingNode <= 0 ||
-              (charStore.character?.energy || 0) < 1
-            "
+            :disabled="!canGather"
           >
             <span class="btn-main">TỰ ĐỘNG</span>
             <span class="btn-sub">Gom nhanh (Max 10)</span>
@@ -126,7 +117,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "vue-router";
 import axiosClient from "@/api/axiosClient";
 
-// Import hình ảnh
+// Import hình ảnh (Đảm bảo file tồn tại)
 import copperNodeImg from "@/assets/resources/r_copper_node.png";
 import woodNodeImg from "@/assets/resources/r_go.png";
 import stoneNodeImg from "@/assets/resources/stone_1.png";
@@ -143,8 +134,25 @@ const isGathering = ref(false);
 const feedbackMsg = ref("");
 const floatingLoots = ref([]);
 
-// Mapping level
+// Computed an toàn hơn để dùng trong template
 const playerLevel = computed(() => charStore.character?.level || 1);
+const currentEnergy = computed(() => charStore.character?.energy || 0);
+
+const progressPercent = computed(() => {
+  if (maxNode.value === 0) return 0;
+  const p = Math.round((1 - remainingNode.value / maxNode.value) * 100);
+  return p > 100 ? 100 : p;
+});
+
+const canGather = computed(() => {
+  return (
+    !isGathering.value && remainingNode.value > 0 && currentEnergy.value >= 1
+  );
+});
+
+const goBack = () => {
+  router.push("/explore");
+};
 
 const EVENT_TYPES = [
   {
@@ -216,9 +224,7 @@ const handleGather = async (times) => {
     return;
   }
 
-  // Check năng lượng
-  const currentEnergy = charStore.character.energy || 0;
-  if (currentEnergy < times) {
+  if (currentEnergy.value < times) {
     feedbackMsg.value = "⚠️ Không đủ nội năng!";
     return;
   }
@@ -227,7 +233,6 @@ const handleGather = async (times) => {
   feedbackMsg.value =
     times > 1 ? "Đang vận công khai thác..." : "Đang khai thác...";
 
-  // Tính lượng đào thực tế
   const actualGathered = Math.min(times, remainingNode.value);
 
   try {
@@ -236,17 +241,15 @@ const handleGather = async (times) => {
       amount: actualGathered,
     });
 
-    // Cập nhật UI
     remainingNode.value -= actualGathered;
 
-    // [FIX] Cập nhật ngay lập tức vào Store để UI phản hồi
+    // Cập nhật state
     if (charStore.character) {
       charStore.character.energy = res.data.currentEnergy;
     }
-
-    // [FIX] Gọi fetchCharacter để đồng bộ hóa toàn bộ dữ liệu (Wallet, Inventory)
-    await charStore.fetchCharacter();
-    if (authStore.wallet) await authStore.fetchProfile();
+    
+    // Đồng bộ lại dữ liệu
+    await Promise.all([charStore.fetchCharacter(), authStore.fetchProfile()]);
 
     if (actualGathered > 0) {
       showFloatingText(`+${actualGathered} ${currentEvent.value.lootName}`);
@@ -268,11 +271,7 @@ const handleGather = async (times) => {
 };
 
 const handleGatherAll = () => {
-  // Lấy năng lượng hiện tại
-  const currentEnergy = charStore.character?.energy || 0;
-  // Tính toán tối đa có thể đào (Max 10, max node, max energy)
-  const times = Math.min(10, remainingNode.value, currentEnergy);
-
+  const times = Math.min(10, remainingNode.value, currentEnergy.value);
   if (times > 0) {
     handleGather(times);
   } else {
@@ -300,8 +299,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
-@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
+/* Không sử dụng @import trong style scoped để tránh lỗi build */
 
 :root {
   --wood-dark: #3e2723;

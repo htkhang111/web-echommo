@@ -10,19 +10,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Noto+Serif+TC:wght@400;700;900&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
       /* --- CLASSIC THEME LOADING STYLES --- */
       :root {
-        /* Palette Nâu Cổ Điển */
-        --bg-classic: #1a120b;      /* Nâu đen thẫm (Deep Coffee) */
-        --gold-primary: #d4af37;    /* Vàng kim (Metallic Gold) */
-        --gold-dim: #8a6d3b;        /* Vàng đồng tối */
-        --parchment: #eaddcf;       /* Màu giấy cũ */
-        --wood: #3e2723;            /* Màu gỗ */
+        --bg-classic: #1a120b;      
+        --gold-primary: #d4af37;    
+        --gold-dim: #8a6d3b;        
+        --parchment: #eaddcf;       
+        --wood: #3e2723;            
         
         --font-title: "Cinzel", serif;
         --font-body: "Crimson Text", serif;
@@ -42,7 +41,6 @@
         left: 0;
         width: 100vw;
         height: 100vh;
-        /* Nền tối với hiệu ứng Vignette (tối 4 góc) */
         background: radial-gradient(circle at center, #2c1e16 0%, #0f0a06 100%);
         display: flex;
         flex-direction: column;
@@ -51,7 +49,6 @@
         z-index: 99999;
       }
 
-      /* Container họa tiết cổ */
       .loader-visual {
         position: relative;
         width: 100px;
@@ -59,7 +56,6 @@
         margin-bottom: 30px;
       }
 
-      /* Viền hoa văn xoay */
       .rune-ring {
         position: absolute;
         top: 0;
@@ -71,7 +67,6 @@
         animation: rotate-slow 10s linear infinite;
       }
 
-      /* Vòng tròn chính - Giả lập đồng hồ cát/la bàn */
       .inner-circle {
         position: absolute;
         top: 10%;
@@ -80,11 +75,10 @@
         height: 80%;
         border: 3px solid var(--gold-primary);
         border-radius: 50%;
-        box-shadow: 0 0 15px rgba(212, 175, 55, 0.3); /* Glow vàng nhẹ */
+        box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
         animation: pulse-glow 2s ease-in-out infinite alternate;
       }
 
-      /* Kim quay/Họa tiết bên trong */
       .inner-circle::after {
         content: '';
         position: absolute;
@@ -97,7 +91,6 @@
         animation: clock-tick 4s infinite linear;
       }
 
-      /* Tên Game - Font Cinzel sang trọng */
       .loader-title {
         font-size: 36px;
         font-weight: 700;
@@ -110,7 +103,6 @@
         margin-bottom: 15px;
       }
 
-      /* Trạng thái load - Nhỏ, tinh tế */
       .loader-status {
         font-family: var(--font-body);
         font-size: 16px;
@@ -125,7 +117,6 @@
         animation: fade-dots 2s infinite;
       }
 
-      /* --- Animations --- */
       @keyframes rotate-slow {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
