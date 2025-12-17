@@ -187,6 +187,7 @@ export const useCharacterStore = defineStore("character", {
       // Hành tẩu không tốn năng lượng (theo yêu cầu của bro)
       
       try {
+        // [NOTE] Backend đã được sửa để nhận JSON body, nên call này sẽ hoạt động OK
         const res = await axiosClient.post("/exploration/explore", payload);
         const data = res.data;
 

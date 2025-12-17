@@ -16,10 +16,18 @@ public class ExplorationController {
     @Autowired
     private ExplorationService explorationService;
 
-    // API Khám phá - Thêm bọc try-catch để bắt lỗi 500
+    // [FIXED] Sửa @RequestParam thành @RequestBody để nhận JSON Payload từ Frontend
     @PostMapping("/explore")
-    public ResponseEntity<?> explore(@RequestParam String mapId) {
+    public ResponseEntity<?> explore(@RequestBody Map<String, String> req) {
         try {
+            // Lấy mapId từ JSON body thay vì URL parameter
+            String mapId = req.get("mapId");
+
+            // Validate mapId
+            if (mapId == null || mapId.isEmpty()) {
+                throw new IllegalArgumentException("Thiếu thông tin bản đồ (mapId)!");
+            }
+
             return ResponseEntity.ok(explorationService.explore(mapId));
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
