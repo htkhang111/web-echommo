@@ -1,28 +1,97 @@
-import { createApp } from "vue";
-import { createPinia } from "pinia";
-import App from "./App.vue";
-import router from "./router";
-import i18n from "./i18n"; // Import i18n đa ngôn ngữ
-import "./assets/main.css"; // Import giao diện Cyberpunk Global
+import { createApp } from 'vue';
+import { createPinia } from 'pinia';
+import App from './App.vue';
+import router from './router';
+import './style.css';
+import './assets/main.css';
 
+// --- KHỞI TẠO APP ---
 const app = createApp(App);
+const pinia = createPinia();
 
-app.use(createPinia());
+app.use(pinia);
 app.use(router);
-app.use(i18n);
 
-// --- CYBERPUNK BOOT LOG ---
-// Cái này để khi F12 lên nhìn cho chất chơi
-console.log(
-  "%c ECHO-MMO %c GIANG HỒ DẬY SÓNG ",
-  "background: #3e2723; color: #fbc02d; font-size: 24px; font-weight: 900; padding: 10px 15px; border-left: 5px solid #fbc02d; border-radius: 4px 0 0 4px; font-family: 'Times New Roman', serif;",
-  "background: #b71c1c; color: #fff; font-size: 24px; font-weight: 700; padding: 10px 15px; border-radius: 0 4px 4px 0; font-family: 'Times New Roman', serif; text-shadow: 2px 2px 0px #000;",
-  "F12 làm gì? -.-"
-);
+app.mount('#app');
 
-console.log(
-  "%c ➤ Phiên bản: 1.0.0 %c ➤ Trạng thái: Sẵn sàng hành tẩu ",
-  "color: #795548; font-weight: bold; margin-top: 5px;",
-  "color: #2e7d32; font-weight: bold;"
-);
-app.mount("#app");
+// --- [CONSOLE ART] GIAO DIỆN LOG XỊN XÒ ---
+const printSignature = () => {
+  // 1. ASCII ART LOGO
+  const logo = `
+  ███████╗ ██████╗██╗  ██╗ ██████╗     ███╗   ███╗███╗   ███╗ ██████╗ 
+  ██╔════╝██╔════╝██║  ██║██╔═══██╗    ████╗ ████║████╗ ████║██╔═══██╗
+  █████╗  ██║     ███████║██║   ██║    ██╔████╔██║██╔████╔██║██║   ██║
+  ██╔══╝  ██║     ██╔══██║██║   ██║    ██║╚██╔╝██║██║╚██╔╝██║██║   ██║
+  ███████╗╚██████╗██║  ██║╚██████╔╝    ██║ ╚═╝ ██║██║ ╚═╝ ██║╚██████╔╝
+  ╚══════╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝     ╚═╝     ╚═╝╚═╝     ╚═╝ ╚═════╝ 
+  `;
+
+  // 2. STYLES ĐỊNH DẠNG
+  const styles = {
+    title: `
+      font-family: 'Cinzel', serif;
+      font-size: 50px;
+      font-weight: 900;
+      color: #fbc02d;
+      text-shadow: 3px 3px 0 #3e2723, 5px 5px 0 #b71c1c;
+      line-height: 1.2;
+    `,
+    badge: `
+      background: linear-gradient(135deg, #3e2723 0%, #5d4037 100%);
+      border: 1px solid #fbc02d;
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-family: 'Noto Serif TC', serif;
+      font-weight: bold;
+    `,
+    text: `
+      color: #795548;
+      font-family: 'Noto Serif TC', serif;
+      font-size: 12px;
+      font-style: italic;
+    `,
+    warningHeader: `
+      color: #d32f2f;
+      font-size: 30px;
+      font-weight: bold;
+      background: #000;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: sans-serif;
+    `,
+    warningText: `
+      font-size: 14px; 
+      color: #fff; 
+      background: #333; 
+      padding: 5px; 
+      border-radius: 4px;
+    `
+  };
+
+  // 3. IN RA CONSOLE
+  console.log(`%c${logo}`, "color: #5d4037; font-weight: bold;");
+  
+  console.log(
+    `%c ECHO-MMO %c GIANG HỒ DẬY SÓNG `,
+    `background: #3e2723; color: #fbc02d; font-size: 20px; font-weight: 900; padding: 8px 12px; border-left: 4px solid #fbc02d; border-radius: 4px 0 0 4px; font-family: 'Cinzel', serif;`,
+    `background: #b71c1c; color: #fff; font-size: 20px; font-weight: 700; padding: 8px 12px; border-radius: 0 4px 4px 0; font-family: 'Noto Serif TC', serif; box-shadow: 4px 4px 10px rgba(0,0,0,0.5);`
+  );
+
+  console.groupCollapsed("%c📜 NHẬT KÝ HỆ THỐNG (Click để xem)", "color: #8d6e63; font-weight: bold;");
+    console.log(`%c ➤ Phiên bản: 1.0.0 (Alpha) `, styles.badge);
+    console.log(`%c ➤ Engine: Vue 3 + Pinia + Vite `, styles.badge);
+    console.log(`%c ➤ Trạng thái: Linh khí sung mãn, sẵn sàng hành tẩu! `, "color: #2e7d32; font-weight: bold; margin-top: 5px;");
+    console.log(`%c ➤ Dev: LuNu & Trung Tình `, "color: #1976d2; font-weight: bold;");
+  console.groupEnd();
+
+  // 4. CẢNH BÁO SELF-XSS (Style Hacker)
+  console.log(`%c⛔ CẤM ĐỊA GIANG HỒ! ⛔`, styles.warningHeader);
+  console.log(
+    `%cĐại hiệp dừng bước! Nếu có kẻ gian dụ dỗ đại hiệp dán code (Self-XSS) vào đây để nhận "Thần Binh" hay "KNB", đó là lừa đảo! Tài khoản của ngài sẽ bị đánh cắp trong nháy mắt.`,
+    styles.warningText
+  );
+};
+
+// Gọi hàm in
+printSignature();
