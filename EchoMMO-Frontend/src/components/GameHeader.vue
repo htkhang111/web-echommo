@@ -404,18 +404,20 @@ onMounted(() => {
     <div class="spacer"></div>
 
     <div class="hud-container" v-if="authStore.token">
+      
       <div class="resource-bank">
+        
         <div class="res-module gold" title="Ngân Lượng">
           <div class="res-icon"><i class="fas fa-coins"></i></div>
           <div class="res-val">
-            {{ formatNumber(authStore.wallet?.gold || 0) }}
+            {{ formatNumber(currentGold) }}
           </div>
         </div>
 
         <div class="res-module jade mobile-hide" title="Linh Thạch">
           <div class="res-icon"><i class="fas fa-gem"></i></div>
           <div class="res-val">
-            {{ formatNumber(authStore.wallet?.diamonds || 0) }}
+            {{ formatNumber(currentDiamonds) }}
           </div>
         </div>
 
@@ -488,32 +490,48 @@ const notiStore = useNotificationStore();
 
 const friendRequestCount = ref(0);
 
+// Lấy Avatar an toàn
 const userSkinAvatar = computed(
-  () => getCurrentSkin(authStore.user?.avatarUrl).sprites.idle,
+  () => getCurrentSkin(authStore.user?.avatarUrl).sprites.idle
 );
 
-// [REMOVED] Xóa computed xpPercent và energyPercent bị sai ở đây
-// Chúng ta sẽ dùng trực tiếp charStore.xpPercent và charStore.energyPercent trong template
+// [FIX] Lấy Vàng từ User -> Wallet
+// Backend thường trả về Wallet lồng trong User object
+const currentGold = computed(() => {
+  return authStore.user?.wallet?.gold || 0;
+});
 
-const formatNumber = (num) => {
-  if (!num) return "0";
-  if (num >= 1000000)
-    return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
-  if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
-  return num.toString();
+// [FIX] Lấy Ngọc từ User -> Wallet
+const currentDiamonds = computed(() => {
+  return authStore.user?.wallet?.diamonds || 0;
+});
+
+// Hàm format số chuẩn game (1.5K, 2M, 5B)
+const formatNumber = (val) => {
+  // Ép kiểu về Number để tránh lỗi nếu backend trả về String
+  const num = Number(val);
+  
+  if (!num || isNaN(num)) return "0";
+
+  if (num >= 1000000000) 
+    return (num / 1000000000).toFixed(1).replace(/\.0$/, "") + "B"; // Tỷ
+  if (num >= 1000000) 
+    return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";   // Triệu
+  if (num >= 1000) 
+    return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";      // Nghìn
+    
+  // Nếu nhỏ hơn 1000, làm tròn xuống để bỏ số lẻ thập phân
+  return Math.floor(num).toString();
 };
 
 onMounted(() => {
   if (authStore.token) {
-    // GameHeader chỉ fetch notification, việc fetch Character chuyển về App.vue
-    // để đảm bảo data load sớm nhất có thể.
     notiStore.fetchUnreadCount();
   }
 });
 </script>
 
 <style scoped>
-/* Giữ nguyên style cũ của bạn */
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Cinzel:wght@700&display=swap");
 
 :root {
@@ -562,6 +580,7 @@ onMounted(() => {
   gap: 15px;
 }
 
+/* --- RESOURCE BANK --- */
 .resource-bank {
   display: flex;
   gap: 12px;
@@ -586,6 +605,7 @@ onMounted(() => {
 .res-val {
   font-weight: bold;
   font-size: 0.95em;
+  color: #fff;
 }
 
 .res-val.small {
@@ -597,8 +617,10 @@ onMounted(() => {
 
 .resource-bank .gold .res-icon { color: #ffeb3b; }
 .resource-bank .gold .res-val { color: #ffd700; text-shadow: 0 0 2px #b71c1c; }
+
 .resource-bank .jade .res-icon { color: #00e676; }
 .resource-bank .jade .res-val { color: #69f0ae; }
+
 .resource-bank .energy .res-icon { color: #2979ff; }
 
 .energy-track {
@@ -618,6 +640,7 @@ onMounted(() => {
   box-shadow: 0 0 5px #2979ff;
 }
 
+/* --- ICONS --- */
 .hud-icon-node {
   position: relative;
   width: 36px;
@@ -667,6 +690,7 @@ onMounted(() => {
   box-shadow: 0 2px 2px rgba(0, 0, 0, 0.3);
 }
 
+/* --- PROFILE LINK --- */
 .profile-link {
   display: flex;
   align-items: center;

@@ -1,8 +1,7 @@
 package com.echommo.entity;
 
 import com.echommo.enums.Role;
-import com.fasterxml.jackson.annotation.JsonIgnore; // [QUAN TRỌNG] Import cái này
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -26,11 +25,11 @@ public class User {
     private String username;
 
     @Column(name = "password_hash", nullable = false)
-    @JsonIgnore // [FIX] Ẩn mật khẩu khi trả về API
+    @JsonIgnore // GIỮ LẠI: Ẩn mật khẩu là đúng
     private String passwordHash;
 
     @Column(name = "password", nullable = false)
-    @JsonIgnore // [FIX] Ẩn mật khẩu plain-text
+    @JsonIgnore // GIỮ LẠI: Ẩn mật khẩu là đúng
     private String password;
 
     @Column(nullable = false, unique = true)
@@ -42,22 +41,25 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role = Role.USER;
 
-    // --- CÁC QUAN HỆ GÂY LỖI VÒNG LẶP (INFINITE RECURSION) ---
+    // --- CÁC QUAN HỆ ---
 
     // 1. Quan hệ với Wallet
+    // [QUAN TRỌNG] ĐÃ XÓA @JsonIgnore Ở ĐÂY
+    // Nếu để @JsonIgnore, Frontend sẽ không bao giờ nhận được số dư Vàng/Ngọc
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonIgnore // [FIX] Ngắt vòng lặp: User -> Wallet -> User
     private Wallet wallet;
 
     // 2. Quan hệ với Character
+    // Thường thì API /user/me không cần trả về Character (đã có API riêng),
+    // nhưng nếu bạn muốn hiển thị tên nhân vật ngay trên Header thì có thể BỎ @JsonIgnore ở đây luôn.
+    // Tạm thời mình để lại @JsonIgnore để tránh dữ liệu quá lớn.
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonIgnore // [FIX] Ngắt vòng lặp: User -> Character -> User
+    @JsonIgnore
     private Character character;
 
-    // 3. [BỔ SUNG] Quan hệ với MarketListing (Danh sách đang bán)
-    // Cần thêm cái này để Hibernate hiểu quan hệ, nhưng phải Ignore JSON
+    // 3. Quan hệ với MarketListing
     @OneToMany(mappedBy = "seller", fetch = FetchType.LAZY)
-    @JsonIgnore // [FIX] Ngắt vòng lặp: Listing -> User -> Listings
+    @JsonIgnore // Giữ lại để tránh load danh sách bán hàng dài dòng không cần thiết
     private List<MarketListing> marketListings;
 
     // ---------------------------------------------------------
