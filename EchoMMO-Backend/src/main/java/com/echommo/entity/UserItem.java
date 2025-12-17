@@ -1,7 +1,7 @@
 package com.echommo.entity;
 
 import com.echommo.enums.Rarity;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore; // [FIX] Import mới
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -18,12 +18,11 @@ public class UserItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long userItemId;
 
-    // [QUAN TRỌNG] Dùng JsonIgnoreProperties thay vì JsonIgnore
-    // Để Frontend vẫn biết item này của char_id nào (để so sánh chủ sở hữu)
-    // nhưng KHÔNG load tiếp inventory gây vòng lặp.
+    // [FIX] Dùng @JsonIgnore để ngắt hoàn toàn việc tải ngược lại Character
+    // Tránh lỗi LazyInitializationException và vòng lặp vô tận
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "char_id", nullable = false)
-    @JsonIgnoreProperties({"inventory", "user", "battleSessions", "hibernateLazyInitializer", "handler"})
+    @JsonIgnore
     private Character character;
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -53,7 +52,6 @@ public class UserItem {
     @Column(name = "main_stat_value")
     private BigDecimal mainStatValue;
 
-    // [FIX] Đổi "json" thành "TEXT" để an toàn với mọi Database
     @Column(name = "sub_stats", columnDefinition = "TEXT")
     private String subStats;
 
@@ -68,7 +66,7 @@ public class UserItem {
     @Column(name = "original_main_stat_value")
     private BigDecimal originalMainStatValue;
 
-    // --- GETTER/SETTER THỦ CÔNG (GIỮ NGUYÊN ĐỂ TRÁNH LỖI) ---
+    // --- GETTER/SETTER THỦ CÔNG (Để tương thích code cũ) ---
     public Long getUserItemId() { return userItemId; }
 
     public Character getCharacter() { return character; }
@@ -100,7 +98,6 @@ public class UserItem {
 
     public void setAcquiredAt(LocalDateTime acquiredAt) { this.acquiredAt = acquiredAt; }
 
-    // Tương thích Mythic
     public boolean isMythic() { return isMythic; }
     public void setMythic(boolean mythic) { isMythic = mythic; }
     public Integer getMythicLevel() { return mythicLevel; }
@@ -108,7 +105,7 @@ public class UserItem {
     public BigDecimal getOriginalMainStatValue() { return originalMainStatValue; }
     public void setOriginalMainStatValue(BigDecimal val) { this.originalMainStatValue = val; }
 
-    // [QUAN TRỌNG] Alias cho code cũ
+    // Alias
     public Integer getEnhanceLevel() { return enhancementLevel; }
     public void setEnhanceLevel(Integer level) { this.enhancementLevel = level; }
 

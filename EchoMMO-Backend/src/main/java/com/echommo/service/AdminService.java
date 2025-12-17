@@ -27,7 +27,7 @@ public class AdminService {
         m.put("totalUsers", userRepo.count());
         m.put("totalItems", itemRepo.count());
         BigDecimal totalGold = walletRepo.findAll().stream()
-                .map(Wallet::getGold)
+                .map(Wallet::getGold) // [LƯU Ý] Đảm bảo Wallet.java dùng field là 'gold'
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         m.put("totalGold", totalGold);
@@ -45,17 +45,14 @@ public class AdminService {
 
     public void deleteItem(Integer id) { itemRepo.deleteById(id); }
 
-    /**
-     * Sửa lỗi logic xóa User:
-     * Chuyển đổi ID từ Integer sang Long để tìm kiếm Character và xóa các thực thể liên quan.
-     */
     @Transactional
     public void deleteUser(Integer id) {
         // 1. Tìm user
         User u = userRepo.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 2. Tìm Character của User (Sửa lỗi ép kiểu: id.longValue())
-        Character character = charRepo.findByUser_UserId(id.longValue()).orElse(null);
+        // 2. Tìm Character của User
+        // [FIX LỖI] Xóa .longValue() đi vì Repository nhận Integer
+        Character character = charRepo.findByUser_UserId(id).orElse(null);
 
         if (character != null) {
             // Lấy tất cả đồ của nhân vật đó để xóa
@@ -98,23 +95,21 @@ public class AdminService {
     @Transactional
     public String grantGold(String uName, BigDecimal amt) {
         User u = userRepo.findByUsername(uName).orElseThrow();
+        // [LƯU Ý] Đảm bảo Wallet dùng field 'gold' (BigDecimal) thay vì 'balance'
         u.getWallet().setGold(u.getWallet().getGold().add(amt));
         walletRepo.save(u.getWallet());
         return "Done";
     }
 
-    /**
-     * Tặng vật phẩm cho Character thay vì User.
-     * Sửa lỗi ép kiểu và đảm bảo các trường của UserItem được khởi tạo đúng.
-     */
     @Transactional
     public String grantItem(String uName, Integer iId, Integer qty) {
         // 1. Tìm User
         User u = userRepo.findByUsername(uName)
                 .orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
-        // 2. Tìm Character (Sửa lỗi ép kiểu u.getUserId().longValue())
-        Character c = charRepo.findByUser_UserId(u.getUserId().longValue())
+        // 2. Tìm Character
+        // [FIX LỖI] Xóa .longValue(), truyền thẳng Integer vào
+        Character c = charRepo.findByUser_UserId(u.getUserId())
                 .orElseThrow(() -> new RuntimeException("User này chưa tạo nhân vật!"));
 
         // 3. Tìm Item gốc
@@ -125,7 +120,6 @@ public class AdminService {
         UserItem ui = uiRepo.findByCharacter_CharIdAndItem_ItemId(c.getCharId(), iId).orElse(null);
 
         if (ui != null) {
-            // Cộng dồn số lượng (Sửa lỗi cannot find symbol: getQuantity)
             ui.setQuantity(ui.getQuantity() + qty);
         } else {
             // Tạo mới UserItem cho Character
@@ -137,7 +131,6 @@ public class AdminService {
             ui.setEnhancementLevel(0);
             ui.setAcquiredAt(LocalDateTime.now());
 
-            // Thiết lập các thông số mặc định để tránh lỗi Null
             ui.setRarity(Rarity.COMMON);
             ui.setSubStats("[]");
             ui.setMainStatValue(BigDecimal.ZERO);

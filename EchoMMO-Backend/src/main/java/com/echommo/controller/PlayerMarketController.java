@@ -18,33 +18,62 @@ public class PlayerMarketController {
     private MarketplaceService service;
 
     @GetMapping("/active")
-    public ResponseEntity<List<MarketListing>> getActiveListings() {
-        return ResponseEntity.ok(service.getPlayerListings());
+    public ResponseEntity<?> getActiveListings() {
+        try {
+            return ResponseEntity.ok(service.getPlayerListings());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("Lỗi tải chợ: " + e.getMessage());
+        }
     }
 
     @GetMapping("/my")
-    public ResponseEntity<List<MarketListing>> getMyListings() {
-        // Gọi phương thức getMyListings() đã fix trong MarketplaceService
-        return ResponseEntity.ok(service.getMyListings());
+    public ResponseEntity<?> getMyListings() {
+        try {
+            return ResponseEntity.ok(service.getMyListings());
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Lỗi tải hàng của bạn");
+        }
     }
 
     @PostMapping("/list")
-    public ResponseEntity<String> createListing(@RequestBody CreateListingRequest req) {
-        // Gọi phương thức createListing(CreateListingRequest)
-        return ResponseEntity.ok(service.createListing(req));
+    public ResponseEntity<?> createListing(@RequestBody CreateListingRequest req) {
+        try {
+            return ResponseEntity.ok(service.createListing(req));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("Lỗi đăng bán");
+        }
     }
 
     @PostMapping("/buy")
-    public ResponseEntity<String> buy(@RequestBody Map<String, Object> req) {
-        Integer listingId = Integer.parseInt(req.get("listingId").toString());
-        Integer qty = Integer.parseInt(req.get("quantity").toString());
-        // Gọi buyPlayerListing(Integer, Integer)
-        return ResponseEntity.ok(service.buyPlayerListing(listingId, qty));
+    public ResponseEntity<?> buy(@RequestBody Map<String, Object> req) {
+        try {
+            Integer listingId = Integer.parseInt(req.get("listingId").toString());
+            Integer qty = Integer.parseInt(req.get("quantity").toString());
+
+            String result = service.buyPlayerListing(listingId, qty);
+            return ResponseEntity.ok(result);
+
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body("Dữ liệu đầu vào không hợp lệ");
+        } catch (RuntimeException e) {
+            // Bắt lỗi nghiệp vụ (không đủ tiền, hết hàng...)
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body("Lỗi giao dịch: " + e.getMessage());
+        }
     }
 
     @PostMapping("/cancel/{id}")
-    public ResponseEntity<String> cancel(@PathVariable Integer id) {
-        // Gọi cancelListing(Integer)
-        return ResponseEntity.ok(service.cancelListing(id));
+    public ResponseEntity<?> cancel(@PathVariable Integer id) {
+        try {
+            return ResponseEntity.ok(service.cancelListing(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

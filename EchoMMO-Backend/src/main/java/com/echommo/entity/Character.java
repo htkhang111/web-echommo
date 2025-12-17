@@ -78,6 +78,9 @@ public class Character {
     @Builder.Default
     private String currentLocation = "Làng Tân Thủ";
 
+    @Builder.Default
+    @Column(name = "monster_kills")
+    private Integer monsterKills = 0;
     // --- SPA SYSTEM ---
     @Column(name = "spa_start_time")
     private LocalDateTime spaStartTime;
