@@ -1,7 +1,7 @@
 package com.echommo.entity;
 
 import com.echommo.enums.Rarity;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -18,9 +18,12 @@ public class UserItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long userItemId;
 
+    // [QUAN TRỌNG] Dùng JsonIgnoreProperties thay vì JsonIgnore
+    // Để Frontend vẫn biết item này của char_id nào (để so sánh chủ sở hữu)
+    // nhưng KHÔNG load tiếp inventory gây vòng lặp.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "char_id", nullable = false)
-    @JsonIgnore
+    @JsonIgnoreProperties({"inventory", "user", "battleSessions", "hibernateLazyInitializer", "handler"})
     private Character character;
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -50,7 +53,8 @@ public class UserItem {
     @Column(name = "main_stat_value")
     private BigDecimal mainStatValue;
 
-    @Column(name = "sub_stats", columnDefinition = "json")
+    // [FIX] Đổi "json" thành "TEXT" để an toàn với mọi Database
+    @Column(name = "sub_stats", columnDefinition = "TEXT")
     private String subStats;
 
     @Builder.Default
@@ -64,26 +68,36 @@ public class UserItem {
     @Column(name = "original_main_stat_value")
     private BigDecimal originalMainStatValue;
 
-    // --- GETTER/SETTER THỦ CÔNG ĐỂ FIX "CANNOT FIND SYMBOL" ---
+    // --- GETTER/SETTER THỦ CÔNG (GIỮ NGUYÊN ĐỂ TRÁNH LỖI) ---
     public Long getUserItemId() { return userItemId; }
+
     public Character getCharacter() { return character; }
     public void setCharacter(Character character) { this.character = character; }
+
     public Item getItem() { return item; }
     public void setItem(Item item) { this.item = item; }
+
     public Boolean getIsEquipped() { return isEquipped; }
     public void setIsEquipped(Boolean equipped) { isEquipped = equipped; }
+
     public Integer getQuantity() { return quantity; }
     public void setQuantity(Integer quantity) { this.quantity = quantity; }
+
     public Integer getEnhancementLevel() { return enhancementLevel; }
     public void setEnhancementLevel(Integer enhancementLevel) { this.enhancementLevel = enhancementLevel; }
+
     public String getMainStatType() { return mainStatType; }
     public void setMainStatType(String mainStatType) { this.mainStatType = mainStatType; }
+
     public BigDecimal getMainStatValue() { return mainStatValue; }
     public void setMainStatValue(BigDecimal mainStatValue) { this.mainStatValue = mainStatValue; }
+
     public String getSubStats() { return subStats; }
     public void setSubStats(String subStats) { this.subStats = subStats; }
+
     public Rarity getRarity() { return rarity; }
     public void setRarity(Rarity rarity) { this.rarity = rarity; }
+
     public void setAcquiredAt(LocalDateTime acquiredAt) { this.acquiredAt = acquiredAt; }
 
     // Tương thích Mythic
@@ -94,7 +108,7 @@ public class UserItem {
     public BigDecimal getOriginalMainStatValue() { return originalMainStatValue; }
     public void setOriginalMainStatValue(BigDecimal val) { this.originalMainStatValue = val; }
 
-    // Tương thích code cũ
+    // [QUAN TRỌNG] Alias cho code cũ
     public Integer getEnhanceLevel() { return enhancementLevel; }
     public void setEnhanceLevel(Integer level) { this.enhancementLevel = level; }
 

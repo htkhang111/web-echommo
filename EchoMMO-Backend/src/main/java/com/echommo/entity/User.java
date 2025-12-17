@@ -1,6 +1,7 @@
 package com.echommo.entity;
 
 import com.echommo.enums.Role;
+import com.fasterxml.jackson.annotation.JsonIgnore; // [QUAN TRỌNG] Import cái này
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -8,6 +9,7 @@ import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Data
@@ -24,13 +26,11 @@ public class User {
     private String username;
 
     @Column(name = "password_hash", nullable = false)
-    @JsonIgnoreProperties
+    @JsonIgnore // [FIX] Ẩn mật khẩu khi trả về API
     private String passwordHash;
 
-    // [FIX] Cột này trong DB là NOT NULL, cần map chính xác.
-    // Lưu ý: Việc lưu password plain-text là không bảo mật,
-    // nhưng để khớp với DB cũ/yêu cầu của bạn thì phải thêm vào.
     @Column(name = "password", nullable = false)
+    @JsonIgnore // [FIX] Ẩn mật khẩu plain-text
     private String password;
 
     @Column(nullable = false, unique = true)
@@ -42,13 +42,25 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role = Role.USER;
 
-    // Quan hệ với Wallet
+    // --- CÁC QUAN HỆ GÂY LỖI VÒNG LẶP (INFINITE RECURSION) ---
+
+    // 1. Quan hệ với Wallet
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore // [FIX] Ngắt vòng lặp: User -> Wallet -> User
     private Wallet wallet;
 
-    // Quan hệ với Character
+    // 2. Quan hệ với Character
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore // [FIX] Ngắt vòng lặp: User -> Character -> User
     private Character character;
+
+    // 3. [BỔ SUNG] Quan hệ với MarketListing (Danh sách đang bán)
+    // Cần thêm cái này để Hibernate hiểu quan hệ, nhưng phải Ignore JSON
+    @OneToMany(mappedBy = "seller", fetch = FetchType.LAZY)
+    @JsonIgnore // [FIX] Ngắt vòng lặp: Listing -> User -> Listings
+    private List<MarketListing> marketListings;
+
+    // ---------------------------------------------------------
 
     private Boolean isActive = true;
     private String banReason;

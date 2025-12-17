@@ -9,23 +9,29 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/explore")
+// [SỬA QUAN TRỌNG] Đổi thành /exploration để khớp với Frontend
+@RequestMapping("/api/exploration")
+@CrossOrigin(origins = "http://localhost:5173") // Cho phép Frontend gọi
 public class ExplorationController {
 
     @Autowired
     private ExplorationService explorationService;
 
-    @PostMapping("/{mapId}")
-    public ResponseEntity<ExplorationResponse> explore(@PathVariable String mapId) {
+    // API Khám phá (Đánh quái/Nhặt đồ)
+    // URL: /api/exploration/explore?mapId=MAP_01
+    @PostMapping("/explore")
+    public ResponseEntity<ExplorationResponse> explore(@RequestParam String mapId) {
         return ResponseEntity.ok(explorationService.explore(mapId));
     }
 
+    // API Thu hoạch (Đào khoáng/Chặt cây)
+    // URL: /api/exploration/gather
     @PostMapping("/gather")
     public ResponseEntity<Map<String, Object>> gather(@RequestBody Map<String, Object> req) {
         String type = (String) req.get("type");
-        // Ép kiểu an toàn từ Object sang int
+        // Ép kiểu an toàn tránh lỗi
         int amount = Integer.parseInt(req.get("amount").toString());
-        // Gọi phương thức gatherResource(String, int) đã có trong ExplorationService
+
         return ResponseEntity.ok(explorationService.gatherResource(type, amount));
     }
 }

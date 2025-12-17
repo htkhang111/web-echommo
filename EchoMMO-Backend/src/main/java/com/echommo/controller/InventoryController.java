@@ -7,6 +7,8 @@ import com.echommo.enums.SlotType;
 import com.echommo.repository.CharacterRepository;
 import com.echommo.repository.UserItemRepository;
 import com.echommo.repository.UserRepository;
+import com.echommo.service.EquipmentService;
+import com.echommo.service.InventoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,43 +19,39 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/inventory")
-@CrossOrigin(origins = "http://localhost:3000")
+@RequestMapping("/api/equipment") // Đường dẫn chuẩn: /api/equipment
+@CrossOrigin(origins = "http://localhost:5173")
 public class InventoryController {
 
     @Autowired private UserItemRepository userItemRepo;
     @Autowired private UserRepository userRepo;
     @Autowired private CharacterRepository charRepo;
+    @Autowired private InventoryService inventoryService;
+    @Autowired private EquipmentService equipmentService;
 
-    // --- HELPER: Lấy Character của User đang đăng nhập ---
     private Character getCurrentCharacter() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepo.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("Lỗi: Không tìm thấy User."));
-
-        // Giả sử 1 User chỉ có 1 Character active (hoặc logic chọn char của bạn)
         return charRepo.findByUser_UserId(user.getUserId())
                 .orElseThrow(() -> new RuntimeException("Bạn chưa tạo nhân vật!"));
     }
 
-    // 1. Lấy danh sách đồ
-    @GetMapping
+    // 1. Lấy túi đồ (/api/equipment/inventory)
+    @GetMapping("/inventory")
     public ResponseEntity<List<UserItem>> getInventory() {
         Character character = getCurrentCharacter();
-        // Gọi hàm repository mới (theo CharId)
         return ResponseEntity.ok(userItemRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(character.getCharId()));
     }
 
-    // 2. Mặc đồ
+    // 2. Mặc trang bị
     @PostMapping("/equip/{userItemId}")
     @Transactional
     public ResponseEntity<?> equipItem(@PathVariable Long userItemId) {
         Character character = getCurrentCharacter();
-
         UserItem newItem = userItemRepo.findById(userItemId)
                 .orElseThrow(() -> new RuntimeException("Item không tồn tại"));
 
-        // Check quyền sở hữu (So sánh ID nhân vật)
         if (!newItem.getCharacter().getCharId().equals(character.getCharId())) {
             return ResponseEntity.badRequest().body("Vật phẩm không thuộc về nhân vật này!");
         }
@@ -63,7 +61,6 @@ public class InventoryController {
             return ResponseEntity.badRequest().body("Không thể trang bị vật phẩm này!");
         }
 
-        // Tháo đồ cũ (nếu có)
         Optional<UserItem> currentEquip = userItemRepo.findEquippedItemBySlot(character.getCharId(), slot);
         if (currentEquip.isPresent()) {
             UserItem old = currentEquip.get();
@@ -76,7 +73,7 @@ public class InventoryController {
         return ResponseEntity.ok("Đã trang bị: " + newItem.getItem().getName());
     }
 
-    // 3. Tháo đồ
+    // 3. Tháo trang bị
     @PostMapping("/unequip/{userItemId}")
     @Transactional
     public ResponseEntity<?> unequipItem(@PathVariable Long userItemId) {
@@ -93,7 +90,7 @@ public class InventoryController {
         return ResponseEntity.ok("Đã tháo trang bị.");
     }
 
-    // 4. Sử dụng (Tiêu hao)
+    // 4. Dùng vật phẩm
     @PostMapping("/use/{userItemId}")
     @Transactional
     public ResponseEntity<?> useItem(@PathVariable Long userItemId) {
@@ -109,18 +106,39 @@ public class InventoryController {
             return ResponseEntity.badRequest().body("Không thể sử dụng!");
         }
 
-        // Logic hồi máu
         int heal = 50;
         if (uItem.getItem().getName().toLowerCase().contains("cao cấp")) heal = 200;
 
         character.setCurrentHp(Math.min(character.getMaxHp(), character.getCurrentHp() + heal));
         charRepo.save(character);
 
-        // Trừ số lượng
         uItem.setQuantity(uItem.getQuantity() - 1);
         if (uItem.getQuantity() <= 0) userItemRepo.delete(uItem);
         else userItemRepo.save(uItem);
 
         return ResponseEntity.ok("Đã dùng vật phẩm. HP hiện tại: " + character.getCurrentHp());
+    }
+
+    // 5. Cường hóa
+    @PostMapping("/enhance")
+    public ResponseEntity<?> enhance(@RequestParam Long userItemId) {
+        try {
+            return ResponseEntity.ok(inventoryService.enhanceItem(getCurrentCharacter().getCharId(), userItemId));
+        } catch (Exception e) { return ResponseEntity.badRequest().body(e.getMessage()); }
+    }
+
+    // 6. Mythic
+    @PostMapping("/mythic/evolve")
+    public ResponseEntity<?> evolve(@RequestParam Long userItemId) {
+        try {
+            return ResponseEntity.ok(equipmentService.upgradeToMythic(userItemId));
+        } catch (Exception e) { return ResponseEntity.badRequest().body(e.getMessage()); }
+    }
+
+    @PostMapping("/mythic/upgrade")
+    public ResponseEntity<?> upgradeMythic(@RequestParam Long userItemId) {
+        try {
+            return ResponseEntity.ok(equipmentService.enhanceMythic(userItemId));
+        } catch (Exception e) { return ResponseEntity.badRequest().body(e.getMessage()); }
     }
 }

@@ -80,7 +80,7 @@ public class GameService {
 
         // Check Level Up
         if (character.getCurrentExp() >= character.getLevel() * 100L) {
-            character.setCurrentExp(0);
+            character.setCurrentExp(0L);
             character.setLevel(character.getLevel() + 1);
             character.setMaxHp(character.getMaxHp() + 50);
             character.setCurrentHp(character.getMaxHp());

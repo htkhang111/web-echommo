@@ -10,31 +10,41 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/market/shop")
+// [SỬA 1] Đổi thành /api/shop để khớp với log lỗi của Frontend
+@RequestMapping("/api/shop")
+// [SỬA 2] Thêm CORS để Frontend (localhost:3000) gọi được
+@CrossOrigin(origins = "http://localhost:3000")
 public class ShopController {
 
     @Autowired
     private MarketplaceService service;
 
+    // Endpoint: /api/shop/items
     @GetMapping("/items")
     public ResponseEntity<List<Item>> getShopItems() {
-        // Gọi getShopItems() từ MarketplaceService
         return ResponseEntity.ok(service.getShopItems());
     }
 
+    // Endpoint: /api/shop/buy
     @PostMapping("/buy")
     public ResponseEntity<String> buyFromShop(@RequestBody Map<String, Object> req) {
+        // Parse an toàn hơn đề phòng null
+        if (req.get("itemId") == null || req.get("quantity") == null) {
+            return ResponseEntity.badRequest().body("Thiếu thông tin itemId hoặc quantity");
+        }
         Integer itemId = Integer.parseInt(req.get("itemId").toString());
         Integer qty = Integer.parseInt(req.get("quantity").toString());
         return ResponseEntity.ok(service.buyItem(itemId, qty));
     }
 
+    // Endpoint: /api/shop/sell
     @PostMapping("/sell")
     public ResponseEntity<String> sellToShop(@RequestBody Map<String, Object> req) {
-        // Quan trọng: UserItem ID phải là Long
+        if (req.get("userItemId") == null || req.get("quantity") == null) {
+            return ResponseEntity.badRequest().body("Thiếu thông tin userItemId hoặc quantity");
+        }
         Long userItemId = Long.parseLong(req.get("userItemId").toString());
         Integer qty = Integer.parseInt(req.get("quantity").toString());
-        // Gọi sellItem(Long, Integer)
         return ResponseEntity.ok(service.sellItem(userItemId, qty));
     }
 }

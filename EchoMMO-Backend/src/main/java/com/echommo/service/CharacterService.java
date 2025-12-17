@@ -95,7 +95,7 @@ public class CharacterService {
         c.setBaseCritDmg(150);
         c.setMaxHp(100); c.setCurrentHp(100);
         c.setMaxEnergy(50); c.setCurrentEnergy(50);
-        c.setCurrentExp(0);
+        c.setCurrentExp(0L);
     }
 
     // --- [NEW] Helper: Tặng đồ tân thủ ---
