@@ -1,5 +1,6 @@
 package com.echommo.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -12,9 +13,12 @@ public class BattleSession {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // [FIX] Liên kết với Character để ExplorationService gọi được setCharacter()
-    @OneToOne
-    @JoinColumn(name = "character_id", unique = true, nullable = false)
+    // [FIX QUAN TRỌNG]
+    // 1. Dùng @JsonIgnore để API không trả về toàn bộ thông tin nhân vật trong BattleSession
+    // 2. nullable = false để đảm bảo không bao giờ có session "ma" không chủ
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "char_id", unique = true, nullable = false)
+    @JsonIgnore
     private Character character;
 
     // --- Enemy Info (Snapshot) ---
@@ -37,11 +41,11 @@ public class BattleSession {
     private boolean isQteActive = false;
     private LocalDateTime qteExpiryTime;
 
-    // --- [NEW] Anti-Cheat Fields ---
+    // --- Anti-Cheat Fields ---
     private LocalDateTime lastActionTime = LocalDateTime.now();
     private Integer spamCount = 0;
 
-    // --- Log System (Quan trọng để hiển thị text mở đầu) ---
+    // --- Log System ---
     @Column(columnDefinition = "TEXT")
     private String log;
 

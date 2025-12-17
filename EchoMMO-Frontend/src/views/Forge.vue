@@ -377,7 +377,7 @@ const resultIcon = computed(() => {
 
 const fetchInventory = async () => {
   // Đảm bảo gọi fetchInventory đúng tên
-  await inventoryStore.fetchInventory(); 
+  await inventoryStore.fetchInventory();
   if (selectedItem.value) {
     const found = inventoryStore.items.find(
       (i) => i.userItemId === selectedItem.value.userItemId,
@@ -411,24 +411,24 @@ const handleUpgrade = async () => {
     // ====================================================
     // [FINAL FIX SYNC] Đảm bảo gọi đúng tên hàm và tải lại tất cả store
     // ====================================================
-    
-    // 1. Tải lại Inventory 
-    await inventoryStore.fetchInventory(); 
-    
+
+    // 1. Tải lại Inventory
+    await inventoryStore.fetchInventory();
+
     // 2. Tải lại Stats nhân vật (FIXED: Dùng fetchCharacter() - không tham số)
     // Tên hàm chính xác từ characterStore.js là fetchCharacter()
-    await characterStore.fetchCharacter(); 
+    await characterStore.fetchCharacter();
 
     // 3. Tải lại Wallet (để cập nhật vàng/vật liệu)
-    await authStore.fetchProfile(); 
-    
+    await authStore.fetchProfile();
+
     // 4. Đồng bộ với Marketplace (QUAN TRỌNG cho việc sync item được rao bán)
     // marketStore có hàm refresh() bao gồm cả fetch Inventory và Auth Profile
     await marketStore.refresh();
 
     // 5. Cập nhật selectedItem hiển thị
     const updatedItem = inventoryStore.items.find(
-        (i) => i.userItemId === selectedItem.value.userItemId,
+      (i) => i.userItemId === selectedItem.value.userItemId,
     );
     selectedItem.value = updatedItem || null;
     // ====================================================
@@ -437,7 +437,6 @@ const handleUpgrade = async () => {
       "success",
       `Cường hóa lên +${selectedItem.value.enhanceLevel} thành công!`,
     );
-    
   } catch (err) {
     console.error(err);
     const msg = err.response?.data || "Lỗi hệ thống hoặc thiếu nguyên liệu.";
@@ -466,7 +465,7 @@ const handleEvolve = async () => {
     showResultModal("fail", err.response?.data || "Lỗi tiến hóa.");
   } finally {
     isForging.value = false;
-    await fetchInventory(); 
+    await fetchInventory();
   }
 };
 
@@ -558,7 +557,7 @@ onMounted(async () => {
     await authStore.fetchProfile();
     await fetchInventory();
     // Tải dữ liệu nhân vật lần đầu sau khi login
-    await characterStore.fetchCharacter(); 
+    await characterStore.fetchCharacter();
   }
 });
 </script>

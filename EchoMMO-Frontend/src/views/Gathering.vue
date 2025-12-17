@@ -27,8 +27,9 @@
         </h2>
 
         <div class="req-box">
-          <i class="fas fa-exclamation-triangle"></i> Yêu cầu: <span class="highlight">{{ currentEvent.reqTool }}</span>
-          (Cấp {{ currentEvent.reqLevel }})
+          <i class="fas fa-exclamation-triangle"></i> Yêu cầu:
+          <span class="highlight">{{ currentEvent.reqTool }}</span> (Cấp
+          {{ currentEvent.reqLevel }})
         </div>
       </div>
 
@@ -37,7 +38,10 @@
           <div class="icon-wrap"><i class="fas fa-graduation-cap"></i></div>
           <div class="stat-detail">
             <span class="label">Kỹ năng</span>
-            <span class="val" :class="{ 'text-red': playerLevel < currentEvent.reqLevel }">
+            <span
+              class="val"
+              :class="{ 'text-red': playerLevel < currentEvent.reqLevel }"
+            >
               Cấp {{ playerLevel }} / {{ currentEvent.reqLevel }}
             </span>
           </div>
@@ -47,32 +51,57 @@
           <div class="icon-wrap"><i class="fas fa-cubes"></i></div>
           <div class="stat-detail">
             <span class="label">Trữ lượng</span>
-            <span class="val gold-text">{{ remainingNode }} / {{ maxNode }}</span>
+            <span class="val gold-text"
+              >{{ remainingNode }} / {{ maxNode }}</span
+            >
           </div>
         </div>
       </div>
 
       <div class="progress-container">
         <div class="progress-label">
-          <span>Tiến độ</span> <span>{{ Math.round((1 - remainingNode / maxNode) * 100) }}%</span>
+          <span>Tiến độ</span>
+          <span>{{ Math.round((1 - remainingNode / maxNode) * 100) }}%</span>
         </div>
         <div class="progress-track">
-          <div class="progress-fill" :style="{ width: (1 - remainingNode / maxNode) * 100 + '%' }"></div>
+          <div
+            class="progress-fill"
+            :style="{ width: (1 - remainingNode / maxNode) * 100 + '%' }"
+          ></div>
         </div>
       </div>
 
       <div class="action-zone">
-        <div class="energy-tag"><i class="fas fa-bolt"></i> Nội Năng: {{ charStore.character?.energy || 0 }}</div>
+        <div class="energy-tag">
+          <i class="fas fa-bolt"></i> Nội Năng:
+          {{ charStore.character?.energy || 0 }}
+        </div>
 
         <div class="btn-grid">
-          <button class="btn-wood action-btn" @click="handleGather(1)"
-            :disabled="isGathering || remainingNode <= 0 || (charStore.character?.energy || 0) < 1">
-            <span class="btn-main">KHAI THÁC</span> <span class="btn-sub">Tốn 1 <i class="fas fa-bolt"></i></span>
+          <button
+            class="btn-wood action-btn"
+            @click="handleGather(1)"
+            :disabled="
+              isGathering ||
+              remainingNode <= 0 ||
+              (charStore.character?.energy || 0) < 1
+            "
+          >
+            <span class="btn-main">KHAI THÁC</span>
+            <span class="btn-sub">Tốn 1 <i class="fas fa-bolt"></i></span>
           </button>
 
-          <button class="btn-seal action-btn" @click="handleGatherAll"
-            :disabled="isGathering || remainingNode <= 0 || (charStore.character?.energy || 0) < 1">
-            <span class="btn-main">TỰ ĐỘNG</span> <span class="btn-sub">Gom nhanh (Max 10)</span>
+          <button
+            class="btn-seal action-btn"
+            @click="handleGatherAll"
+            :disabled="
+              isGathering ||
+              remainingNode <= 0 ||
+              (charStore.character?.energy || 0) < 1
+            "
+          >
+            <span class="btn-main">TỰ ĐỘNG</span>
+            <span class="btn-sub">Gom nhanh (Max 10)</span>
           </button>
         </div>
 
@@ -118,24 +147,74 @@ const floatingLoots = ref([]);
 const playerLevel = computed(() => charStore.character?.level || 1);
 
 const EVENT_TYPES = [
-  { id: "mining", name: "Mỏ Đồng Lộ Thiên", image: copperNodeImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cuốc Chim", minYield: 10, maxYield: 20, lootName: "Đá/Khoáng" },
-  { id: "wood", name: "Cây Sồi Cổ Thụ", image: woodNodeImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu Sắt", minYield: 15, maxYield: 25, lootName: "Gỗ" },
-  { id: "stone", name: "Tảng Đá Khổng Lồ", image: stoneNodeImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Búa Tạ", minYield: 10, maxYield: 20, lootName: "Đá" },
-  { id: "special", name: "Gỗ Hóa Thạch", image: mysteryNodeImg, rarityClass: "epic", rarityText: "Cực Phẩm", reqLevel: 5, reqTool: "Găng Tay", minYield: 3, maxYield: 8, lootName: "Gỗ Quý" },
+  {
+    id: "mining",
+    name: "Mỏ Đồng Lộ Thiên",
+    image: copperNodeImg,
+    rarityClass: "common",
+    rarityText: "Phổ Thông",
+    reqLevel: 1,
+    reqTool: "Cuốc Chim",
+    minYield: 10,
+    maxYield: 20,
+    lootName: "Đá/Khoáng",
+  },
+  {
+    id: "wood",
+    name: "Cây Sồi Cổ Thụ",
+    image: woodNodeImg,
+    rarityClass: "common",
+    rarityText: "Phổ Thông",
+    reqLevel: 1,
+    reqTool: "Rìu Sắt",
+    minYield: 15,
+    maxYield: 25,
+    lootName: "Gỗ",
+  },
+  {
+    id: "stone",
+    name: "Tảng Đá Khổng Lồ",
+    image: stoneNodeImg,
+    rarityClass: "common",
+    rarityText: "Phổ Thông",
+    reqLevel: 1,
+    reqTool: "Búa Tạ",
+    minYield: 10,
+    maxYield: 20,
+    lootName: "Đá",
+  },
+  {
+    id: "special",
+    name: "Gỗ Hóa Thạch",
+    image: mysteryNodeImg,
+    rarityClass: "epic",
+    rarityText: "Cực Phẩm",
+    reqLevel: 5,
+    reqTool: "Găng Tay",
+    minYield: 3,
+    maxYield: 8,
+    lootName: "Gỗ Quý",
+  },
 ];
 
 const initEvent = () => {
   const rnd = Math.floor(Math.random() * EVENT_TYPES.length);
   const evt = EVENT_TYPES[rnd];
   currentEvent.value = evt;
-  const amount = Math.floor(Math.random() * (evt.maxYield - evt.minYield + 1)) + evt.minYield;
-  maxNode.value = amount; remainingNode.value = amount;
+  const amount =
+    Math.floor(Math.random() * (evt.maxYield - evt.minYield + 1)) +
+    evt.minYield;
+  maxNode.value = amount;
+  remainingNode.value = amount;
   feedbackMsg.value = "Phát hiện tài nguyên!";
 };
 
 const handleGather = async (times) => {
   if (isGathering.value) return;
-  if (!charStore.character) { feedbackMsg.value = "⚠️ Đang tải dữ liệu..."; return; }
+  if (!charStore.character) {
+    feedbackMsg.value = "⚠️ Đang tải dữ liệu...";
+    return;
+  }
 
   // Check năng lượng
   const currentEnergy = charStore.character.energy || 0;
@@ -145,7 +224,8 @@ const handleGather = async (times) => {
   }
 
   isGathering.value = true;
-  feedbackMsg.value = times > 1 ? "Đang vận công khai thác..." : "Đang khai thác...";
+  feedbackMsg.value =
+    times > 1 ? "Đang vận công khai thác..." : "Đang khai thác...";
 
   // Tính lượng đào thực tế
   const actualGathered = Math.min(times, remainingNode.value);
@@ -175,7 +255,9 @@ const handleGather = async (times) => {
 
     if (remainingNode.value <= 0) {
       feedbackMsg.value = "Tài nguyên đã cạn kiệt!";
-      setTimeout(() => { router.push("/explore"); }, 1500);
+      setTimeout(() => {
+        router.push("/explore");
+      }, 1500);
     }
   } catch (error) {
     console.error(error);
@@ -200,8 +282,14 @@ const handleGatherAll = () => {
 
 const showFloatingText = (text) => {
   const id = Date.now();
-  floatingLoots.value.push({ id, amount: text.split(" ")[0], name: text.substring(text.indexOf(" ")) });
-  setTimeout(() => { floatingLoots.value = floatingLoots.value.filter((i) => i.id !== id); }, 1500);
+  floatingLoots.value.push({
+    id,
+    amount: text.split(" ")[0],
+    name: text.substring(text.indexOf(" ")),
+  });
+  setTimeout(() => {
+    floatingLoots.value = floatingLoots.value.filter((i) => i.id !== id);
+  }, 1500);
 };
 
 onMounted(() => {
@@ -319,7 +407,11 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, rgba(0, 0, 0, 0.5) 80%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(0, 0, 0, 0.5) 80%
+  );
   border: 3px solid var(--gold);
   display: flex;
   align-items: center;

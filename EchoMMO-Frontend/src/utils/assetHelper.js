@@ -309,12 +309,12 @@ export const getItemImage = (type) => {
   if (!type) return resolveItemImage("r_stone_3.png");
 
   const itemMapping = {
-    "GOLD": "r_gold_coin.png",
-    "Gỗ": "r_go.png",
-    "Đá": "r_stone_3.png",
-    "Đồng": "r_copper_bar.png",
-    "Cá": "r_gohoathach.png",
-    "Sắt": "r_silver_bar.png",
+    GOLD: "r_gold_coin.png",
+    Gỗ: "r_go.png",
+    Đá: "r_stone_3.png",
+    Đồng: "r_copper_bar.png",
+    Cá: "r_gohoathach.png",
+    Sắt: "r_silver_bar.png",
     "Bạch Kim": "r_mystrile_bar.png",
     "Gỗ Khô": "r_go.png",
     "Gỗ Lạnh": "r_go.png",

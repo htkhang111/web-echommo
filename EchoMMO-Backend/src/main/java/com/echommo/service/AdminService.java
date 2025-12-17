@@ -1,10 +1,13 @@
 package com.echommo.service;
 
 import com.echommo.entity.*;
+import com.echommo.entity.Character; // [NEW] Import Character
+import com.echommo.enums.Rarity;
 import com.echommo.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -14,15 +17,15 @@ public class AdminService {
     @Autowired private UserRepository userRepo;
     @Autowired private ItemRepository itemRepo;
     @Autowired private WalletRepository walletRepo;
-    @Autowired private UserItemRepository uiRepo; // Repo quản lý túi đồ
+    @Autowired private UserItemRepository uiRepo;
     @Autowired private MarketListingRepository listingRepo;
     @Autowired private NotificationService notiService;
+    @Autowired private CharacterRepository charRepo; // [NEW] Cần repo này để tìm nhân vật
 
     public Map<String, Object> getServerStats() {
         Map<String, Object> m = new HashMap<>();
         m.put("totalUsers", userRepo.count());
         m.put("totalItems", itemRepo.count());
-        // Tính tổng vàng an toàn hơn, tránh NullPointerException
         BigDecimal totalGold = walletRepo.findAll().stream()
                 .map(Wallet::getGold)
                 .filter(Objects::nonNull)
@@ -42,20 +45,27 @@ public class AdminService {
 
     public void deleteItem(Integer id) { itemRepo.deleteById(id); }
 
-    // [FIX] Cập nhật hàm xóa User chuẩn logic
+    // [FIX] Cập nhật hàm xóa User chuẩn logic mới
     @Transactional
     public void deleteUser(Integer id) {
         // 1. Tìm user
         User u = userRepo.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 2. [FIX QUAN TRỌNG] Xóa túi đồ (UserItem) của user, KHÔNG PHẢI xóa Item gốc
-        // Nếu không xóa cái này, DB sẽ báo lỗi khóa ngoại (Foreign Key Constraint)
-        List<UserItem> userItems = uiRepo.findByUser_UserId(id);
-        if (userItems != null && !userItems.isEmpty()) {
-            uiRepo.deleteAll(userItems);
+        // 2. [FIX] Tìm Character của User để xóa đồ
+        // Vì repo uiRepo không còn hàm tìm theo UserId nữa
+        Character character = charRepo.findByUser_UserId(Long.valueOf(id)).orElse(null);
+
+        if (character != null) {
+            // Lấy tất cả đồ của nhân vật đó
+            List<UserItem> charItems = uiRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(character.getCharId());
+            if (charItems != null && !charItems.isEmpty()) {
+                uiRepo.deleteAll(charItems);
+            }
+            // Xóa luôn nhân vật (nếu Cascade không tự xóa)
+            charRepo.delete(character);
         }
 
-        // 3. Xóa User (Cascade sẽ tự xóa Wallet, Character...)
+        // 3. Xóa User
         userRepo.delete(u);
     }
 
@@ -91,14 +101,51 @@ public class AdminService {
         return "Done";
     }
 
+    // [FIX] Cập nhật hàm tặng đồ: Gán cho Character thay vì User
     @Transactional
     public String grantItem(String uName, Integer iId, Integer qty) {
-        User u = userRepo.findByUsername(uName).orElseThrow();
-        Item i = itemRepo.findById(iId).orElseThrow();
-        UserItem ui = new UserItem();
-        ui.setUser(u); ui.setItem(i); ui.setQuantity(qty); ui.setIsEquipped(false); ui.setEnhanceLevel(0);
+        // 1. Tìm User
+        User u = userRepo.findByUsername(uName)
+                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+
+        // 2. Tìm Character
+        Character c = charRepo.findByUser_UserId(u.getUserId())
+                .orElseThrow(() -> new RuntimeException("User này chưa tạo nhân vật!"));
+
+        // 3. Tìm Item gốc
+        Item i = itemRepo.findById(iId)
+                .orElseThrow(() -> new RuntimeException("Item ID không tồn tại"));
+
+        // 4. Kiểm tra có sẵn để stack số lượng không
+        UserItem ui = uiRepo.findByCharacter_CharIdAndItem_ItemId(c.getCharId(), iId).orElse(null);
+
+        if (ui != null) {
+            // Có rồi -> Cộng dồn
+            ui.setQuantity(ui.getQuantity() + qty);
+        } else {
+            // Chưa có -> Tạo mới
+            ui = new UserItem();
+            ui.setCharacter(c); // Link với Character
+            ui.setItem(i);
+            ui.setQuantity(qty);
+            ui.setIsEquipped(false);
+            ui.setEnhanceLevel(0);
+            ui.setAcquiredAt(LocalDateTime.now());
+
+            // Set stats mặc định tránh lỗi Null
+            ui.setRarity(Rarity.COMMON);
+            ui.setSubStats("[]");
+            ui.setMainStatValue(BigDecimal.ZERO);
+
+            if (i.getSlotType() != null) {
+                // Set fake main stat
+                ui.setMainStatType("ATK_FLAT");
+                ui.setMainStatValue(BigDecimal.valueOf(10));
+            }
+        }
+
         uiRepo.save(ui);
-        return "Done";
+        return "Đã tặng " + qty + " x " + i.getName() + " cho " + uName;
     }
 
     @Transactional

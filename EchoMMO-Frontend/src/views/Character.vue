@@ -1337,14 +1337,24 @@ onMounted(() => {
               />
               <i v-else :class="['fas placeholder', slot.icon]"></i>
 
-              <div 
-                v-if="equipment[slotName] && (equipment[slotName].enhanceLevel || equipment[slotName].level)" 
+              <div
+                v-if="
+                  equipment[slotName] &&
+                  (equipment[slotName].enhanceLevel ||
+                    equipment[slotName].level)
+                "
                 class="slot-level-tag"
-                :class="getLevelClass(equipment[slotName].enhanceLevel || equipment[slotName].level)"
+                :class="
+                  getLevelClass(
+                    equipment[slotName].enhanceLevel ||
+                      equipment[slotName].level,
+                  )
+                "
               >
-                +{{ equipment[slotName].enhanceLevel || equipment[slotName].level }}
+                +{{
+                  equipment[slotName].enhanceLevel || equipment[slotName].level
+                }}
               </div>
-
             </div>
           </div>
         </div>
@@ -1372,9 +1382,9 @@ onMounted(() => {
               :title="item.item.name"
             >
               <img :src="resolveItemImage(item.item.imageUrl)" />
-              
-              <div 
-                v-if="item.enhanceLevel || item.level" 
+
+              <div
+                v-if="item.enhanceLevel || item.level"
                 class="mini-level"
                 :class="getLevelClass(item.enhanceLevel || item.level)"
               >
@@ -1386,7 +1396,7 @@ onMounted(() => {
               }}</span>
               <div class="equipped-dot" v-if="item.isEquipped"></div>
             </div>
-            
+
             <div
               v-for="n in Math.max(0, 20 - (inventoryStore.items.length % 20))"
               :key="'e' + n"
@@ -1415,12 +1425,18 @@ onMounted(() => {
               />
               <div class="preview-info" v-if="itemToUnequip">
                 <span class="p-name">
-                  {{ itemToUnequip.item.name }} 
-                  <span 
-                    class="level-text" 
-                    :class="getLevelClass(itemToUnequip.enhanceLevel || itemToUnequip.level)"
+                  {{ itemToUnequip.item.name }}
+                  <span
+                    class="level-text"
+                    :class="
+                      getLevelClass(
+                        itemToUnequip.enhanceLevel || itemToUnequip.level,
+                      )
+                    "
                   >
-                    (+{{ itemToUnequip.enhanceLevel || itemToUnequip.level || 0 }})
+                    (+{{
+                      itemToUnequip.enhanceLevel || itemToUnequip.level || 0
+                    }})
                   </span>
                 </span>
                 <span class="p-type">Sẽ trở về hành trang</span>
@@ -1461,11 +1477,11 @@ const userSkinImg = computed(
 // Cấu hình slot để loop trong template cho gọn
 const SLOT_CONFIG = {
   NECKLACE: { label: "Dây Chuyền", icon: "fa-gem", className: "necklace-slot" },
-  WEAPON:   { label: "Vũ Khí",    icon: "fa-gavel", className: "weapon-slot" },
-  RING:     { label: "Nhẫn",      icon: "fa-ring", className: "ring-slot" },
-  HELMET:   { label: "Mũ",        icon: "fa-hat-cowboy-side", className: "head-slot" },
-  ARMOR:    { label: "Y Phục",    icon: "fa-tshirt", className: "body-slot" },
-  BOOTS:    { label: "Giày",      icon: "fa-socks", className: "boots-slot" },
+  WEAPON: { label: "Vũ Khí", icon: "fa-gavel", className: "weapon-slot" },
+  RING: { label: "Nhẫn", icon: "fa-ring", className: "ring-slot" },
+  HELMET: { label: "Mũ", icon: "fa-hat-cowboy-side", className: "head-slot" },
+  ARMOR: { label: "Y Phục", icon: "fa-tshirt", className: "body-slot" },
+  BOOTS: { label: "Giày", icon: "fa-socks", className: "boots-slot" },
 };
 
 // [MỚI] Hàm lấy class màu sắc level
@@ -1653,10 +1669,18 @@ onMounted(() => {
   text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
 }
 
-.atk { color: #ef5350; }
-.def { color: #42a5f5; }
-.speed { color: #66bb6a; }
-.crit { color: #ab47bc; }
+.atk {
+  color: #ef5350;
+}
+.def {
+  color: #42a5f5;
+}
+.speed {
+  color: #66bb6a;
+}
+.crit {
+  color: #ab47bc;
+}
 
 .divider {
   height: 2px;
@@ -1763,14 +1787,29 @@ onMounted(() => {
   padding: 0 3px;
   z-index: 10;
   font-family: sans-serif;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 /* --- COLORS --- */
-.lvl-white { color: #fff; border-color: #666; }
-.lvl-gold { color: #ffd700; border-color: #ffd700; box-shadow: 0 0 5px #ffd700; }
-.lvl-purple { color: #d580ff; border-color: #d580ff; box-shadow: 0 0 5px #d580ff; }
-.lvl-red { color: #ff3333; border-color: #ff3333; box-shadow: 0 0 8px #ff0000; }
+.lvl-white {
+  color: #fff;
+  border-color: #666;
+}
+.lvl-gold {
+  color: #ffd700;
+  border-color: #ffd700;
+  box-shadow: 0 0 5px #ffd700;
+}
+.lvl-purple {
+  color: #d580ff;
+  border-color: #d580ff;
+  box-shadow: 0 0 5px #d580ff;
+}
+.lvl-red {
+  color: #ff3333;
+  border-color: #ff3333;
+  box-shadow: 0 0 8px #ff0000;
+}
 
 .level-text {
   font-weight: bold;
@@ -1778,14 +1817,37 @@ onMounted(() => {
 }
 
 /* --- POSITIONING --- */
-.necklace-slot { top: 15%; left: 15%; }
-.weapon-slot { top: 50%; left: 5%; transform: translateY(-50%); }
-.ring-slot { bottom: 15%; left: 15%; }
-.head-slot { top: 15%; right: 15%; }
-.body-slot { top: 50%; right: 5%; transform: translateY(-50%); }
-.boots-slot { bottom: 15%; right: 15%; }
+.necklace-slot {
+  top: 15%;
+  left: 15%;
+}
+.weapon-slot {
+  top: 50%;
+  left: 5%;
+  transform: translateY(-50%);
+}
+.ring-slot {
+  bottom: 15%;
+  left: 15%;
+}
+.head-slot {
+  top: 15%;
+  right: 15%;
+}
+.body-slot {
+  top: 50%;
+  right: 5%;
+  transform: translateY(-50%);
+}
+.boots-slot {
+  bottom: 15%;
+  right: 15%;
+}
 
-.weapon-slot:hover, .body-slot:hover { transform: translateY(-50%) scale(1.1); }
+.weapon-slot:hover,
+.body-slot:hover {
+  transform: translateY(-50%) scale(1.1);
+}
 
 /* --- RIGHT PANEL --- */
 .bag-info {
@@ -1815,10 +1877,21 @@ onMounted(() => {
   transition: 0.2s;
 }
 
-.mini-slot.empty { opacity: 0.2; pointer-events: none; }
-.mini-slot:hover { border-color: var(--gold); background: rgba(255, 255, 255, 0.05); }
+.mini-slot.empty {
+  opacity: 0.2;
+  pointer-events: none;
+}
+.mini-slot:hover {
+  border-color: var(--gold);
+  background: rgba(255, 255, 255, 0.05);
+}
 
-.mini-slot img { width: 100%; height: 100%; padding: 4px; object-fit: contain; }
+.mini-slot img {
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  object-fit: contain;
+}
 
 .mini-level {
   position: absolute;
@@ -1826,7 +1899,7 @@ onMounted(() => {
   right: 1px;
   font-size: 9px;
   font-weight: bold;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0, 0, 0, 0.8);
   padding: 0 2px;
   border-radius: 2px;
 }
@@ -1853,8 +1926,12 @@ onMounted(() => {
   box-shadow: 0 0 5px #4caf50;
 }
 
-.rarity-C { border-bottom: 2px solid #9e9e9e; }
-.rarity-S { border-bottom: 2px solid var(--gold); }
+.rarity-C {
+  border-bottom: 2px solid #9e9e9e;
+}
+.rarity-S {
+  border-bottom: 2px solid var(--gold);
+}
 
 /* MODAL */
 .modal-overlay {
@@ -1875,7 +1952,10 @@ onMounted(() => {
   box-shadow: 0 0 30px #000;
 }
 
-.modal-content { padding: 20px; text-align: center; }
+.modal-content {
+  padding: 20px;
+  text-align: center;
+}
 
 .item-preview-box {
   background: rgba(0, 0, 0, 0.3);
@@ -1887,21 +1967,56 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-.preview-img { width: 50px; height: 50px; border: 1px solid var(--gold); padding: 2px; }
+.preview-img {
+  width: 50px;
+  height: 50px;
+  border: 1px solid var(--gold);
+  padding: 2px;
+}
 
-.modal-actions { display: flex; gap: 10px; }
-.btn-wood { flex: 1; padding: 10px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
-.cancel { background: #4e342e; color: #bdbdbd; }
-.confirm { background: var(--red-seal); color: #fff; }
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+.btn-wood {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.cancel {
+  background: #4e342e;
+  color: #bdbdbd;
+}
+.confirm {
+  background: var(--red-seal);
+  color: #fff;
+}
 
 @keyframes pulseAura {
-  0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.5; }
-  50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
-  100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.5; }
+  0% {
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.9);
+    opacity: 0.5;
+  }
 }
 
 @media (max-width: 900px) {
-  .char-grid { grid-template-columns: 1fr; height: auto; }
-  .hero-panel { height: 400px; }
+  .char-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+  .hero-panel {
+    height: 400px;
+  }
 }
 </style>

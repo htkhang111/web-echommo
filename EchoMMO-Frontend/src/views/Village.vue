@@ -12,12 +12,17 @@
           <h1 class="hub-title">LẠC DƯƠNG THÀNH</h1>
           <div class="plaque-ornament right"></div>
         </div>
-        <p class="hub-subtitle"><span class="decor-icon">❖</span> Thiên Hạ Thái Bình <span class="decor-icon">❖</span>
+        <p class="hub-subtitle">
+          <span class="decor-icon">❖</span> Thiên Hạ Thái Bình
+          <span class="decor-icon">❖</span>
         </p>
       </div>
 
       <div class="hub-grid">
-        <div class="location-card inn-card" :class="{ 'resting-mode': isResting }">
+        <div
+          class="location-card inn-card"
+          :class="{ 'resting-mode': isResting }"
+        >
           <div class="card-content">
             <template v-if="!isResting">
               <div class="card-top">
@@ -30,19 +35,29 @@
                   <div class="stat-row">
                     <span class="stat-label">SINH</span>
                     <div class="progress-track">
-                      <div class="progress-bar hp-bar" :style="{ width: hpPercent + '%' }"></div>
+                      <div
+                        class="progress-bar hp-bar"
+                        :style="{ width: hpPercent + '%' }"
+                      ></div>
                     </div>
                   </div>
                   <div class="stat-row">
                     <span class="stat-label">NỘI</span>
                     <div class="progress-track">
-                      <div class="progress-bar mp-bar" :style="{ width: energyPercent + '%' }"></div>
+                      <div
+                        class="progress-bar mp-bar"
+                        :style="{ width: energyPercent + '%' }"
+                      ></div>
                     </div>
                   </div>
                 </div>
               </div>
               <div class="card-bot">
-                <button class="btn-action wuxia-btn" @click="openSpaMenu" :disabled="isFull">
+                <button
+                  class="btn-action wuxia-btn"
+                  @click="openSpaMenu"
+                  :disabled="isFull"
+                >
                   <span v-if="isFull">ĐÃ SUNG MÃN</span>
                   <span v-else>NGHỈ NGƠI</span>
                 </button>
@@ -54,7 +69,9 @@
                 <div class="moon-glow"></div>
                 <div class="sleeping-anim">
                   <i class="fas fa-user-ninja"></i>
-                  <div class="zzz-particles"><span>z</span><span>z</span><span>Z</span></div>
+                  <div class="zzz-particles">
+                    <span>z</span><span>z</span><span>Z</span>
+                  </div>
                 </div>
                 <div class="resting-text">
                   Đang điều tức... còn <strong>{{ countdown }}s</strong>
@@ -82,19 +99,28 @@
       </div>
 
       <div class="deploy-container">
-        <button @click="$router.push('/explore')" class="imperial-seal-btn" :disabled="isResting">
+        <button
+          @click="$router.push('/explore')"
+          class="imperial-seal-btn"
+          :disabled="isResting"
+        >
           <div class="seal-content">
             <div class="seal-icon"><i class="fas fa-torii-gate"></i></div>
-            <div class="seal-text-group"><span class="seal-big">XUẤT THÀNH</span><span class="seal-small">Hành Hiệp
-                Trượng
-                Nghĩa</span></div>
+            <div class="seal-text-group">
+              <span class="seal-big">XUẤT THÀNH</span
+              ><span class="seal-small">Hành Hiệp Trượng Nghĩa</span>
+            </div>
           </div>
         </button>
       </div>
     </div>
 
     <transition name="fade-modal">
-      <div v-if="showSpaMenu" class="modal-overlay" @click.self="showSpaMenu = false">
+      <div
+        v-if="showSpaMenu"
+        class="modal-overlay"
+        @click.self="showSpaMenu = false"
+      >
         <div class="dark-scroll-modal">
           <div class="modal-border-top"></div>
           <div class="modal-body spa-menu">
@@ -125,13 +151,20 @@
     </transition>
 
     <transition name="fade-modal">
-      <div v-if="showRestModal" class="modal-overlay" @click.self="closeRestModal">
+      <div
+        v-if="showRestModal"
+        class="modal-overlay"
+        @click.self="closeRestModal"
+      >
         <div class="dark-scroll-modal">
           <div class="modal-border-top"></div>
           <div class="modal-body">
             <div class="modal-stamp"><i class="fas fa-check"></i></div>
             <h3 class="modal-title">HỒI PHỤC HOÀN TẤT</h3>
-            <p class="modal-msg">"Khách quan thần thái hồng hào, nội công sung mãn. Chúc ngài thượng lộ bình an!"</p>
+            <p class="modal-msg">
+              "Khách quan thần thái hồng hào, nội công sung mãn. Chúc ngài
+              thượng lộ bình an!"
+            </p>
             <button class="btn-confirm" @click="closeRestModal">ĐA TẠ</button>
           </div>
           <div class="modal-border-bot"></div>
@@ -158,25 +191,39 @@ let timerInterval = null;
 
 const hpPercent = computed(() => {
   if (!charStore.character) return 0;
-  return Math.min((charStore.character.currentHp / charStore.character.maxHp) * 100, 100);
+  return Math.min(
+    (charStore.character.currentHp / charStore.character.maxHp) * 100,
+    100,
+  );
 });
 const energyPercent = computed(() => {
   if (!charStore.character) return 0;
-  return Math.min((charStore.character.currentEnergy / charStore.character.maxEnergy) * 100, 100);
+  return Math.min(
+    (charStore.character.currentEnergy / charStore.character.maxEnergy) * 100,
+    100,
+  );
 });
-const isFull = computed(() => hpPercent.value >= 100 && energyPercent.value >= 100);
+const isFull = computed(
+  () => hpPercent.value >= 100 && energyPercent.value >= 100,
+);
 
-const openSpaMenu = () => { showSpaMenu.value = true; };
-const closeRestModal = () => { showRestModal.value = false; };
+const openSpaMenu = () => {
+  showSpaMenu.value = true;
+};
+const closeRestModal = () => {
+  showRestModal.value = false;
+};
 
 // 1. GỌI API BẮT ĐẦU
 const confirmRest = async (type) => {
   showSpaMenu.value = false;
   try {
-    const res = await axiosClient.post('/spa/start', null, { params: { packageType: type } });
+    const res = await axiosClient.post("/spa/start", null, {
+      params: { packageType: type },
+    });
 
     // Set thời gian đếm ngược từ Backend trả về (durationSeconds)
-    countdown.value = res.data.secondsRemaining || (type === 'VIP' ? 10 : 60);
+    countdown.value = res.data.secondsRemaining || (type === "VIP" ? 10 : 60);
     isResting.value = true;
     await authStore.fetchProfile(); // Update ví tiền
 
@@ -201,7 +248,7 @@ const startTimer = () => {
 // 2. GỌI API KẾT THÚC
 const finishRest = async () => {
   try {
-    const res = await axiosClient.post('/spa/complete');
+    const res = await axiosClient.post("/spa/complete");
     // Update Store với chỉ số mới (Full)
     if (charStore.character) {
       charStore.character.currentHp = res.data.currentHp;
@@ -219,7 +266,9 @@ onMounted(() => {
   charStore.fetchCharacter();
   if (authStore.token) authStore.fetchProfile();
 });
-onUnmounted(() => { if (timerInterval) clearInterval(timerInterval); });
+onUnmounted(() => {
+  if (timerInterval) clearInterval(timerInterval);
+});
 </script>
 
 <style scoped>

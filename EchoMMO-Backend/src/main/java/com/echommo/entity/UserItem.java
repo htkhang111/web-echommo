@@ -23,11 +23,12 @@ public class UserItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long userItemId;
 
-    // --- RELATIONSHIPS ---
+    // --- [QUAN TRỌNG] THAY ĐỔI TỪ USER -> CHARACTER ---
+    // Để mỗi nhân vật có túi đồ riêng biệt
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnore // [CHUẨN] Ngăn lặp vô tận khi convert JSON
-    private User user;
+    @JoinColumn(name = "char_id", nullable = false)
+    @JsonIgnore
+    private Character character;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "item_id", nullable = false)
@@ -37,19 +38,16 @@ public class UserItem {
     @Column(name = "is_equipped")
     private Boolean isEquipped = false;
 
-    private Integer quantity;
+    private Integer quantity = 1;
 
     @Column(name = "acquired_at")
     private LocalDateTime acquiredAt;
 
-    // --- [FIX QUAN TRỌNG] UPGRADE SYSTEM ---
-
-    // Trong SQL tên cột là "enhance_level", trong Java bro muốn dùng "enhancementLevel"
-    // => @Column phải map đúng tên trong SQL
+    // --- UPGRADE SYSTEM ---
     @Column(name = "enhance_level")
     private Integer enhancementLevel = 0;
 
-    // Helper method: Giữ lại để tương thích với Service cũ dùng .getEnhanceLevel()
+    // Helper method: Để tương thích với code cũ nếu lỡ gọi getEnhanceLevel
     public Integer getEnhanceLevel() {
         return this.enhancementLevel;
     }
@@ -60,32 +58,30 @@ public class UserItem {
 
     // --- STATS SYSTEM ---
     @Enumerated(EnumType.STRING)
-    private Rarity rarity;
+    private Rarity rarity; // Phẩm chất riêng của item này (VD: Kiếm gỗ nhưng phẩm Legendary)
 
+    @Column(name = "main_stat_type")
     private String mainStatType;
 
+    @Column(name = "main_stat_value")
     private BigDecimal mainStatValue;
 
-    // [QUAN TRỌNG] Lưu Substats dưới dạng JSON String
-    // columnDefinition = "json" giúp MySQL hiểu đây là JSON (nếu dùng MySQL 5.7+)
-    // Nếu lỗi, đổi thành "TEXT" cũng được.
+    // Lưu Substats dưới dạng JSON String
+    // Nếu database báo lỗi JSON type, hãy đổi thành columnDefinition = "TEXT"
     @Column(name = "sub_stats", columnDefinition = "json")
     private String subStats;
 
-    // --- [NEW] MYTHIC / RED EVOLUTION FIELDS ---
-    // Các trường này BẮT BUỘC CÓ để chạy logic tiến hóa 5%
-
+    // --- MYTHIC / RED EVOLUTION FIELDS ---
     @Column(name = "is_mythic")
     private boolean isMythic = false;
 
     @Column(name = "mythic_level")
     private Integer mythicLevel = 0;
 
-    // [SNAPSHOT] Lưu chỉ số Main gốc để nhân 1% mỗi cấp
+    // Lưu chỉ số Main gốc để nhân % khi lên cấp
     @Column(name = "original_main_stat_value")
     private BigDecimal originalMainStatValue;
 
-    // [OPTIONAL] Điểm may mắn (nếu sau này bro đổi ý muốn dùng bảo hiểm)
     @Column(name = "luck_points")
     private Integer luckPoints = 0;
 

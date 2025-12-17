@@ -1165,7 +1165,6 @@ onMounted(async () => {
 
       <div class="market-content custom-scroll">
         <transition name="fade-slide" mode="out-in">
-          
           <div v-if="activeTab === 'buy'" class="grid-layout" key="buy">
             <div v-if="filteredShopItems.length === 0" class="empty-state">
               <i class="fas fa-search-minus"></i>
@@ -1241,9 +1240,9 @@ onMounted(async () => {
                     :src="resolveItemImage(listing.item.imageUrl)"
                     @error="handleImgError"
                   />
-                  
-                  <div 
-                    v-if="listing.enhanceLevel > 0" 
+
+                  <div
+                    v-if="listing.enhanceLevel > 0"
                     class="level-tag"
                     :class="getLevelClass(listing.enhanceLevel)"
                   >
@@ -1313,9 +1312,9 @@ onMounted(async () => {
                     :src="resolveItemImage(listing.item.imageUrl)"
                     @error="handleImgError"
                   />
-                  
-                  <div 
-                    v-if="listing.enhanceLevel > 0" 
+
+                  <div
+                    v-if="listing.enhanceLevel > 0"
                     class="level-tag top-left"
                     :class="getLevelClass(listing.enhanceLevel)"
                   >
@@ -1371,8 +1370,11 @@ onMounted(async () => {
                     @error="handleImgError"
                   />
 
-                  <div 
-                    v-if="(uItem.enhanceLevel && uItem.enhanceLevel > 0) || (uItem.level && uItem.level > 0)" 
+                  <div
+                    v-if="
+                      (uItem.enhanceLevel && uItem.enhanceLevel > 0) ||
+                      (uItem.level && uItem.level > 0)
+                    "
                     class="level-tag"
                     :class="getLevelClass(uItem.enhanceLevel || uItem.level)"
                   >
@@ -1384,10 +1386,16 @@ onMounted(async () => {
               </div>
               <div class="card-body">
                 <div class="item-name">
-                   {{ uItem.item.name }}
-                   <span v-if="(uItem.enhanceLevel && uItem.enhanceLevel > 0) || (uItem.level && uItem.level > 0)" style="font-size: 0.8em; color: gold;">
-                     (+{{ uItem.enhanceLevel || uItem.level }})
-                   </span>
+                  {{ uItem.item.name }}
+                  <span
+                    v-if="
+                      (uItem.enhanceLevel && uItem.enhanceLevel > 0) ||
+                      (uItem.level && uItem.level > 0)
+                    "
+                    style="font-size: 0.8em; color: gold"
+                  >
+                    (+{{ uItem.enhanceLevel || uItem.level }})
+                  </span>
                 </div>
                 <div class="price-row">
                   <span class="label">Thu mua:</span>
@@ -1934,8 +1942,8 @@ onMounted(async () => {
   font-family: sans-serif;
   padding: 0 3px;
   border-radius: 3px;
-  background: rgba(0,0,0,0.6);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 /* Level tag ở góc trái cho case My Listings */
 .level-tag.top-left {
@@ -1943,19 +1951,52 @@ onMounted(async () => {
   left: 2px;
 }
 
-.lvl-white { color: #fff; }
-.lvl-gold { color: #ffd700; border-color: #ffd700; box-shadow: 0 0 5px #ffd700; }
-.lvl-purple { color: #d580ff; border-color: #d580ff; box-shadow: 0 0 5px #d580ff; }
-.lvl-red { color: #ff3333; border-color: #ff3333; box-shadow: 0 0 8px #ff0000; }
+.lvl-white {
+  color: #fff;
+}
+.lvl-gold {
+  color: #ffd700;
+  border-color: #ffd700;
+  box-shadow: 0 0 5px #ffd700;
+}
+.lvl-purple {
+  color: #d580ff;
+  border-color: #d580ff;
+  box-shadow: 0 0 5px #d580ff;
+}
+.lvl-red {
+  color: #ff3333;
+  border-color: #ff3333;
+  box-shadow: 0 0 8px #ff0000;
+}
 
-.border-C { border-color: #bdbdbd; }
-.bg-C { background: #bdbdbd; }
-.border-B { border-color: #42a5f5; }
-.bg-B { background: #42a5f5; color: #fff; }
-.border-A { border-color: #ab47bc; }
-.bg-A { background: #ab47bc; color: #fff; }
-.border-S { border-color: var(--gold); box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
-.bg-S { background: var(--gold); }
+.border-C {
+  border-color: #bdbdbd;
+}
+.bg-C {
+  background: #bdbdbd;
+}
+.border-B {
+  border-color: #42a5f5;
+}
+.bg-B {
+  background: #42a5f5;
+  color: #fff;
+}
+.border-A {
+  border-color: #ab47bc;
+}
+.bg-A {
+  background: #ab47bc;
+  color: #fff;
+}
+.border-S {
+  border-color: var(--gold);
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+.bg-S {
+  background: var(--gold);
+}
 
 .rarity-tag {
   position: absolute;

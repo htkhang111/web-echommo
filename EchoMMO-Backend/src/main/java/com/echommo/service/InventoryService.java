@@ -1,18 +1,38 @@
 package com.echommo.service;
 
 import com.echommo.entity.UserItem;
-import java.util.List;
+import com.echommo.enums.SlotType;
+import com.echommo.repository.UserItemRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-public interface InventoryService {
-    // Lấy danh sách item của user
-    List<UserItem> getInventory(Integer userId);
+@Service
+public class InventoryService {
 
-    // Mặc đồ: Cần userId để check chủ sở hữu
-    void equipItem(Integer userId, Long userItemId);
+    @Autowired
+    private UserItemRepository userItemRepository;
 
-    // Tháo đồ
-    void unequipItem(Integer userId, Long userItemId);
+    @Transactional
+    public void equipItem(Integer charId, Long userItemIdToEquip) {
+        // 1. Find the specific item the user wants to equip
+        UserItem newItem = userItemRepository.findByUserItemIdAndCharacter_CharId(userItemIdToEquip, charId)
+                .orElseThrow(() -> new RuntimeException("Item not found or does not belong to you"));
 
-    // Cường hóa: Trả về item đã update
-    UserItem enhanceItem(Integer userId, Long userItemId);
+        // 2. Get the slot type from the Item definition
+        SlotType slot = newItem.getItem().getSlotType();
+
+        // 3. Check if something is already wearing in that slot
+        userItemRepository.findEquippedItemBySlot(charId, slot).ifPresent(oldItem -> {
+            // Unequip the old item
+            oldItem.setEquipped(false);
+            userItemRepository.save(oldItem);
+        });
+
+        // 4. Equip the new item
+        newItem.setEquipped(true);
+        userItemRepository.save(newItem);
+
+        // Note: You might want to trigger a "recalculate stats" method here later
+    }
 }

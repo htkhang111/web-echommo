@@ -3,7 +3,6 @@ package com.echommo.service;
 import com.echommo.entity.Item;
 import com.echommo.entity.User;
 import com.echommo.entity.UserItem;
-import com.echommo.entity.Wallet;
 import com.echommo.entity.Character;
 import com.echommo.enums.Rarity;
 import com.echommo.repository.*;
@@ -15,8 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Optional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,22 +31,30 @@ public class GameService {
     @Autowired private UserItemRepository userItemRepo;
     @Autowired private ItemRepository itemRepo;
     @Autowired private CharacterService characterService;
-    @Autowired private EquipmentService equipmentService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Random random = new Random();
-    // [LƯU Ý]: Hằng số REST_COST và REST_COOLDOWN_SECONDS đã được loại bỏ
 
-    // --- HELPER METHODS: CURRENT USER (FIXED LOGIC) ---
+    // --- HELPER METHODS: CURRENT USER ---
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-
         if (username == null || username.equals("anonymousUser")) {
-            throw new RuntimeException("Lỗi xác thực: Người dùng chưa đăng nhập hoặc token đã hết hạn.");
+            throw new RuntimeException("Lỗi xác thực: Người dùng chưa đăng nhập.");
         }
-
         return userRepo.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Lỗi CSDL: Không tìm thấy người dùng [" + username + "] trong hệ thống."));
+                .orElseThrow(() -> new RuntimeException("Lỗi CSDL: Không tìm thấy người dùng [" + username + "]"));
+    }
+
+    // --- HELPER: GET CHARACTER (ĐÃ SỬA LỖI LONG/INTEGER) ---
+    private Character getCharacter(Integer userId) {
+        // [FIX LỖI ẢNH 3] Truyền thẳng userId (Integer) vào, KHÔNG ép kiểu Long
+        return charRepo.findByUser_UserId(userId)
+                .orElseGet(() -> {
+                    // Fallback: Nếu chưa có thì tạo mới
+                    User user = userRepo.findById(userId)
+                            .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                    return characterService.createDefaultCharacter(user);
+                });
     }
 
     // =========================================================
@@ -59,7 +66,6 @@ public class GameService {
         if (level < 30) return List.of("Gỗ", "Đá", "Quặng Đồng", "Sắt", "Cá");
         if (level < 40) return List.of("Gỗ", "Đá", "Quặng Đồng", "Sắt");
         if (level < 50) return List.of("Gỗ", "Đá", "Quặng Đồng", "Sắt", "Bạch Kim");
-        if (level < 60) return List.of("Gỗ", "Sắt", "Bạch Kim");
         return List.of("Gỗ", "Cá");
     }
 
@@ -72,16 +78,14 @@ public class GameService {
         int expGain = 15;
         character.setCurrentExp(character.getCurrentExp() + expGain);
 
-        // Check lên cấp đơn giản
-        if (character.getCurrentExp() >= character.getLevel() * 100) {
+        // Check Level Up
+        if (character.getCurrentExp() >= character.getLevel() * 100L) {
             character.setCurrentExp(0);
             character.setLevel(character.getLevel() + 1);
-            // Tăng stat khi lên cấp
             character.setMaxHp(character.getMaxHp() + 50);
             character.setCurrentHp(character.getMaxHp());
             logs.add("🎉 LÊN CẤP! Cấp độ hiện tại: " + character.getLevel());
         }
-
         logs.add("Bạn đi thám hiểm... (+ " + expGain + " EXP)");
 
         // 2. Logic rớt nguyên liệu (70%)
@@ -92,16 +96,21 @@ public class GameService {
             Item matItem = itemRepo.findByName(dropName).orElse(null);
 
             if (matItem != null) {
-                UserItem ui = userItemRepo.findByUser_UserIdAndItem_ItemId(userId, matItem.getItemId())
-                        .orElse(new UserItem());
+                // [FIX LOGIC] Tìm trong túi CHARACTER (theo CharId) thay vì User
+                UserItem ui = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), matItem.getItemId())
+                        .orElse(null);
 
-                if (ui.getUserItemId() == null) {
-                    ui.setUser(character.getUser());
+                if (ui == null) {
+                    ui = new UserItem();
+                    ui.setCharacter(character); // [FIX] Gán cho Character
                     ui.setItem(matItem);
                     ui.setQuantity(0);
                     ui.setIsEquipped(false);
                     ui.setEnhanceLevel(0);
+                    ui.setAcquiredAt(LocalDateTime.now());
                     ui.setMainStatValue(BigDecimal.ZERO);
+                    ui.setRarity(Rarity.COMMON);
+                    ui.setSubStats("[]");
                 }
 
                 ui.setQuantity(ui.getQuantity() + 1);
@@ -120,40 +129,21 @@ public class GameService {
     }
 
     // =========================================================
-    // 2. CÁC CHỨC NĂNG CƠ BẢN
-    // [LƯU Ý]: Phương thức restAtInn đã được loại bỏ
+    // 2. CÁC CHỨC NĂNG KHÁC
     // =========================================================
 
-    // --- HELPER METHODS ---
-    private Character getCharacter(Integer userId) {
-        // FIX: Sử dụng phương thức JOIN FETCH để tối ưu DB call
-        Optional<Character> optionalCharacter = charRepo.findByUser_UserIdWithUserAndWallet(userId);
-
-        if (optionalCharacter.isPresent()) {
-            return optionalCharacter.get();
-        }
-
-        // Nếu không tìm thấy, quay lại logic gốc: Fetch User và tạo Character nếu cần
-        User user = userRepo.findById(userId).orElseThrow(() -> new EntityNotFoundException("User not found"));
-        if (user.getCharacter() == null) {
-            characterService.createDefaultCharacter(user);
-            // Fetch lại bằng query tối ưu sau khi tạo
-            return charRepo.findByUser_UserIdWithUserAndWallet(userId).orElseThrow();
-        }
-
-        throw new EntityNotFoundException("Character not found for User: " + userId);
-    }
-
     public List<UserItem> getInventory(Integer userId) {
-        return userItemRepo.findByUser_UserId(userId);
+        // [FIX] Lấy đồ theo Character ID
+        Character character = getCharacter(userId);
+        return userItemRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(character.getCharId());
     }
 
     public Map<String, Object> equipItem(Integer userId, Long userItemId) {
-        return Map.of("success", true);
+        return Map.of("message", "Vui lòng sử dụng API /api/inventory/equip");
     }
 
     public Map<String, Object> unequipItem(Integer userId, Long userItemId) {
-        return Map.of("success", true);
+        return Map.of("message", "Vui lòng sử dụng API /api/inventory/unequip");
     }
 
     public User getPlayerOrCreate(Integer userId) {

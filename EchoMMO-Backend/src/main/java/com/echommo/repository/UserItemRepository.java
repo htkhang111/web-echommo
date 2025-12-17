@@ -1,7 +1,10 @@
 package com.echommo.repository;
 
 import com.echommo.entity.UserItem;
+import com.echommo.enums.SlotType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -10,21 +13,24 @@ import java.util.Optional;
 @Repository
 public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
-    // 1. Lấy tất cả đồ của user (Dùng User_UserId để JPA hiểu lấy theo field userId của User)
-    List<UserItem> findByUser_UserId(Integer userId);
+    // 1. Get Inventory (Newest items first)
+    List<UserItem> findByCharacter_CharIdOrderByAcquiredAtDesc(Integer charId);
 
-    // 2. Lấy đồ user, sắp xếp đồ đang mặc lên trước (Dùng cho Marketplace/Inventory)
-    List<UserItem> findByUser_UserIdOrderByIsEquippedDesc(Integer userId);
+    // 2. Get currently equipped items (For calculating Battle Power)
+    List<UserItem> findByCharacter_CharIdAndIsEquippedTrue(Integer charId);
 
-    // 3. Tìm đồ đang mặc theo loại (để tháo ra khi mặc đồ mới)
-    Optional<UserItem> findByUser_UserIdAndItem_TypeAndIsEquippedTrue(Integer userId, String type);
+    // 3. Find item currently in a specific slot (to unequip it before equipping new one)
+    @Query("SELECT ui FROM UserItem ui WHERE ui.character.charId = :charId AND ui.isEquipped = true AND ui.item.slotType = :slotType")
+    Optional<UserItem> findEquippedItemBySlot(@Param("charId") Integer charId, @Param("slotType") SlotType slotType);
 
-    // 4. Lấy danh sách tất cả đồ đang mặc (để tính chỉ số nhân vật)
-    List<UserItem> findByUser_UserIdAndIsEquippedTrue(Integer userId);
+    // 4. Find specific item for Stacking (Consumables/Materials only)
+    // Warning: Use only for items where isStackable = true
+    Optional<UserItem> findByCharacter_CharIdAndItem_ItemId(Integer charId, Integer itemId);
 
-    // 5. Tìm item cụ thể theo ID gốc (để nhặt đồ, stack số lượng)
-    Optional<UserItem> findByUser_UserIdAndItem_ItemId(Integer userId, Integer itemId);
+    // 5. Find a specific unique item instance (Safe for Equipment)
+    // Use this when the user clicks "Equip" on a specific sword in their bag
+    Optional<UserItem> findByUserItemIdAndCharacter_CharId(Long userItemId, Integer charId);
 
-    // 6. Tìm item theo tên (để tìm nguyên liệu cường hóa: Gỗ, Sắt...)
-    Optional<UserItem> findByUser_UserIdAndItem_Name(Integer userId, String name);
+    // 6. Find material by name (Optional - for crafting quests)
+    Optional<UserItem> findByCharacter_CharIdAndItem_Name(Integer charId, String name);
 }

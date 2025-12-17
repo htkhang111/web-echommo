@@ -50,14 +50,14 @@
 // // [FIX] 403 (Forbidden) thì chỉ log ra, không logout
 //       else if (error.response.status === 403) {
 //         console.error("--- LỖI QUYỀN HẠN (403) ---");
-        
+
 //         // 1. In ra URL bị lỗi để chắc chắn mình gọi đúng API
 //         console.error("API gọi đến:", error.config.url);
-        
+
 //         // 2. In ra tin nhắn từ Server (Quan trọng nhất)
 //         // Server thường trả về lý do: "User ID 10 cannot access Player ID 5"
-//         console.error("Lý do từ Server:", error.response.data); 
-        
+//         console.error("Lý do từ Server:", error.response.data);
+
 //         // 3. Kiểm tra xem lúc đó đang dùng Token nào (để debug)
 //         const authStore = useAuthStore();
 //         console.log("Token hiện tại:", authStore.token);
@@ -82,8 +82,8 @@ const axiosClient = axios.create({
 const isTokenExpired = (token) => {
   if (!token) return true;
   try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
     const payload = JSON.parse(window.atob(base64));
     const now = Math.floor(Date.now() / 1000);
     return payload.exp < now; // Trả về true nếu đã quá hạn
@@ -103,14 +103,14 @@ axiosClient.interceptors.request.use(
         authStore.logout();
         window.location.href = "/login";
         // Hủy request bằng cách trả về lỗi có chủ đích
-        return Promise.reject(new Error("Token expired - Request cancelled")); 
+        return Promise.reject(new Error("Token expired - Request cancelled"));
       }
-      
+
       config.headers.Authorization = `Bearer ${authStore.token}`;
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // --- 2. RESPONSE INTERCEPTOR (Xử lý lỗi từ server trả về nếu có) ---
@@ -125,14 +125,17 @@ axiosClient.interceptors.response.use(
       const status = error.response.status;
 
       // Gộp xử lý: 401 hoặc (403 mà token đã hết hạn) -> Đá về login
-      if (status === 401 || (status === 403 && isTokenExpired(authStore.token))) {
+      if (
+        status === 401 ||
+        (status === 403 && isTokenExpired(authStore.token))
+      ) {
         authStore.logout();
         window.location.href = "/login";
       }
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default axiosClient;

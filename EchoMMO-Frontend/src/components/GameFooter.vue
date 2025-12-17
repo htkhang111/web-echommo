@@ -32,7 +32,9 @@
               >
             </li>
             <li>
-              <a href="https://www.facebook.com/profile.php?id=61584899606412" target="_blank"
+              <a
+                href="https://www.facebook.com/profile.php?id=61584899606412"
+                target="_blank"
                 ><i class="fab fa-facebook"></i> Fanpage</a
               >
             </li>

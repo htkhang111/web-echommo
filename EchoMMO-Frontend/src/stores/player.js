@@ -1,176 +1,123 @@
 import { defineStore } from "pinia";
-import axiosClient from "../api/axiosClient"; // Giả định axiosClient đã được setup
-import { reactive, computed } from "vue";
+import { ref, computed } from "vue";
 
 export const usePlayerStore = defineStore("player", () => {
-  // --- 1. STATE (Reactive) ---
-  const stats = reactive({
-    // Dùng giá trị mặc định cho đến khi fetch
-    id: null,
-    name: "Đang tải...",
-    lv: 1,
-    exp: 0,
-    nextLevelExp: 100,
-    hp: 100,
-    maxHp: 100,
-    energy: 50,
-    maxEnergy: 50,
-    atk: 10,
-    def: 5,
-    spd: 10,
-    gold: 0,
-    // (Thêm các base crit, v.v. nếu cần)
+  // --- STATE (Dữ liệu gốc) ---
+  const name = ref("Chiến Binh");
+  const level = ref(1);
+  const exp = ref(0);
+
+  // Tài nguyên
+  const gold = ref(100);
+  const diamond = ref(10); // Thêm Kim Cương
+
+  // Chỉ số sinh tồn
+  const hp = ref(100);
+  const maxHp = ref(100);
+  const energy = ref(50);
+  const maxEnergy = ref(50);
+
+  // --- GETTERS (Tính toán) ---
+
+  // Logic Max EXP: Dễ trước 60, Khó sau 60 (Max Lv 70)
+  const maxExp = computed(() => {
+    if (level.value >= 70) return Infinity;
+
+    const BASE_EXP = 100;
+    if (level.value < 60) {
+      // Giai đoạn DỄ (Lv 1-59): Mũ 2.2
+      return Math.floor(BASE_EXP * Math.pow(level.value, 2.2));
+    } else {
+      // Giai đoạn KHÓ (Lv 60-69): Mũ 4.5 (Bức tường EXP)
+      return Math.floor(BASE_EXP * Math.pow(level.value, 4.5));
+    }
   });
 
-  const explorationState = reactive({
-    playerPos: 10,
-    moveDir: 1,
+  const expPercentage = computed(() => {
+    if (level.value >= 70) return 100;
+    if (maxExp.value === 0) return 0;
+    return Math.min((exp.value / maxExp.value) * 100, 100).toFixed(1);
   });
 
-  const inventory = reactive([]); // List UserItem objects
+  const hpPercentage = computed(() => (hp.value / maxHp.value) * 100);
+  const energyPercentage = computed(
+    () => (energy.value / maxEnergy.value) * 100,
+  );
 
-  // --- 2. GETTERS (Computed) ---
-  const equipment = computed(() => {
-    const slots = {
-      WEAPON: null,
-      HELM: null,
-      ARMOR: null,
-      BOOTS: null,
-      RING: null,
-      NECKLACE: null,
-    };
+  // --- ACTIONS ---
 
-    inventory.forEach((item) => {
-      // FIX: Sử dụng item.item.type vì inventory là UserItem, chứa Item bên trong
-      const itemType = item.item?.type;
+  function gainExp(amount) {
+    if (level.value >= 70) return;
+    exp.value += amount;
+    checkLevelUp();
+  }
 
-      // Xử lý mapping type (HELMET -> HELM)
-      const mappedType = itemType === "HELMET" ? "HELM" : itemType;
+  function checkLevelUp() {
+    if (level.value >= 70) return;
 
-      if (item.isEquipped && slots.hasOwnProperty(mappedType)) {
-        slots[mappedType] = item;
-      }
-    });
-    return slots;
-  });
+    if (exp.value >= maxExp.value) {
+      const overflow = exp.value - maxExp.value;
+      level.value++;
 
-  // --- 3. ACTIONS (Logic) ---
+      // Tăng chỉ số khi lên cấp
+      maxHp.value += 20;
+      hp.value = maxHp.value;
+      maxEnergy.value += 5;
+      energy.value = maxEnergy.value;
 
-  // [V1 Logic] Helper xử lý Inventory data thô từ API
-  const processInventory = (items) => {
-    inventory.splice(0, inventory.length); // Xóa dữ liệu cũ
-    items.forEach((i) => {
-      // LƯU Ý: i là UserItem, i.item là Item
-      inventory.push({
-        id: i.userItemId,
-        name: i.item.name,
-        icon: i.item.imageUrl || "https://via.placeholder.com/64",
-        type: i.item.type,
-        isEquipped: i.isEquipped,
-        quantity: i.quantity,
-        enhanceLevel: i.enhanceLevel,
-        stats: i.item, // Chứa atkBonus, defBonus...
-      });
-    });
-  };
+      // Thưởng ít kim cương khi lên cấp
+      diamond.value += 1;
 
-  const fetchPlayerData = async () => {
-    try {
-      const [resChar, resInv, resUser] = await Promise.all([
-        axiosClient.get("/character/me"),
-        axiosClient.get("/equipment/inventory"),
-        axiosClient.get("/user/me"),
-      ]);
-
-      const char = resChar.data;
-      const user = resUser.data;
-      const wallet = user.wallet;
-
-      // Map chỉ số mới (Sửa lỗi naming convention: lv, exp, baseAtk)
-      Object.assign(stats, {
-        id: user.userId,
-        name: char.name,
-        lv: char.lv, // Sửa Level -> lv
-        exp: char.exp, // Sửa currentExp -> exp
-        nextLevelExp: char.nextLevelExp || 100 * Math.pow(char.lv, 2),
-        hp: char.hp,
-        maxHp: char.maxHp,
-        energy: char.energy,
-        maxEnergy: char.maxEnergy,
-        atk: char.baseAtk, // Lấy BaseAtk
-        def: char.baseDef, // Lấy BaseDef
-        gold: wallet.gold,
-        // Thêm các chỉ số khác (spd, crit)
-        spd: char.baseSpeed,
-        critRate: char.baseCritRate,
-      });
-
-      // Xử lý Inventory & Equipment
-      processInventory(resInv.data);
-    } catch (e) {
-      console.error("Lỗi tải data player:", e);
-      stats.name = "Lỗi kết nối";
+      exp.value = overflow;
+      if (exp.value >= maxExp.value) checkLevelUp();
+      return true;
     }
-  };
+    return false;
+  }
 
-  // [V2 Logic] Hành động khám phá (đã được sửa logic ở backend)
-  const explore = async () => {
-    try {
-      // Gọi API, backend tự lấy userId từ session
-      const res = await axiosClient.post("/exploration/explore");
-      const data = res.data;
+  function takeDamage(amount) {
+    hp.value = Math.max(0, hp.value - amount);
+  }
 
-      // Cập nhật stats từ data trả về của ExplorationResponse
-      stats.energy = data.currentEnergy;
-      stats.gold = data.currentGold || stats.gold; // Fix gold update
-      stats.exp = data.currentExp;
-      stats.lv = data.currentLv;
-      stats.maxEnergy = data.maxEnergy; // Dùng cho trường hợp hồi phục
+  function heal(amount) {
+    hp.value = Math.min(maxHp.value, hp.value + amount);
+  }
 
-      // Nếu lên cấp, nên reload toàn bộ data để đồng bộ
-      if (data.newLevel) await fetchPlayerData();
-
-      return {
-        type: data.type,
-        message: data.message,
-        expGain: data.expGain, // Cần trường này để popup
-      };
-    } catch (e) {
-      const msg = e.response?.data?.message || "Lỗi mạng";
-      if (msg.includes("CAPTCHA")) throw new Error("CAPTCHA");
-      return { type: "ERROR", message: msg };
+  function useEnergy(amount) {
+    if (energy.value >= amount) {
+      energy.value -= amount;
+      return true;
     }
-  };
+    return false;
+  }
 
-  const equipItemApi = async (item) => {
-    try {
-      await axiosClient.post(`/equipment/equip/${item.id}`);
-      await fetchPlayerData();
-    } catch (e) {
-      alert(e.response?.data);
-    }
-  };
+  function addGold(amount) {
+    gold.value += amount;
+  }
+  function addDiamond(amount) {
+    diamond.value += amount;
+  }
 
-  const unequipItemApi = async (item) => {
-    try {
-      await axiosClient.post(`/equipment/unequip/${item.id}`);
-      await fetchPlayerData();
-    } catch (e) {
-      alert(e.response?.data);
-    }
-  };
-
-  // Export các state và actions cần thiết
   return {
-    stats,
-    explorationState,
-    inventory,
-    equipment, // Getter
-
-    fetchPlayerData,
-    explore,
-    equipItemApi,
-    unequipItemApi,
-    // attackEnemy, restAtInn, (cần nằm trong BattleStore/GameService)
+    name,
+    level,
+    exp,
+    gold,
+    diamond,
+    hp,
+    maxHp,
+    energy,
+    maxEnergy,
+    maxExp,
+    expPercentage,
+    hpPercentage,
+    energyPercentage,
+    gainExp,
+    checkLevelUp,
+    takeDamage,
+    heal,
+    useEnergy,
+    addGold,
+    addDiamond,
   };
 });

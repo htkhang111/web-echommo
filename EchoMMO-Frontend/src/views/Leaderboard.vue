@@ -48,7 +48,7 @@
               </div>
             </div>
             <div class="podium-base silver-base">
-              <div class="p-name">{{ currentList[1].name }}</div>
+              <div class="p-name">{{ currentList[1].username }}</div>
               <div class="p-val">{{ formatVal(currentList[1].value) }}</div>
             </div>
           </div>
@@ -65,7 +65,7 @@
             </div>
             <div class="podium-base gold-base">
               <div class="seal-rank">MINH CHỦ</div>
-              <div class="p-name main-name">{{ currentList[0].name }}</div>
+              <div class="p-name main-name">{{ currentList[0].username }}</div>
               <div class="p-val highlight">
                 {{ formatVal(currentList[0].value) }}
               </div>
@@ -82,7 +82,7 @@
               </div>
             </div>
             <div class="podium-base bronze-base">
-              <div class="p-name">{{ currentList[2].name }}</div>
+              <div class="p-name">{{ currentList[2].username }}</div>
               <div class="p-val">{{ formatVal(currentList[2].value) }}</div>
             </div>
           </div>
@@ -91,14 +91,14 @@
         <div class="rank-scroll custom-scroll">
           <div
             v-for="(entry, index) in rankedRestOfList"
-            :key="entry.name"
+            :key="entry.username"
             class="list-row"
             :style="{ animationDelay: index * 0.05 + 's' }"
           >
             <div class="row-rank">{{ entry.rank }}</div>
             <div class="row-avatar">{{ entry.avatar || "👤" }}</div>
             <div class="row-info">
-              <div class="row-name">{{ entry.name }}</div>
+              <div class="row-name">{{ entry.username }}</div>
               <div class="ink-bar-track">
                 <div
                   class="ink-bar-fill"
@@ -127,30 +127,34 @@ const activeTab = ref("level");
 const lbStore = useLeaderboardStore();
 
 const currentList = computed(() => {
-  const list =
-    activeTab.value === "level" ? lbStore.topLevels : lbStore.topWealth;
-  return list || [];
+  return activeTab.value === "level" ? lbStore.topLevels : lbStore.topWealth;
 });
 
 const maxVal = computed(() => {
-  if (currentList.value.length === 0) return 1;
-  return currentList.value[0].value;
+  if (!currentList.value || currentList.value.length === 0) return 1;
+  // Chuyển value sang số để tìm max chính xác
+  return Math.max(...currentList.value.map((e) => Number(e.value) || 0));
 });
 
 const rankedRestOfList = computed(() => {
+  if (!currentList.value) return [];
   const list = currentList.value.slice(3);
   const max = maxVal.value;
 
   return list.map((entry, index) => ({
     ...entry,
     rank: index + 4,
-    barWidth: max > 0 ? (entry.value / max) * 100 : 0,
+    // Tính toán độ dài thanh bar dựa trên giá trị số
+    barWidth: max > 0 ? (Number(entry.value) / max) * 100 : 0,
   }));
 });
 
 const formatVal = (val) => {
-  if (activeTab.value === "wealth") return Number(val).toLocaleString() + " Xu";
-  return "Cảnh giới " + val;
+  const num = Number(val) || 0;
+  if (activeTab.value === "wealth") {
+    return num.toLocaleString() + " Vàng";
+  }
+  return "Cấp " + num;
 };
 
 const switchTab = async (tab) => {
@@ -165,10 +169,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Giữ nguyên phần Style cũ của bạn */
 @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
 @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
 
-/* --- PALETTE --- */
 :root {
   --wood-dark: #3e2723;
   --wood-light: #5d4037;
@@ -180,7 +184,6 @@ onMounted(() => {
   --panel-bg: rgba(30, 20, 15, 0.95);
 }
 
-/* --- BASE --- */
 .dark-theme {
   min-height: 100vh;
   background-color: #212121;
@@ -190,7 +193,6 @@ onMounted(() => {
   overflow: hidden;
 }
 
-/* Backgrounds (Copy from Home) */
 .ink-bg-layer {
   position: absolute;
   inset: 0;
@@ -222,7 +224,6 @@ onMounted(() => {
   height: 100vh;
 }
 
-/* --- HEADER --- */
 .lb-header {
   text-align: center;
   margin-bottom: 20px;
@@ -265,7 +266,6 @@ onMounted(() => {
   right: 20%;
 }
 
-/* TABS */
 .wuxia-tabs {
   display: flex;
   justify-content: center;
@@ -301,7 +301,6 @@ onMounted(() => {
   background: #555;
 }
 
-/* --- CONTENT --- */
 .content-area {
   flex: 1;
   display: flex;
@@ -309,7 +308,6 @@ onMounted(() => {
   overflow: hidden;
 }
 
-/* PODIUM */
 .podium-section {
   display: flex;
   align-items: flex-end;
@@ -330,7 +328,6 @@ onMounted(() => {
   transform: translateY(-5px);
 }
 
-/* Avatar Groups */
 .avatar-group {
   position: relative;
   margin-bottom: 10px;
@@ -356,7 +353,6 @@ onMounted(() => {
   border-width: 4px;
 }
 
-/* Borders & Colors */
 .gold-border {
   border-color: var(--gold);
 }
@@ -401,7 +397,6 @@ onMounted(() => {
   color: #cd7f32;
 }
 
-/* Bases (Bệ đứng) */
 .podium-base {
   width: 100px;
   text-align: center;
@@ -443,7 +438,6 @@ onMounted(() => {
   );
 }
 
-/* Texts */
 .p-name {
   font-weight: bold;
   font-size: 0.9em;
@@ -472,7 +466,6 @@ onMounted(() => {
   border-radius: 2px;
 }
 
-/* --- LIST --- */
 .rank-scroll {
   flex: 1;
   overflow-y: auto;
@@ -508,7 +501,6 @@ onMounted(() => {
 .row-avatar {
   font-size: 1.2em;
 }
-
 .row-info {
   flex: 1;
   display: flex;
@@ -520,7 +512,6 @@ onMounted(() => {
   color: var(--text-light);
 }
 
-/* Progress Bar */
 .ink-bar-track {
   width: 100%;
   height: 4px;
@@ -542,7 +533,6 @@ onMounted(() => {
   text-align: right;
 }
 
-/* LOADING & EMPTY */
 .loading-state {
   text-align: center;
   padding: 50px;
@@ -571,7 +561,6 @@ onMounted(() => {
   opacity: 0.5;
 }
 
-/* ANIMATION */
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -593,7 +582,6 @@ onMounted(() => {
   }
 }
 
-/* SCROLLBAR */
 .custom-scroll::-webkit-scrollbar {
   width: 4px;
 }

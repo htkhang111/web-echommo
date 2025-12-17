@@ -1,44 +1,93 @@
-<template>
+<!-- <template>
   <div class="page-container explore-page">
     <div class="explore-layout">
       <div class="center-zone">
         <div class="game-board">
           <div class="status-header">
-            <div class="level-badge"><span>Lv.{{ charStore.character?.level }}</span></div>
+            <div class="level-badge">
+              <span>Lv.{{ charStore.character?.level }}</span>
+            </div>
             <div class="bars-container">
               <div class="stat-group">
-                <div class="stat-row"><span class="stat-icon">❤️</span>
+                <div class="stat-row">
+                  <span class="stat-icon">❤️</span>
                   <div class="progress-bg">
-                    <div class="progress-fill hp" :style="{ width: charStore.hpPercent + '%' }"></div><span
-                      class="stat-text">{{ charStore.character?.hp }}/{{ charStore.character?.maxHp }}</span>
+                    <div
+                      class="progress-fill hp"
+                      :style="{ width: charStore.hpPercent + '%' }"
+                    ></div>
+                    <span class="stat-text"
+                      >{{ charStore.character?.hp }}/{{
+                        charStore.character?.maxHp
+                      }}</span
+                    >
                   </div>
                 </div>
-                <div class="stat-row"><span class="stat-icon">⚡</span>
+                <div class="stat-row">
+                  <span class="stat-icon">⚡</span>
                   <div class="progress-bg">
-                    <div class="progress-fill energy" :style="{ width: charStore.energyPercent + '%' }"></div><span
-                      class="stat-text">{{ charStore.character?.energy }}/{{ charStore.character?.maxEnergy }}</span>
+                    <div
+                      class="progress-fill energy"
+                      :style="{ width: charStore.energyPercent + '%' }"
+                    ></div>
+                    <span class="stat-text"
+                      >{{ charStore.character?.energy }}/{{
+                        charStore.character?.maxEnergy
+                      }}</span
+                    >
                   </div>
                 </div>
               </div>
               <div class="exp-row">
                 <div class="exp-bg">
-                  <div class="exp-fill" :style="{ width: charStore.xpPercent + '%' }"></div>
+                  <div
+                    class="exp-fill"
+                    :style="{ width: charStore.xpPercent + '%' }"
+                  ></div>
                 </div>
               </div>
             </div>
           </div>
 
           <div class="stage-viewport">
-            <div class="stage-background" :style="{ backgroundImage: `url(${getMapBg()})` }">
-              <div class="actor player"
-                :style="{ left: charStore.explorationState.playerPos + '%', transform: `scaleX(${charStore.explorationState.moveDir})` }">
-                <div class="avatar-circle"><img :src="imgPlayer" class="avatar-img" /></div>
+            <div
+              class="stage-background"
+              :style="{ backgroundImage: `url(${getMapBg()})` }"
+            >
+              <div
+                class="actor player"
+                :style="{
+                  left: charStore.explorationState.playerPos + '%',
+                  transform: `scaleX(${charStore.explorationState.moveDir})`,
+                }"
+              >
+                <div class="avatar-circle">
+                  <img :src="imgPlayer" class="avatar-img" />
+                </div>
                 <div class="actor-label">Bạn</div>
               </div>
-              <div class="actor target" v-if="showTarget"
-                :style="{ left: charStore.explorationState.playerPos + 15 * charStore.explorationState.moveDir + '%' }">
-                <div class="avatar-target" :class="{ 'is-enemy': isEncounter, 'is-reward': !isEncounter }">
-                  <img v-if="targetImage" :src="targetImage" class="avatar-img" />
+              <div
+                class="actor target"
+                v-if="showTarget"
+                :style="{
+                  left:
+                    charStore.explorationState.playerPos +
+                    15 * charStore.explorationState.moveDir +
+                    '%',
+                }"
+              >
+                <div
+                  class="avatar-target"
+                  :class="{
+                    'is-enemy': isEncounter,
+                    'is-reward': !isEncounter,
+                  }"
+                >
+                  <img
+                    v-if="targetImage"
+                    :src="targetImage"
+                    class="avatar-img"
+                  />
                   <div v-else class="text-3xl">🎁</div>
                 </div>
                 <div class="actor-label target-name">{{ targetName }}</div>
@@ -48,15 +97,33 @@
 
           <div class="action-panel">
             <template v-if="!isEncounter">
-              <button class="btn-action map-btn" @click="showMapModal = true" :disabled="isMoving">
-                <div class="btn-content"><span>🗺️ {{ currentMapName }}</span></div>
+              <button
+                class="btn-action map-btn"
+                @click="showMapModal = true"
+                :disabled="isMoving"
+              >
+                <div class="btn-content">
+                  <span>🗺️ {{ currentMapName }}</span>
+                </div>
               </button>
-              <button class="btn-action main-btn" @click="startExploration" :disabled="isMoving">
-                <div class="btn-content"><i class="fas fa-walking"></i><span v-if="!isMoving">HÀNH TẨU</span><span
-                    v-else>... ({{ countdown }}s)</span></div>
+              <button
+                class="btn-action main-btn"
+                @click="startExploration"
+                :disabled="isMoving"
+              >
+                <div class="btn-content">
+                  <i class="fas fa-walking"></i
+                  ><span v-if="!isMoving">HÀNH TẨU</span
+                  ><span v-else>... ({{ countdown }}s)</span>
+                </div>
               </button>
-              <button class="btn-action sub-btn" @click="$router.push('/village')" :disabled="isMoving"><i
-                  class="fas fa-home"></i></button>
+              <button
+                class="btn-action sub-btn"
+                @click="$router.push('/village')"
+                :disabled="isMoving"
+              >
+                <i class="fas fa-home"></i>
+              </button>
             </template>
             <div v-else class="encounter-msg">⚠️ Đang chiến đấu...</div>
           </div>
@@ -71,8 +138,8 @@
         <div class="log-panel">
           <div class="log-header">NHẬT KÝ</div>
           <div class="log-content custom-scroll">
-            <div v-for="(log, index) in logs" :key="index" class="log-line"><span class="log-time">[{{ log.time
-                }}]</span>
+            <div v-for="(log, index) in logs" :key="index" class="log-line">
+              <span class="log-time">[{{ log.time }}]</span>
               <span class="log-msg" v-html="log.msg"></span>
             </div>
           </div>
@@ -83,12 +150,24 @@
       </div>
     </div>
 
-    <div v-if="showMapModal" class="modal-overlay" @click.self="showMapModal = false">
+    <div
+      v-if="showMapModal"
+      class="modal-overlay"
+      @click.self="showMapModal = false"
+    >
       <div class="map-modal-card">
         <div class="map-header">CHỌN KHU VỰC</div>
         <div class="map-grid">
-          <div v-for="map in maps" :key="map.id" class="map-item"
-            :class="{ 'active': currentMapId === map.id, 'locked': userLv < map.minLv }" @click="selectMap(map)">
+          <div
+            v-for="map in maps"
+            :key="map.id"
+            class="map-item"
+            :class="{
+              active: currentMapId === map.id,
+              locked: userLv < map.minLv,
+            }"
+            @click="selectMap(map)"
+          >
             <div class="map-info">
               <div class="map-name">{{ map.name }}</div>
               <div class="map-lv">Lv.{{ map.minLv }}-{{ map.maxLv }}</div>
@@ -104,11 +183,20 @@
       <div class="modal-card">
         <div class="modal-header">CẢNH BÁO</div>
         <div class="modal-body">
-          <div class="preview-box"><img :src="targetImage" class="enemy-preview-img" /></div>
-          <p>Gặp <strong>{{ targetName }}</strong>!</p>
+          <div class="preview-box">
+            <img :src="targetImage" class="enemy-preview-img" />
+          </div>
+          <p>
+            Gặp <strong>{{ targetName }}</strong
+            >!
+          </p>
         </div>
-        <div class="modal-footer"><button class="modal-btn flee" @click="flee">Bỏ Chạy</button><button
-            class="modal-btn fight" @click="goToBattle">CHIẾN ĐẤU</button></div>
+        <div class="modal-footer">
+          <button class="modal-btn flee" @click="flee">Bỏ Chạy</button
+          ><button class="modal-btn fight" @click="goToBattle">
+            CHIẾN ĐẤU
+          </button>
+        </div>
       </div>
     </div>
     <CaptchaModal ref="captchaModal" />
@@ -124,7 +212,11 @@ import { useRouter } from "vue-router";
 import CaptchaModal from "@/components/CaptchaModal.vue";
 import ChatPanel from "@/components/ChatPanel.vue";
 import QuestPanel from "@/components/QuestPanel.vue";
-import { getRandomEnemyData, getItemImage, getCurrentSkin } from "@/utils/assetHelper";
+import {
+  getRandomEnemyData,
+  getItemImage,
+  getCurrentSkin,
+} from "@/utils/assetHelper";
 
 const charStore = useCharacterStore();
 const authStore = useAuthStore();
@@ -151,69 +243,115 @@ const maps = [
   { id: "MAP_05", name: "Băng Đảo", minLv: 50, maxLv: 60 },
   { id: "MAP_06", name: "Đầm Lầy", minLv: 60, maxLv: 70 },
 ];
-const currentMapName = computed(() => maps.find(m => m.id === currentMapId.value)?.name || "Đồng Bằng");
+const currentMapName = computed(
+  () => maps.find((m) => m.id === currentMapId.value)?.name || "Đồng Bằng",
+);
 
 const selectMap = (map) => {
-  if (userLv.value < map.minLv) { addLog(`🔒 Cần Lv.${map.minLv} để vào ${map.name}`); return; }
-  currentMapId.value = map.id; showMapModal.value = false; addLog(`Đã chọn: <b>${map.name}</b>`);
+  if (userLv.value < map.minLv) {
+    addLog(`🔒 Cần Lv.${map.minLv} để vào ${map.name}`);
+    return;
+  }
+  currentMapId.value = map.id;
+  showMapModal.value = false;
+  addLog(`Đã chọn: <b>${map.name}</b>`);
 };
 
-const getMapBg = () => new URL(`../assets/Background/b_doanhtrai.png`, import.meta.url).href;
+const getMapBg = () =>
+  new URL(`../assets/Background/b_doanhtrai.png`, import.meta.url).href;
 const imgPlayer = computed(() => {
   const skin = getCurrentSkin(authStore.user?.avatarUrl);
   return isMoving.value ? skin.sprites.run : skin.sprites.idle;
 });
 
 let moveInterval = null;
-const getTime = () => new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+const getTime = () =>
+  new Date().toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 const addLog = (msg) => logs.value.unshift({ time: getTime(), msg });
 
 const startMovingJS = () => {
   if (moveInterval) clearInterval(moveInterval);
   moveInterval = setInterval(() => {
-    charStore.explorationState.playerPos += 0.5 * charStore.explorationState.moveDir;
-    if (charStore.explorationState.playerPos >= 70) charStore.explorationState.moveDir = -1;
-    else if (charStore.explorationState.playerPos <= 30) charStore.explorationState.moveDir = 1;
+    charStore.explorationState.playerPos +=
+      0.5 * charStore.explorationState.moveDir;
+    // Map bé lại (từ 30-70)
+    if (charStore.explorationState.playerPos >= 70)
+      charStore.explorationState.moveDir = -1;
+    else if (charStore.explorationState.playerPos <= 30)
+      charStore.explorationState.moveDir = 1;
   }, 16);
 };
 
 const startExploration = () => {
   if (isMoving.value) return;
-  isMoving.value = true; showTarget.value = false; isEncounter.value = false; countdown.value = 2; startMovingJS();
-  const timer = setInterval(async () => { countdown.value--; if (countdown.value <= 0) { clearInterval(timer); await handleResult(); } }, 1000);
+  isMoving.value = true;
+  showTarget.value = false;
+  isEncounter.value = false;
+  countdown.value = 2;
+  startMovingJS();
+  const timer = setInterval(async () => {
+    countdown.value--;
+    if (countdown.value <= 0) {
+      clearInterval(timer);
+      await handleResult();
+    }
+  }, 1000);
 };
 
 const handleResult = async () => {
-  clearInterval(moveInterval); isMoving.value = false;
+  clearInterval(moveInterval);
+  isMoving.value = false;
 
-  // [FIX] Xóa logic random frontend, gọi thẳng Backend
+  // [LOGIC MỚI] 20% Cơ hội chuyển sang trang Khai thác (Gathering)
+  const eventChance = Math.random() * 100;
+  if (eventChance < 20) {
+    addLog(
+      `<span style="color:#00e676; font-weight:bold;">🌿 Phát hiện khu vực tài nguyên!</span>`,
+    );
+    setTimeout(() => {
+      router.push("/gathering");
+    }, 800);
+    return;
+  }
+
   try {
     const res = await charStore.explore({ mapId: currentMapId.value });
-
-    // [LOGIC MỚI] Check type từ Backend trả về
-    if (res.type === "GATHERING") {
-      addLog(`<span style="color:#00e676; font-weight:bold;">🌿 ${res.message}</span>`);
-      setTimeout(() => { router.push("/gathering"); }, 800);
-      return;
-    }
-
     if (res.type === "ITEM" && res.rewardName) {
-      showTarget.value = true; targetName.value = res.rewardName;
+      showTarget.value = true;
+      targetName.value = res.rewardName;
       targetImage.value = getItemImage(res.rewardName) || getItemImage("GOLD");
       addLog(`<span style="color:#00e676;">${res.message}</span>`);
     } else if (res.type === "ENEMY") {
-      isEncounter.value = true; showTarget.value = true; targetName.value = res.rewardName;
-      targetImage.value = new URL(`../assets/enemy/idle_goblin.png`, import.meta.url).href;
-      battleStore.setEncounter({ name: res.rewardName, img: targetImage.value });
+      isEncounter.value = true;
+      showTarget.value = true;
+      targetName.value = res.rewardName;
+      targetImage.value = new URL(
+        `../assets/enemy/idle_goblin.png`,
+        import.meta.url,
+      ).href;
+      battleStore.setEncounter({
+        name: res.rewardName,
+        img: targetImage.value,
+      });
       addLog(`<span style="color:#ef5350;">⚠️ ${res.message}</span>`);
-    } else { addLog(`<span style="color:#aaa;">${res.message}</span>`); }
+    } else {
+      addLog(`<span style="color:#aaa;">${res.message}</span>`);
+    }
   } catch (e) {
-    if (e.message === "CAPTCHA") captchaModal.value.open(); else addLog(`<span style="color:red">Lỗi: ${e.message || e}</span>`);
+    if (e.message === "CAPTCHA") captchaModal.value.open();
+    else addLog(`<span style="color:red">Lỗi: ${e.message || e}</span>`);
   }
 };
 
 const goToBattle = () => router.push("/battle");
-const flee = () => { isEncounter.value = false; showTarget.value = false; addLog("Đã chạy thoát."); };
+const flee = () => {
+  isEncounter.value = false;
+  showTarget.value = false;
+  addLog("Đã chạy thoát.");
+};
 
 onMounted(() => charStore.fetchCharacter());
 onUnmounted(() => clearInterval(moveInterval));
@@ -565,6 +703,177 @@ onUnmounted(() => clearInterval(moveInterval));
   }
 
   .right-zone {
+    height: 400px;
+  }
+}
+</style> -->
+
+<template>
+  <div class="explore-container">
+    <div class="explore-layout">
+      <div class="row top-row">
+        <div class="game-main-panel shadow-ink">
+          <div class="panel-header">
+            <i class="fas fa-map-marked-alt"></i> 
+            <span>{{ currentRegionName }}</span>
+          </div>
+          <div class="game-screen" :style="{ backgroundImage: `url(${regionBg})` }">
+            <div class="overlay-ink"></div>
+            <div class="game-content">
+               <slot name="game-view"></slot>
+            </div>
+          </div>
+        </div>
+
+        <div class="log-panel shadow-ink">
+          <div class="panel-header">
+            <i class="fas fa-scroll"></i> <span>Hành Trình</span>
+          </div>
+          <div class="log-content custom-scroll">
+            <div v-for="(msg, i) in gameLogs" :key="i" class="log-item">
+              <span class="log-time">[{{ msg.time }}]</span> {{ msg.text }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row bottom-row">
+        <div class="chat-expanded-panel shadow-ink">
+          <div class="panel-header">
+            <i class="fas fa-comments"></i> <span>Giang Hồ Đàm</span>
+          </div>
+          <div class="chat-wrapper">
+            <ChatPanel />
+          </div>
+        </div>
+
+        <div class="quest-aligned-panel shadow-ink">
+          <div class="panel-header">
+            <i class="fas fa-tasks"></i> <span>Nhiệm Vụ</span>
+          </div>
+          <div class="quest-wrapper">
+            <QuestPanel />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+import ChatPanel from '../components/ChatPanel.vue'; //
+import QuestPanel from '../components/QuestPanel.vue'; //
+
+const currentRegionName = ref("Vô Danh Trấn");
+const regionBg = ref("https://images.unsplash.com/photo-1518182170546-0766ce6fec56?q=80&w=1000");
+const gameLogs = ref([
+  { time: "12:00", text: "Bạn đã bước vào địa phận Vô Danh Trấn." },
+  { time: "12:05", text: "Phát hiện một Tiểu Yêu đang lảng vảng." }
+]);
+</script>
+
+<style scoped>
+.explore-container {
+  padding: 15px;
+  min-height: 100vh;
+  background: #1a120b;
+  color: #e0d5c1;
+  font-family: "Noto Serif TC", serif;
+}
+
+.explore-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* Cấu trúc hàng chung */
+.row {
+  display: flex;
+  gap: 15px;
+}
+
+.top-row {
+  height: 550px; /* Chiều cao hàng trên */
+}
+
+.bottom-row {
+  height: 350px; /* Chiều cao hàng dưới */
+}
+
+/* Tỉ lệ phân chia: 
+   Sử dụng flex: 3 cho cột trái (Game/Chat) 
+   Sử dụng flex: 1 cho cột phải (Log/Nhiệm vụ) 
+   Điều này đảm bảo chúng luôn thẳng hàng theo chiều dọc.
+*/
+
+.game-main-panel, .chat-expanded-panel {
+  flex: 3; /* Chiếm 75% chiều ngang */
+  display: flex;
+  flex-direction: column;
+}
+
+.log-panel, .quest-aligned-panel {
+  flex: 1; /* Chiếm 25% chiều ngang */
+  display: flex;
+  flex-direction: column;
+  min-width: 300px; /* Đảm bảo khung Log/Quest không quá bé */
+}
+
+/* Khung viền và tiêu đề */
+.shadow-ink {
+  border: 1px solid #3e2723;
+  background: rgba(30, 20, 15, 0.95);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+}
+
+.panel-header {
+  background: linear-gradient(to right, #3e2723, #261815);
+  padding: 10px 15px;
+  border-bottom: 2px solid #5d4037;
+  color: #ffecb3;
+  font-weight: bold;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Nội dung bên trong */
+.game-screen {
+  flex: 1;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+}
+
+.log-content, .chat-wrapper, .quest-wrapper {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.log-item {
+  font-size: 0.9em;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(93, 64, 55, 0.2);
+}
+
+.log-time { color: #8d6e63; }
+
+/* Scrollbar */
+.custom-scroll::-webkit-scrollbar { width: 4px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #5d4037; }
+
+@media (max-width: 1100px) {
+  .row { flex-direction: column; height: auto; }
+  .game-main-panel, .log-panel, .chat-expanded-panel, .quest-aligned-panel {
+    flex: none;
+    width: 100%;
     height: 400px;
   }
 }
