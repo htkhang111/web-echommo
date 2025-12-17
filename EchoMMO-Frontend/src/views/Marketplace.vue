@@ -2284,18 +2284,11 @@ onMounted(async () => {
 
     <div class="market-overlay">
       <div class="market-header">
-        <div class="header-decor left"></div>
         <h2 class="market-title">THƯƠNG HỘI</h2>
-        <div class="header-decor right"></div>
-
         <div class="filter-bar">
           <div class="search-box">
             <i class="fas fa-search"></i>
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Tìm kiếm bảo vật..."
-            />
+            <input v-model="searchQuery" type="text" placeholder="Tìm kiếm bảo vật..." />
           </div>
           <div class="filter-box">
             <i class="fas fa-filter"></i>
@@ -2310,35 +2303,19 @@ onMounted(async () => {
         </div>
 
         <div class="market-tabs">
-          <button
-            :class="{ active: activeTab === 'buy' }"
-            @click="switchTab('buy')"
-            class="tab-btn"
-          >
+          <button :class="{ active: activeTab === 'buy' }" @click="switchTab('buy')" class="tab-btn">
             <i class="fas fa-store"></i> TIỆM TẠP HÓA
           </button>
           <div class="tab-divider"></div>
-          <button
-            :class="{ active: activeTab === 'p2p' }"
-            @click="switchTab('p2p')"
-            class="tab-btn"
-          >
+          <button :class="{ active: activeTab === 'p2p' }" @click="switchTab('p2p')" class="tab-btn">
             <i class="fas fa-handshake"></i> CHỢ TRỜI
           </button>
           <div class="tab-divider"></div>
-          <button
-            :class="{ active: activeTab === 'my_listings' }"
-            @click="loadMyListings"
-            class="tab-btn"
-          >
+          <button :class="{ active: activeTab === 'my_listings' }" @click="loadMyListings" class="tab-btn">
             <i class="fas fa-clipboard-list"></i> SẠP CỦA TA
           </button>
           <div class="tab-divider"></div>
-          <button
-            :class="{ active: activeTab === 'sell_sys' }"
-            @click="switchTab('sell_sys')"
-            class="tab-btn"
-          >
+          <button :class="{ active: activeTab === 'sell_sys' }" @click="switchTab('sell_sys')" class="tab-btn">
             <i class="fas fa-coins"></i> BÁN ĐỒ
           </button>
         </div>
@@ -2351,20 +2328,11 @@ onMounted(async () => {
               <i class="fas fa-search-minus"></i>
               <p>Không tìm thấy trang bị nào.</p>
             </div>
-            <div
-              v-for="item in filteredShopItems"
-              :key="item.itemId"
-              class="item-card system-card"
-            >
+            <div v-for="item in filteredShopItems" :key="item.itemId" class="item-card system-card">
               <div class="card-top">
                 <div class="img-frame" :class="'border-' + item.rarity">
-                  <img
-                    :src="resolveItemImage(item.imageUrl)"
-                    @error="handleImgError"
-                  />
-                  <span class="rarity-tag" :class="'bg-' + item.rarity">{{
-                    item.rarity
-                  }}</span>
+                  <img :src="resolveItemImage(item.imageUrl)" @error="handleImgError" />
+                  <span class="rarity-tag" :class="'bg-' + item.rarity">{{ item.rarity }}</span>
                 </div>
               </div>
               <div class="card-body">
@@ -2372,26 +2340,12 @@ onMounted(async () => {
                 <div class="item-type">{{ item.type }}</div>
                 <div class="price-row">
                   <span class="label">Giá:</span>
-                  <span class="val gold-text"
-                    >{{ formatNumber(item.basePrice) }}
-                    <i class="fas fa-coins"></i
-                  ></span>
+                  <span class="val gold-text">{{ formatNumber(item.basePrice) }} <i class="fas fa-coins"></i></span>
                 </div>
               </div>
               <div class="card-footer">
-                <input
-                  type="number"
-                  v-model.number="buyQty[item.itemId]"
-                  min="1"
-                  class="dark-input"
-                  placeholder="1"
-                />
-                <button
-                  @click="askBuySystem(item)"
-                  class="btn-action btn-buy-sys"
-                >
-                  MUA
-                </button>
+                <input type="number" v-model.number="buyQty[item.itemId]" min="1" class="dark-input" placeholder="1" />
+                <button @click="askBuySystem(item)" class="btn-action btn-buy-sys">MUA</button>
               </div>
             </div>
           </div>
@@ -2401,201 +2355,96 @@ onMounted(async () => {
               <i class="fas fa-wind"></i>
               <p>Chợ vắng hoặc không có trang bị này...</p>
             </div>
-            <div
-              v-for="listing in filteredPlayerListings"
-              :key="listing.listingId"
-              class="item-card p2p-card"
-            >
+            <div v-for="listing in filteredPlayerListings" :key="listing.listingId" class="item-card p2p-card">
               <div class="seller-badge">
-                <i class="fas fa-user-tag"></i>
-                {{ listing.seller?.username || "Ẩn danh" }}
+                <i class="fas fa-user-tag"></i> {{ listing.seller?.username || "Ẩn danh" }}
               </div>
               <div class="card-top p2p-img-top">
                 <div class="img-frame" :class="'border-' + listing.item.rarity">
-                  <img
-                    :src="resolveItemImage(listing.item.imageUrl)"
-                    @error="handleImgError"
-                  />
-
-                  <div
-                    v-if="listing.enhanceLevel > 0"
-                    class="level-tag"
-                    :class="getLevelClass(listing.enhanceLevel)"
-                  >
+                  <img :src="resolveItemImage(listing.item.imageUrl)" @error="handleImgError" />
+                  <div v-if="listing.enhanceLevel > 0" class="level-tag" :class="getLevelClass(listing.enhanceLevel)">
                     +{{ listing.enhanceLevel }}
                   </div>
-
-                  <span
-                    class="rarity-tag"
-                    :class="'bg-' + listing.item.rarity"
-                    >{{ listing.item.rarity }}</span
-                  >
+                  <span class="rarity-tag" :class="'bg-' + listing.item.rarity">{{ listing.item.rarity }}</span>
                 </div>
               </div>
               <div class="card-body p2p-body">
                 <div class="item-name gold-glow">
                   {{ listing.item.name }}
-                  <span v-if="listing.enhanceLevel > 0" class="enhance-txt"
-                    >(+{{ listing.enhanceLevel }})</span
-                  >
+                  <span v-if="listing.enhanceLevel > 0" class="enhance-txt">(+{{ listing.enhanceLevel }})</span>
                 </div>
-                <div class="stock-info">
-                  Tồn kho: <span class="highlight">{{ listing.quantity }}</span>
-                </div>
+                <div class="stock-info">Tồn kho: <span class="highlight">{{ listing.quantity }}</span></div>
                 <div class="price-row">
-                  <span class="val gold-text large"
-                    >{{ formatNumber(listing.price) }}
-                    <i class="fas fa-coins"></i
-                  ></span>
+                  <span class="val gold-text large">{{ formatNumber(listing.price) }} <i class="fas fa-coins"></i></span>
                 </div>
               </div>
               <div class="card-footer">
-                <input
-                  type="number"
-                  v-model.number="p2pQty[listing.listingId]"
-                  min="1"
-                  :max="listing.quantity"
-                  class="dark-input"
-                  placeholder="1"
-                />
-                <button
-                  @click="askBuyP2P(listing)"
-                  class="btn-action btn-buy-p2p"
-                >
-                  <i class="fas fa-shopping-basket"></i> MUA
-                </button>
+                <input type="number" v-model.number="p2pQty[listing.listingId]" min="1" :max="listing.quantity" class="dark-input" placeholder="1" />
+                <button @click="askBuyP2P(listing)" class="btn-action btn-buy-p2p"><i class="fas fa-shopping-basket"></i> MUA</button>
               </div>
             </div>
           </div>
 
-          <div
-            v-else-if="activeTab === 'my_listings'"
-            class="grid-layout"
-            key="my_listings"
-          >
+          <div v-else-if="activeTab === 'my_listings'" class="grid-layout" key="my_listings">
             <div v-if="marketStore.myListings.length === 0" class="empty-state">
               <i class="fas fa-scroll"></i>
               <p>Chưa bày bán vật phẩm nào.</p>
             </div>
-            <div
-              v-for="listing in marketStore.myListings"
-              :key="listing.listingId"
-              class="item-card my-card"
-            >
+            <div v-for="listing in marketStore.myListings" :key="listing.listingId" class="item-card my-card">
               <div class="card-top">
                 <div class="img-frame" :class="'border-' + listing.item.rarity">
-                  <img
-                    :src="resolveItemImage(listing.item.imageUrl)"
-                    @error="handleImgError"
-                  />
-
-                  <div
-                    v-if="listing.enhanceLevel > 0"
-                    class="level-tag top-left"
-                    :class="getLevelClass(listing.enhanceLevel)"
-                  >
+                  <img :src="resolveItemImage(listing.item.imageUrl)" @error="handleImgError" />
+                  <div v-if="listing.enhanceLevel > 0" class="level-tag top-left" :class="getLevelClass(listing.enhanceLevel)">
                     +{{ listing.enhanceLevel }}
                   </div>
-
                   <span class="qty-badge-corner">x{{ listing.quantity }}</span>
                 </div>
               </div>
               <div class="card-body">
                 <div class="item-name">
                   {{ listing.item.name }}
-                  <span v-if="listing.enhanceLevel > 0"
-                    >(+{{ listing.enhanceLevel }})</span
-                  >
+                  <span v-if="listing.enhanceLevel > 0">(+{{ listing.enhanceLevel }})</span>
                 </div>
                 <div class="price-row">
-                  <span class="val gold-text"
-                    >{{ formatNumber(listing.price) }}
-                    <i class="fas fa-coins"></i
-                  ></span>
+                  <span class="val gold-text">{{ formatNumber(listing.price) }} <i class="fas fa-coins"></i></span>
                 </div>
               </div>
               <div class="card-footer full-width">
-                <button
-                  @click="handleCancelListing(listing.listingId)"
-                  class="btn-action btn-cancel"
-                >
-                  THU HỒI
-                </button>
+                <button @click="handleCancelListing(listing.listingId)" class="btn-action btn-cancel">THU HỒI</button>
               </div>
             </div>
           </div>
 
-          <div
-            v-else-if="activeTab === 'sell_sys'"
-            class="grid-layout"
-            key="sell_sys"
-          >
+          <div v-else-if="activeTab === 'sell_sys'" class="grid-layout" key="sell_sys">
             <div v-if="filteredInventory.length === 0" class="empty-state">
               <i class="fas fa-box-open"></i>
               <p>Hành trang trống hoặc không tìm thấy.</p>
             </div>
-            <div
-              v-for="uItem in filteredInventory"
-              :key="uItem.userItemId"
-              class="item-card sell-card"
-            >
+            <div v-for="uItem in filteredInventory" :key="uItem.userItemId" class="item-card sell-card">
               <div class="card-top small-top">
                 <div class="img-frame small">
-                  <img
-                    :src="resolveItemImage(uItem.item.imageUrl)"
-                    @error="handleImgError"
-                  />
-                  <div
-                    v-if="
-                      (uItem.enhanceLevel && uItem.enhanceLevel > 0) ||
-                      (uItem.level && uItem.level > 0)
-                    "
-                    class="level-tag"
-                    :class="getLevelClass(uItem.enhanceLevel || uItem.level)"
-                  >
+                  <img :src="resolveItemImage(uItem.item.imageUrl)" @error="handleImgError" />
+                  <div v-if="(uItem.enhanceLevel && uItem.enhanceLevel > 0) || (uItem.level && uItem.level > 0)" class="level-tag" :class="getLevelClass(uItem.enhanceLevel || uItem.level)">
                     +{{ uItem.enhanceLevel || uItem.level }}
                   </div>
-
                   <span class="qty-badge">x{{ uItem.quantity }}</span>
                 </div>
               </div>
               <div class="card-body">
                 <div class="item-name">
                   {{ uItem.item.name }}
-                  <span
-                    v-if="
-                      (uItem.enhanceLevel && uItem.enhanceLevel > 0) ||
-                      (uItem.level && uItem.level > 0)
-                    "
-                    style="font-size: 0.8em; color: gold"
-                  >
+                  <span v-if="(uItem.enhanceLevel && uItem.enhanceLevel > 0) || (uItem.level && uItem.level > 0)" style="font-size: 0.8em; color: gold">
                     (+{{ uItem.enhanceLevel || uItem.level }})
                   </span>
                 </div>
                 <div class="price-row">
                   <span class="label">Thu mua:</span>
-                  <span class="val red-text"
-                    >{{ formatNumber(uItem.item.basePrice * 0.8) }}
-                    <i class="fas fa-coins"></i
-                  ></span>
+                  <span class="val red-text">{{ formatNumber(uItem.item.basePrice * 0.8) }} <i class="fas fa-coins"></i></span>
                 </div>
               </div>
               <div class="card-footer">
-                <input
-                  type="number"
-                  v-model.number="sellQty[uItem.userItemId]"
-                  min="1"
-                  :max="uItem.quantity"
-                  class="dark-input"
-                  placeholder="All"
-                />
-                <button
-                  v-if="!uItem.isEquipped"
-                  @click="askSellSystem(uItem)"
-                  class="btn-action btn-sell"
-                >
-                  BÁN
-                </button>
+                <input type="number" v-model.number="sellQty[uItem.userItemId]" min="1" :max="uItem.quantity" class="dark-input" placeholder="All" />
+                <button v-if="!uItem.isEquipped" @click="askSellSystem(uItem)" class="btn-action btn-sell">BÁN</button>
                 <div v-else class="equipped-warn">ĐANG DÙNG</div>
               </div>
             </div>
@@ -2605,64 +2454,35 @@ onMounted(async () => {
     </div>
 
     <transition name="pop-up">
-      <div
-        v-if="confirmModal.visible"
-        class="modal-overlay"
-        @click.self="closeConfirm"
-      >
+      <div v-if="confirmModal.visible" class="modal-overlay" @click.self="closeConfirm">
         <div class="bill-modal">
           <div class="bill-header">
             <div class="bill-seal">KHẾ ƯỚC</div>
-            <h3>
-              {{
-                confirmModal.type === "SELL"
-                  ? "XÁC NHẬN BÁN"
-                  : "XÁC NHẬN GIAO DỊCH"
-              }}
-            </h3>
+            <h3>{{ confirmModal.type === "SELL" ? "XÁC NHẬN BÁN" : "XÁC NHẬN GIAO DỊCH" }}</h3>
           </div>
           <div class="bill-body">
             <div class="item-preview-row">
               <div class="preview-img">
-                <img
-                  :src="resolveItemImage(confirmModal.data.imgCode)"
-                  @error="handleImgError"
-                />
+                <img :src="resolveItemImage(confirmModal.data.imgCode)" @error="handleImgError" />
               </div>
               <div class="preview-info">
                 <div class="p-name">{{ confirmModal.data.name }}</div>
-                <div class="p-type">
-                  {{ getTransactionLabel(confirmModal.type) }}
-                </div>
+                <div class="p-type">{{ getTransactionLabel(confirmModal.type) }}</div>
               </div>
             </div>
             <div class="bill-calc">
-              <div class="calc-row">
-                <span>Đơn giá:</span
-                ><span>{{ formatNumber(confirmModal.data.price) }}</span>
-              </div>
-              <div class="calc-row">
-                <span>Số lượng:</span><span>x {{ confirmModal.data.qty }}</span>
-              </div>
+              <div class="calc-row"><span>Đơn giá:</span><span>{{ formatNumber(confirmModal.data.price) }}</span></div>
+              <div class="calc-row"><span>Số lượng:</span><span>x {{ confirmModal.data.qty }}</span></div>
               <div class="divider-dashed"></div>
               <div class="calc-row total">
-                <span>{{
-                  confirmModal.type === "SELL" ? "THỰC LĨNH:" : "THANH TOÁN:"
-                }}</span>
-                <span class="total-gold"
-                  >{{ formatNumber(confirmModal.data.total) }}
-                  <i class="fas fa-coins"></i
-                ></span>
+                <span>{{ confirmModal.type === "SELL" ? "THỰC LĨNH:" : "THANH TOÁN:" }}</span>
+                <span class="total-gold">{{ formatNumber(confirmModal.data.total) }} <i class="fas fa-coins"></i></span>
               </div>
             </div>
           </div>
           <div class="bill-footer">
-            <button class="btn-wood cancel" @click="closeConfirm">
-              HỦY BỎ
-            </button>
-            <button class="btn-wood confirm" @click="confirmTransaction">
-              <i class="fas fa-fingerprint"></i> XÁC NHẬN
-            </button>
+            <button class="btn-wood cancel" @click="closeConfirm">HỦY BỎ</button>
+            <button class="btn-wood confirm" @click="confirmTransaction"><i class="fas fa-fingerprint"></i> XÁC NHẬN</button>
           </div>
         </div>
       </div>
@@ -2685,9 +2505,14 @@ const activeTab = ref("buy");
 const sellQty = reactive({});
 const buyQty = reactive({});
 const p2pQty = reactive({});
-
 const searchQuery = ref("");
 const filterRarity = ref("ALL");
+
+const confirmModal = reactive({
+  visible: false,
+  type: "",
+  data: { id: null, name: "", imgCode: "", price: 0, qty: 0, total: 0 },
+});
 
 const getLevelClass = (lv) => {
   if (!lv) return "";
@@ -2697,55 +2522,28 @@ const getLevelClass = (lv) => {
   return "lvl-white";
 };
 
-// [FIX] Hàm lọc: Bỏ MATERIAL khỏi Chợ và Shop, nhưng giữ ở Inventory để bán
 const filterItems = (list, isInventory = false) => {
   if (!list || !Array.isArray(list)) return [];
-
   return list.filter((entry) => {
     const itemData = isInventory ? entry.item : entry.item || entry;
-    
-    // Nếu itemData bị null (dữ liệu lỗi), bỏ qua
     if (!itemData) return false;
-
-    // Logic: Nếu KHÔNG PHẢI kho đồ cá nhân (tức là đang ở Chợ hoặc Shop)
-    // thì ẩn item loại MATERIAL
-    if (!isInventory && itemData.type === "MATERIAL") {
-      return false;
-    }
+    // Ẩn MATERIAL nếu đang ở Chợ (p2p/buy)
+    if (!isInventory && itemData.type === "MATERIAL") return false;
 
     const itemName = itemData.name || "";
-    const nameMatch = itemName
-      .toLowerCase()
-      .includes(searchQuery.value.toLowerCase());
-
+    const nameMatch = itemName.toLowerCase().includes(searchQuery.value.toLowerCase());
     const itemRarity = itemData.rarity || "C";
-    const rarityMatch =
-      filterRarity.value === "ALL" || itemRarity === filterRarity.value;
-
+    const rarityMatch = filterRarity.value === "ALL" || itemRarity === filterRarity.value;
     return nameMatch && rarityMatch;
   });
 };
 
 const filteredShopItems = computed(() => filterItems(marketStore.shopItems));
-const filteredPlayerListings = computed(() =>
-  filterItems(marketStore.playerListings),
-);
-const filteredInventory = computed(() =>
-  filterItems(inventoryStore.items, true),
-);
-
-const confirmModal = reactive({
-  visible: false,
-  type: "",
-  data: { id: null, name: "", imgCode: "", price: 0, qty: 0, total: 0 },
-});
+const filteredPlayerListings = computed(() => filterItems(marketStore.playerListings));
+const filteredInventory = computed(() => filterItems(inventoryStore.items, true));
 
 const formatNumber = (n) => Number(n).toLocaleString("en-US");
-
-// [FIX] Xử lý lỗi ảnh placeholder bị chặn - Dùng base64 trong suốt
-const handleImgError = (e) => {
-  e.target.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-};
+const handleImgError = (e) => { e.target.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"; };
 
 const switchTab = (tab) => {
   activeTab.value = tab;
@@ -2759,90 +2557,50 @@ const getTransactionLabel = (type) => {
   return "Mua từ Cửa Tiệm";
 };
 
-const askBuySystem = (item) => {
-  const qty = buyQty[item.itemId] || 1;
-  openConfirm("SYS", {
-    id: item.itemId,
-    name: item.name,
-    imgCode: item.imageUrl,
-    price: item.basePrice,
-    qty,
-    total: item.basePrice * qty,
-  });
-};
-
-const askBuyP2P = (listing) => {
-  const qty = p2pQty[listing.listingId] || 1;
-  openConfirm("P2P", {
-    id: listing.listingId,
-    name: listing.item.name,
-    imgCode: listing.item.imageUrl,
-    price: listing.price,
-    qty,
-    total: listing.price * qty,
-  });
-};
-
+const askBuySystem = (item) => openConfirm("SYS", { id: item.itemId, name: item.name, imgCode: item.imageUrl, price: item.basePrice, qty: buyQty[item.itemId] || 1, total: item.basePrice * (buyQty[item.itemId] || 1) });
+const askBuyP2P = (listing) => openConfirm("P2P", { id: listing.listingId, name: listing.item.name, imgCode: listing.item.imageUrl, price: listing.price, qty: p2pQty[listing.listingId] || 1, total: listing.price * (p2pQty[listing.listingId] || 1) });
 const askSellSystem = (uItem) => {
   const qty = sellQty[uItem.userItemId] || uItem.quantity;
   const sellPrice = uItem.item.basePrice * 0.8;
-  openConfirm("SELL", {
-    id: uItem.userItemId,
-    name: uItem.item.name,
-    imgCode: uItem.item.imageUrl,
-    price: sellPrice,
-    qty,
-    total: sellPrice * qty,
-  });
+  openConfirm("SELL", { id: uItem.userItemId, name: uItem.item.name, imgCode: uItem.item.imageUrl, price: sellPrice, qty, total: sellPrice * qty });
 };
 
 const openConfirm = (type, data) => {
-  confirmModal.type = type;
-  confirmModal.data = data;
-  confirmModal.visible = true;
+  confirmModal.type = type; confirmModal.data = data; confirmModal.visible = true;
 };
-const closeConfirm = () => {
-  confirmModal.visible = false;
-};
+const closeConfirm = () => { confirmModal.visible = false; };
 
 const confirmTransaction = async () => {
   const { type, data } = confirmModal;
   closeConfirm();
-
   try {
     if (type === "SYS") {
       await marketStore.buyItem(data.id, data.qty);
       buyQty[data.id] = 1;
-      notificationStore.showToast(
-        `Đã mua ${data.qty} ${data.name}!`,
-        "success",
-      );
+      notificationStore.showToast(`Đã mua ${data.qty} ${data.name}!`, "success");
     } else if (type === "P2P") {
       await marketStore.buyPlayerListing(data.id, data.qty);
       p2pQty[data.id] = 1;
       notificationStore.showToast(`Giao dịch thành công!`, "success");
     } else if (type === "SELL") {
       await marketStore.sellItem(data.id, data.qty);
-      notificationStore.showToast(
-        `Đã bán ${data.qty} ${data.name}, nhận ${formatNumber(data.total)} xu!`,
-        "success",
-      );
+      notificationStore.showToast(`Đã bán ${data.qty} ${data.name}, nhận ${formatNumber(data.total)} xu!`, "success");
     }
   } catch (e) {
+    // Nếu mua thất bại (có thể do người khác mua rồi), load lại chợ để cập nhật
     if (type === "P2P") await marketStore.fetchPlayerListings();
-    const errorMsg =
-      e.response?.data?.message || e.response?.data || "Giao dịch thất bại.";
-    notificationStore.showToast(errorMsg, "error");
+    
+    // Hiển thị thông báo lỗi
+    const msg = e.response?.data?.message || e.response?.data || "Giao dịch thất bại.";
+    notificationStore.showToast(msg, "error");
   }
 };
 
 const handleCancelListing = async (listingId) => {
   try {
     await marketStore.cancelListing(listingId);
-    notificationStore.showToast("Đã thu hồi vật phẩm về kho.", "success");
-  } catch (e) {
-    notificationStore.showToast("Lỗi khi hủy bán.", "error");
-  }
+    notificationStore.showToast("Đã thu hồi vật phẩm.", "success");
+  } catch (e) { notificationStore.showToast("Lỗi hủy bán.", "error"); }
 };
 
 const loadMyListings = async () => {
@@ -2852,19 +2610,13 @@ const loadMyListings = async () => {
 
 onMounted(async () => {
   try {
-    // Gọi song song để tăng tốc độ
+    // Gọi song song để tăng tốc
     await Promise.all([
       marketStore.fetchShopItems(),
       marketStore.fetchPlayerListings(),
-      inventoryStore.fetchInventory(),
+      inventoryStore.fetchInventory()
     ]);
-  } catch (e) {
-    console.error("Lỗi tải dữ liệu chợ:", e);
-    // Nếu vẫn lỗi, check xem list có data không rồi mới báo lỗi
-    if (marketStore.playerListings.length === 0 && activeTab.value === 'p2p') {
-       notificationStore.showToast("Không thể kết nối đến Thương Hội.", "error");
-    }
-  }
+  } catch (e) { console.error("Market load error", e); }
 });
 </script>
 
