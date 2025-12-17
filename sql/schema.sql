@@ -309,3 +309,24 @@ USE echommo_db;
 
 ALTER TABLE items
     MODIFY COLUMN slot_type ENUM('NONE', 'WEAPON', 'ARMOR', 'HELMET', 'BOOTS', 'RING', 'NECKLACE', 'CONSUMABLE', 'MATERIAL') DEFAULT 'NONE';
+
+USE echommo_db;
+
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE echommo_db.items;
+SET FOREIGN_KEY_CHECKS = 1;
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 1, null, 1, 'Vật phẩm hệ thống.', 'r_wood.png', 'Gỗ Xoài', 'MATERIAL', 'COMMON', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 2, null, 1, 'Vật phẩm hệ thống.', 'stone_1.png', 'Đá', 'MATERIAL', 'COMMON', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 3, null, 1, 'Vật phẩm hệ thống.', 'r_copper_node.png', 'Quặng Đồng', 'MATERIAL', 'COMMON', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 4, null, 2, 'Vật phẩm hệ thống.', 'r_silver_node.png', 'Sắt', 'MATERIAL', 'RARE', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 5, null, 1, 'Vật phẩm hệ thống.', 'r_fish.png', 'Cá', 'MATERIAL', 'COMMON', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 6, null, 3, 'Vật phẩm hệ thống.', 'r_mystrile_node.png', 'Bạch Kim', 'MATERIAL', 'EPIC', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 7, null, 1, 'Vật phẩm hệ thống.', 'r_red_wood.png', 'Gỗ Khô', 'MATERIAL', 'COMMON', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 8, null, 2, 'Vật phẩm hệ thống.', 'r_white_wood.png', 'Gỗ Lạnh', 'MATERIAL', 'UNCOMMON', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 9, null, 3, 'Vật phẩm hệ thống.', 'r_black_wood.png', 'Gỗ Lạ', 'MATERIAL', 'RARE', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 10, null, 2, 'Vật phẩm hệ thống.', 'r_shark.png', 'Cá Mập', 'MATERIAL', 'UNCOMMON', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 11, null, 5, 'Vật phẩm hệ thống.', 'r_echo_coin.png', 'Echo Coin', 'MATERIAL', 'LEGENDARY', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 12, null, 4, 'Vật phẩm hệ thống.', 'r_unknown.png', 'Nguyên liệu lạ', 'MATERIAL', 'EPIC', 'MATERIAL');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 13, null, 1, 'Vật phẩm hệ thống.', 's_sword_0.png', 'Kiếm Gỗ', 'WEAPON', 'COMMON', 'WEAPON');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 14, null, 1, 'Vật phẩm hệ thống.', 'a_armor_0.png', 'Áo Vải', 'ARMOR', 'COMMON', 'ARMOR');
+insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 15, null, 1, 'Vật phẩm hệ thống.', 'r_potion.png', 'Bình Máu', 'CONSUMABLE', 'COMMON', 'CONSUMABLE');
