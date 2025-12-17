@@ -2697,16 +2697,18 @@ const getLevelClass = (lv) => {
   return "lvl-white";
 };
 
-// [FIX QUAN TRỌNG] Hàm lọc: Bỏ MATERIAL khỏi Chợ và Shop
+// [FIX] Hàm lọc: Bỏ MATERIAL khỏi Chợ và Shop, nhưng giữ ở Inventory để bán
 const filterItems = (list, isInventory = false) => {
   if (!list || !Array.isArray(list)) return [];
 
   return list.filter((entry) => {
     const itemData = isInventory ? entry.item : entry.item || entry;
+    
+    // Nếu itemData bị null (dữ liệu lỗi), bỏ qua
     if (!itemData) return false;
 
-    // [LOGIC MỚI] Ẩn MATERIAL nếu không phải là Inventory (để bán NPC)
-    // Nghĩa là: Tab Mua (Shop) và Tab Chợ (P2P) sẽ KHÔNG hiện MATERIAL
+    // Logic: Nếu KHÔNG PHẢI kho đồ cá nhân (tức là đang ở Chợ hoặc Shop)
+    // thì ẩn item loại MATERIAL
     if (!isInventory && itemData.type === "MATERIAL") {
       return false;
     }
@@ -2740,8 +2742,9 @@ const confirmModal = reactive({
 
 const formatNumber = (n) => Number(n).toLocaleString("en-US");
 
+// [FIX] Xử lý lỗi ảnh placeholder bị chặn - Dùng base64 trong suốt
 const handleImgError = (e) => {
-  e.target.src = "https://via.placeholder.com/64?text=IMG";
+  e.target.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 };
 
 const switchTab = (tab) => {
@@ -2849,6 +2852,7 @@ const loadMyListings = async () => {
 
 onMounted(async () => {
   try {
+    // Gọi song song để tăng tốc độ
     await Promise.all([
       marketStore.fetchShopItems(),
       marketStore.fetchPlayerListings(),
@@ -2856,10 +2860,10 @@ onMounted(async () => {
     ]);
   } catch (e) {
     console.error("Lỗi tải dữ liệu chợ:", e);
-    notificationStore.showToast(
-      "Không thể kết nối đến Thương Hội. Hãy thử đăng nhập lại!",
-      "error",
-    );
+    // Nếu vẫn lỗi, check xem list có data không rồi mới báo lỗi
+    if (marketStore.playerListings.length === 0 && activeTab.value === 'p2p') {
+       notificationStore.showToast("Không thể kết nối đến Thương Hội.", "error");
+    }
   }
 });
 </script>

@@ -15,7 +15,7 @@
       <div class="event-header">
         <div class="node-frame">
           <div class="node-circle" :class="{ 'shake-anim': isGathering }">
-            <img :src="currentEvent.image" class="node-img" />
+            <img :src="currentEvent.image" class="node-img" v-if="currentEvent.image" />
           </div>
           <div class="rarity-seal" :class="'bg-' + currentEvent.rarityClass">
             {{ currentEvent.rarityText }}
@@ -117,11 +117,11 @@ import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "vue-router";
 import axiosClient from "@/api/axiosClient";
 
-// Import hình ảnh (Đảm bảo file tồn tại)
+// --- IMPORT RESOURCE IMAGES ---
 import copperNodeImg from "@/assets/resources/r_copper_node.png";
-import woodNodeImg from "@/assets/resources/r_go.png";
+import woodNodeImg from "@/assets/resources/r_wood.png"; 
 import stoneNodeImg from "@/assets/resources/stone_1.png";
-import mysteryNodeImg from "@/assets/resources/r_gohoathach.png";
+import mysteryNodeImg from "@/assets/resources/r_red_wood.png";
 
 const charStore = useCharacterStore();
 const authStore = useAuthStore();
@@ -134,9 +134,11 @@ const isGathering = ref(false);
 const feedbackMsg = ref("");
 const floatingLoots = ref([]);
 
-// Computed an toàn hơn để dùng trong template
+// Computed an toàn
 const playerLevel = computed(() => charStore.character?.level || 1);
-const currentEnergy = computed(() => charStore.character?.energy || 0);
+
+// [FIX QUAN TRỌNG 1] Đổi .energy thành .currentEnergy
+const currentEnergy = computed(() => charStore.character?.currentEnergy || 0);
 
 const progressPercent = computed(() => {
   if (maxNode.value === 0) return 0;
@@ -193,7 +195,7 @@ const EVENT_TYPES = [
   },
   {
     id: "special",
-    name: "Gỗ Hóa Thạch",
+    name: "Huyết Rồng Mộc",
     image: mysteryNodeImg,
     rarityClass: "epic",
     rarityText: "Cực Phẩm",
@@ -243,9 +245,9 @@ const handleGather = async (times) => {
 
     remainingNode.value -= actualGathered;
 
-    // Cập nhật state
+    // [FIX QUAN TRỌNG 2] Cập nhật đúng biến currentEnergy
     if (charStore.character) {
-      charStore.character.energy = res.data.currentEnergy;
+      charStore.character.currentEnergy = res.data.currentEnergy;
     }
     
     // Đồng bộ lại dữ liệu
@@ -299,8 +301,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Không sử dụng @import trong style scoped để tránh lỗi build */
-
 :root {
   --wood-dark: #3e2723;
   --wood-light: #5d4037;
