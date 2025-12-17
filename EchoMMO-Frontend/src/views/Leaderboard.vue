@@ -631,12 +631,13 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-if="lbStore.isLoading" class="loading-state">
+      <div v-if="isLoading" class="loading-state">
         <div class="ink-spinner"></div>
         <span>Đang tra cứu danh sách...</span>
       </div>
 
       <div v-else class="content-area">
+        
         <div class="podium-section" v-if="currentList.length > 0">
           
           <div class="podium-col rank-2" v-if="currentList[1]">
@@ -722,18 +723,28 @@ onMounted(() => {
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { useLeaderboardStore } from "../stores/leaderboardStore";
+import { useLeaderboardStore } from "@/stores/leaderboardStore"; // Đảm bảo đúng đường dẫn file store
 
 const activeTab = ref("level");
 const lbStore = useLeaderboardStore();
 
+// Computed: Kiểm tra loading dựa trên tab đang chọn
+const isLoading = computed(() => {
+  if (activeTab.value === 'level') return lbStore.loadingLevels;
+  if (activeTab.value === 'wealth') return lbStore.loadingWealth;
+  if (activeTab.value === 'kills') return lbStore.loadingMonsters;
+  return false;
+});
+
+// Computed: Lấy danh sách dựa trên tab (Có fallback || [] để tránh lỗi .length)
 const currentList = computed(() => {
-  if (activeTab.value === "level") return lbStore.topLevels;
-  if (activeTab.value === "wealth") return lbStore.topWealth;
-  if (activeTab.value === "kills") return lbStore.topKills;
+  if (activeTab.value === "level") return lbStore.topLevels || [];
+  if (activeTab.value === "wealth") return lbStore.topWealth || [];
+  if (activeTab.value === "kills") return lbStore.topMonsters || []; // [FIX] Map đúng biến Store
   return [];
 });
 
+// Computed: Tiêu đề danh hiệu Top 1
 const rankTitle = computed(() => {
   if (activeTab.value === "level") return "MINH CHỦ";
   if (activeTab.value === "wealth") return "PHÚ GIA";
@@ -741,37 +752,51 @@ const rankTitle = computed(() => {
   return "TOP 1";
 });
 
+// Helper: Tìm giá trị lớn nhất để vẽ thanh bar (%)
 const maxVal = computed(() => {
   if (!currentList.value || currentList.value.length === 0) return 1;
-  return Math.max(...currentList.value.map((e) => Number(e.value) || 0));
-});
-
-const rankedRestOfList = computed(() => {
-  if (!currentList.value) return [];
-  const list = currentList.value.slice(3);
-  const max = maxVal.value;
-
-  return list.map((entry, index) => ({
-    ...entry,
-    rank: index + 4,
-    barWidth: max > 0 ? (Number(entry.value) / max) * 100 : 0,
+  // Regex để lấy số từ chuỗi (VD: "10,500 Quái" -> 10500)
+  return Math.max(...currentList.value.map((e) => {
+    if(!e.value) return 0;
+    // Xóa tất cả ký tự không phải số
+    const num = Number(e.value.toString().replace(/[^0-9]/g, '')); 
+    return num || 0;
   }));
 });
 
+// Computed: Danh sách từ hạng 4 trở đi
+const rankedRestOfList = computed(() => {
+  if (!currentList.value || currentList.value.length < 3) return [];
+  const list = currentList.value.slice(3);
+  const max = maxVal.value;
+
+  return list.map((entry, index) => {
+    // Parse số để tính % width
+    const num = Number(entry.value.toString().replace(/[^0-9]/g, '')) || 0;
+    return {
+      ...entry,
+      rank: index + 4,
+      barWidth: max > 0 ? (num / max) * 100 : 0,
+    };
+  });
+});
+
+// Helper: Format hiển thị (Thực ra Backend đã format rồi, hàm này chỉ để đảm bảo)
 const formatVal = (val) => {
-  const num = Number(val) || 0;
-  if (activeTab.value === "wealth") return num.toLocaleString() + " Vàng";
-  if (activeTab.value === "kills") return num.toLocaleString() + " ☠️";
-  return "Cấp " + num;
+  return val; // Backend đã trả về string đẹp ("Lv 10", "1,000 Vàng", "500 Quái") nên cứ thế hiển thị
 };
 
+// Action: Chuyển tab và gọi API tương ứng
 const switchTab = async (tab) => {
   activeTab.value = tab;
   if (tab === "level") await lbStore.fetchLevelBoard();
   else if (tab === "wealth") await lbStore.fetchWealthBoard();
-  else if (tab === "kills") await lbStore.fetchKillBoard();
+  
+  // [FIX QUAN TRỌNG] Gọi đúng tên hàm trong Store
+  else if (tab === "kills") await lbStore.fetchMonsterBoard(); 
 };
 
+// Init: Tải mặc định tab Level
 onMounted(() => {
   lbStore.fetchLevelBoard();
 });
@@ -801,6 +826,7 @@ onMounted(() => {
   overflow: hidden;
 }
 
+/* Background Layers */
 .ink-bg-layer, .mountain-bg, .fog-anim { position: absolute; inset: 0; }
 .ink-bg-layer { background-color: #3e2723; z-index: 0; }
 .mountain-bg {
@@ -811,22 +837,22 @@ onMounted(() => {
 }
 .fog-anim { background: linear-gradient(to top, #261815 10%, transparent 90%); }
 
+/* Wrapper & Header */
 .lb-wrapper {
   position: relative; z-index: 10; max-width: 600px; margin: 0 auto;
   padding: 30px 20px; display: flex; flex-direction: column; height: 100vh;
 }
-
 .lb-header {
   text-align: center; margin-bottom: 20px; background: var(--panel-bg);
   border-top: 4px solid var(--wood-light); border-bottom: 4px solid var(--wood-light);
   padding: 20px; position: relative; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
 }
-
 .title-main { font-size: 2.5em; font-weight: 900; color: var(--gold); letter-spacing: 5px; margin: 0; }
 .subtitle { color: var(--text-dim); font-size: 0.9em; margin-bottom: 20px; font-style: italic; }
 .header-decor { width: 50px; height: 2px; background: var(--gold); position: absolute; top: 35px; }
 .left { left: 20%; } .right { right: 20%; }
 
+/* Tabs */
 .wuxia-tabs { display: flex; justify-content: center; align-items: center; gap: 10px; }
 .tab-btn {
   background: transparent; border: none; color: var(--text-dim);
@@ -836,18 +862,19 @@ onMounted(() => {
 }
 .tab-btn:hover, .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
 .tab-divider { width: 1px; height: 15px; background: #555; }
-
-/* Custom cho Tab Sát Thần */
+/* Style riêng cho Sát Thần */
 .tab-btn.text-red:hover, .tab-btn.text-red.active { color: #ff5252; border-bottom-color: #ff5252; text-shadow: 0 0 8px rgba(255, 0, 0, 0.6); }
 
+/* Content & Loading */
 .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .loading-state, .empty-msg { text-align: center; padding: 50px; color: var(--text-dim); }
 .ink-spinner { width: 40px; height: 40px; border: 3px solid var(--wood-light); border-top-color: var(--gold); border-radius: 50%; margin: 0 auto 15px; animation: spin 1s linear infinite; }
 
-/* Podium Styles */
+/* Podium (Bục vinh quang) */
 .podium-section { display: flex; align-items: flex-end; justify-content: center; height: 280px; gap: 15px; margin-bottom: 20px; }
 .podium-col { display: flex; flex-direction: column; align-items: center; position: relative; }
-.avatar-frame { width: 60px; height: 60px; border-radius: 50%; background: #261815; display: flex; align-items: center; justify-content: center; font-size: 1.8em; border: 3px solid; z-index: 2; }
+
+.avatar-frame { width: 60px; height: 60px; border-radius: 50%; background: #261815; display: flex; align-items: center; justify-content: center; font-size: 1.8em; border: 3px solid; z-index: 2; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
 .rank-1 .avatar-frame { width: 90px; height: 90px; font-size: 3em; border-width: 4px; }
 .gold-border { border-color: var(--gold); }
 .silver-border { border-color: #e0e0e0; }
@@ -860,22 +887,21 @@ onMounted(() => {
 .crown-icon { position: absolute; top: -35px; left: 50%; transform: translateX(-50%); font-size: 2em; color: var(--gold); animation: float 2s infinite ease-in-out; z-index: 3; }
 .crown-icon.red-crown { color: #ff5252; text-shadow: 0 0 10px #b71c1c; }
 
-.podium-base { width: 100px; text-align: center; padding: 10px 5px; border-radius: 4px 4px 0 0; display: flex; flex-direction: column; justify-content: flex-end; border: 1px solid; background: rgba(30, 20, 15, 0.9); }
+.podium-base { width: 100px; text-align: center; padding: 10px 5px; border-radius: 4px 4px 0 0; display: flex; flex-direction: column; justify-content: flex-end; border: 1px solid; background: rgba(30, 20, 15, 0.9); box-shadow: 0 5px 15px rgba(0,0,0,0.6); }
 .rank-1 .podium-base { width: 140px; height: 150px; border-color: var(--gold); background: linear-gradient(to bottom, rgba(255, 236, 179, 0.1), rgba(0, 0, 0, 0.8)); }
 .rank-2 .podium-base { height: 110px; border-color: #e0e0e0; background: linear-gradient(to bottom, rgba(224, 224, 224, 0.1), rgba(0, 0, 0, 0.8)); }
 .rank-3 .podium-base { height: 90px; border-color: #cd7f32; background: linear-gradient(to bottom, rgba(205, 127, 50, 0.1), rgba(0, 0, 0, 0.8)); }
 
-/* Biến thể đỏ cho Sát Thần */
 .podium-base.red-base { border-color: #ff5252; background: linear-gradient(to bottom, rgba(255, 0, 0, 0.2), #000); }
 .seal-rank { background: var(--red-seal); color: #fff; font-size: 0.7em; padding: 2px 8px; margin-bottom: auto; align-self: center; border-radius: 2px; }
 .seal-rank.bg-black { background: #000; border: 1px solid #ff5252; color: #ff5252; }
 
-.p-name { font-weight: bold; font-size: 0.9em; color: var(--text-light); }
+.p-name { font-weight: bold; font-size: 0.9em; color: var(--text-light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .main-name { font-size: 1.1em; color: var(--gold); margin: 5px 0; }
 .p-val { font-size: 0.8em; color: var(--text-dim); }
 .highlight { color: #fff; font-weight: bold; }
 
-/* List Rows */
+/* Scroll List */
 .rank-scroll { flex: 1; overflow-y: auto; padding: 10px; }
 .list-row { display: flex; align-items: center; gap: 15px; background: rgba(30, 20, 15, 0.8); border: 1px solid var(--wood-light); margin-bottom: 8px; padding: 10px 15px; border-radius: 4px; transition: 0.2s; animation: slideIn 0.4s ease-out forwards; opacity: 0; transform: translateY(10px); }
 .list-row:hover { border-color: var(--gold); background: rgba(255, 255, 255, 0.05); }
@@ -883,9 +909,9 @@ onMounted(() => {
 
 .row-rank { font-weight: 900; font-size: 1.2em; color: var(--text-dim); width: 30px; text-align: center; }
 .row-avatar { font-size: 1.2em; }
-.row-info { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.row-info { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .row-name { font-weight: bold; color: var(--text-light); }
-.row-val { font-weight: bold; color: var(--gold); font-size: 0.9em; text-align: right; }
+.row-val { font-weight: bold; color: var(--gold); font-size: 0.9em; text-align: right; white-space: nowrap;}
 
 .ink-bar-track { width: 100%; height: 4px; background: rgba(0, 0, 0, 0.5); border-radius: 2px; overflow: hidden; }
 .ink-bar-fill { height: 100%; background: var(--red-seal); transition: width 0.5s ease; }

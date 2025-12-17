@@ -5,27 +5,29 @@ export const useLeaderboardStore = defineStore("leaderboard", {
   state: () => ({
     topLevels: [],
     topWealth: [],
-    
-    // 1. Separate loading states for better UX
+    topMonsters: [], // [QUAN TRỌNG] Phải khởi tạo mảng rỗng để tránh lỗi .length
+
+    // Loading states
     loadingLevels: false,
     loadingWealth: false,
+    loadingMonsters: false, // Thêm cái này
 
-    // 2. Add error states to display alerts in the UI
+    // Error states
     errorLevels: null,
     errorWealth: null,
+    errorMonsters: null, // Thêm cái này
   }),
 
   actions: {
     async fetchLevelBoard() {
       this.loadingLevels = true;
-      this.errorLevels = null; // Reset error on new request
-
+      this.errorLevels = null;
       try {
         const res = await axiosClient.get("/leaderboard/level");
-        this.topLevels = res.data;
+        this.topLevels = res.data || [];
       } catch (error) {
-        console.error("Failed to fetch level leaderboard:", error);
-        this.errorLevels = error.message || "Failed to load level rankings.";
+        console.error(error);
+        this.errorLevels = error.message;
       } finally {
         this.loadingLevels = false;
       }
@@ -33,22 +35,32 @@ export const useLeaderboardStore = defineStore("leaderboard", {
 
     async fetchWealthBoard() {
       this.loadingWealth = true;
-      this.errorWealth = null; // Reset error on new request
-
+      this.errorWealth = null;
       try {
         const res = await axiosClient.get("/leaderboard/wealth");
-        this.topWealth = res.data;
+        this.topWealth = res.data || [];
       } catch (error) {
-        console.error("Failed to fetch wealth leaderboard:", error);
-        this.errorWealth = error.message || "Failed to load wealth rankings.";
+        console.error(error);
+        this.errorWealth = error.message;
       } finally {
         this.loadingWealth = false;
       }
     },
-    
-    // Optional: A convenience action to fetch both at once
-    async fetchAll() {
-        await Promise.all([this.fetchLevelBoard(), this.fetchWealthBoard()]);
-    }
+
+    // [FIX LỖI] Thêm hàm này để Component gọi được
+    async fetchMonsterBoard() {
+      this.loadingMonsters = true;
+      this.errorMonsters = null;
+      try {
+        // Gọi đúng endpoint backend chúng ta đã viết: /leaderboard/monster
+        const res = await axiosClient.get("/leaderboard/monster");
+        this.topMonsters = res.data || [];
+      } catch (error) {
+        console.error(error);
+        this.errorMonsters = error.message;
+      } finally {
+        this.loadingMonsters = false;
+      }
+    },
   },
 });
