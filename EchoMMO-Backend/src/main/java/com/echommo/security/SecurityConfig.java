@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity; // Added
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -16,11 +17,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
-// Giả định AuthTokenFilter là class đã được định nghĩa
-// (Thường là JwtAuthFilter hoặc tương tự)
-
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity // Allows using @PreAuthorize inside Controllers
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -31,18 +30,19 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Kích hoạt CORS
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        // 1. Cho phép Auth và Public
+                        // Public Endpoints
                         .requestMatchers("/api/auth/**", "/api/public/**").permitAll()
 
-                        // 2. [FIX] Cho phép các API Game/Item cho người dùng có quyền USER hoặc ADMIN
+                        // Swagger UI (Optional - useful for dev)
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
+
+                        // Protected Endpoints
+                        // NOTE: Ensure your DB roles are "USER"/"ADMIN" exactly.
+                        .requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN")
                         .requestMatchers("/api/game/**", "/api/items/**").hasAnyAuthority("USER", "ADMIN")
 
-                        // 3. Bảo vệ trang Admin
-                        .requestMatchers("/api/admin/**").hasAnyAuthority("ADMIN")
-
-                        // 4. Còn lại phải đăng nhập
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -55,11 +55,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Cho phép Frontend chạy ở Localhost VÀ IP Radmin
+        // Specific origins are safer than "*" when allowCredentials is true
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173",
                 "http://localhost:3000",
-                "http://26.48.225.101:5173"
+                "http://26.48.225.101:5173" // Radmin IP
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "x-auth-token"));

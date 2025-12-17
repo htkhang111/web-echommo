@@ -105,27 +105,50 @@
 
 <script setup>
 import { ref } from "vue";
-import { useAuthStore } from "../stores/authStore";
+import { useRouter } from "vue-router"; // [THÊM] Import Router để chuyển trang
+import { useAuthStore } from "@/stores/authStore"; // [CHECK] Đảm bảo tên file đúng là auth.js
+
+const router = useRouter();
+const authStore = useAuthStore();
 
 const username = ref("");
 const password = ref("");
-const authStore = useAuthStore();
 const banData = ref(null);
 
 const handleLogin = async () => {
-  // [FIX] Gọi qua Store để đảm bảo lưu ID và Token chuẩn
-  await authStore.login({
-    username: username.value,
-    password: password.value,
-  });
+  // Reset ban data cũ nếu có
+  banData.value = null;
 
-  // Nếu có lỗi đặc biệt như BANNED (tùy chỉnh logic backend của bạn)
-  if (authStore.error && authStore.error.includes("BANNED")) {
-    // Xử lý hiển thị banData nếu cần
+  try {
+    // Gọi hàm login từ Store
+    // Vì Store ném lỗi nếu thất bại, nên ta phải dùng try/catch
+    await authStore.login({
+      username: username.value,
+      password: password.value,
+    });
+
+    // [QUAN TRỌNG] Nếu await thành công (không nhảy vào catch), nghĩa là đã Login xong
+    // Lúc này Component mới thực hiện chuyển hướng (tránh lỗi vòng lặp ở Store)
+    router.push("/");
+    
+  } catch (err) {
+    // Nếu có lỗi, code sẽ nhảy vào đây
+    console.error("Lỗi đăng nhập:", err);
+
+    // [LOGIC BANNED] Kiểm tra nếu server trả về lỗi cấm chơi
+    // Giả sử backend trả về message chứa chữ "BANNED" hoặc status 403 đặc biệt
+    const errorMessage = err.response?.data?.message || "";
+    
+    if (errorMessage.includes("BANNED") || errorMessage.includes("trục xuất")) {
+        banData.value = {
+            reason: err.response?.data?.reason || "Vi phạm quy tắc giang hồ",
+            date: err.response?.data?.date || new Date()
+        };
+    }
+    // Các lỗi thông thường khác (Sai pass) thì authStore.error đã tự update để hiển thị trên UI rồi.
   }
 };
 </script>
-
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Noto+Serif+TC:wght@500;700;900&display=swap");
 
