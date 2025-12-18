@@ -29,18 +29,41 @@
         <p style="margin-top: 10px;"><router-link to="/forgot-password" style="color: #90a4ae;">Quên mật khẩu?</router-link></p>
       </div>
     </div>
+
+    <div v-if="showBanModal" class="ban-modal-overlay">
+      <div class="ban-modal">
+        <div class="ban-icon">🚫</div>
+        <h3>TÀI KHOẢN BỊ KHÓA</h3>
+        <p class="ban-msg">Đại hiệp đã bị cấm túc khỏi giang hồ!</p>
+        
+        <div class="ban-details">
+          <p><strong>Lý do:</strong> {{ banData.reason }}</p>
+          <p><strong>Thời gian:</strong> {{ banData.time }}</p>
+        </div>
+
+        <button @click="showBanModal = false" class="btn-close-ban">Đã hiểu</button>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
-import { reactive } from 'vue';
+import { reactive, ref } from 'vue'; // [THÊM] ref
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
-import { useNotificationStore } from '../stores/notificationStore'; // [THÊM]
+import { useNotificationStore } from '../stores/notificationStore';
 
 const authStore = useAuthStore();
-const notiStore = useNotificationStore(); // [THÊM]
+const notiStore = useNotificationStore();
 const router = useRouter();
+
+// [THÊM] State cho Ban Modal
+const showBanModal = ref(false);
+const banData = reactive({
+  reason: '',
+  time: ''
+});
 
 const form = reactive({
   username: '',
@@ -51,14 +74,19 @@ const handleLogin = async () => {
   try {
     const success = await authStore.login(form);
     if (success) {
-      // [FIX] Thông báo đẹp khi đăng nhập thành công
       notiStore.showToast(`Chào mừng trở lại, ${authStore.user?.username}!`, "success");
       router.push('/');
     }
   } catch (error) {
-    // [FIX] Thông báo lỗi đẹp
-    const msg = error.response?.data?.message || "Sai tài khoản hoặc mật khẩu!";
-    notiStore.showToast(msg, "error");
+    // [THÊM] Xử lý hiển thị Popup khi bị Ban
+    if (error.response && error.response.data && error.response.data.error === 'BANNED') {
+      banData.reason = error.response.data.reason;
+      banData.time = error.response.data.bannedAt;
+      showBanModal.value = true;
+    } else {
+      const msg = error.response?.data?.message || "Sai tài khoản hoặc mật khẩu!";
+      notiStore.showToast(msg, "error");
+    }
   }
 };
 </script>
@@ -94,4 +122,82 @@ const handleLogin = async () => {
 .auth-footer { margin-top: 20px; text-align: center; font-size: 0.9rem; color: #a1887f; }
 .auth-footer a { color: #fbc02d; text-decoration: none; font-weight: bold; }
 .auth-footer a:hover { text-decoration: underline; }
+
+/* [THÊM] Style cho Ban Modal */
+.ban-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+
+.ban-modal {
+  background: #2d1b1b;
+  border: 2px solid #b71c1c;
+  padding: 30px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(183, 28, 28, 0.5);
+  color: #fff;
+}
+
+.ban-icon {
+  font-size: 3rem;
+  margin-bottom: 15px;
+}
+
+.ban-modal h3 {
+  color: #b71c1c;
+  font-family: "Noto Serif TC";
+  margin-bottom: 10px;
+  font-size: 1.5rem;
+}
+
+.ban-msg {
+  color: #a1887f;
+  margin-bottom: 20px;
+}
+
+.ban-details {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.ban-details p {
+  margin: 5px 0;
+  color: #e0e0e0;
+}
+
+.ban-details strong {
+  color: #fbc02d;
+}
+
+.btn-close-ban {
+  background: #5d4037;
+  color: white;
+  border: none;
+  padding: 10px 30px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+}
+
+.btn-close-ban:hover {
+  background: #b71c1c;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 </style>

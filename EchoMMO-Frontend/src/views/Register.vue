@@ -4,23 +4,23 @@
       <div class="auth-header">
         <img src="@/assets/logo/Logo.png" alt="Logo" class="logo" />
         <h2>GHI DANH</h2>
-        <p>Tạo danh tính để bước vào giang hồ</p>
+        <p>Gia nhập giang hồ, xưng bá võ lâm</p>
       </div>
 
       <form @submit.prevent="handleRegister" class="auth-form">
         <div class="form-group">
-          <label><i class="fas fa-user"></i> Tài khoản</label>
-          <input v-model="form.username" type="text" placeholder="Nhập tên đăng nhập (VD: user123)" required />
+          <label><i class="fas fa-id-card"></i> Họ và Tên</label>
+          <input v-model="form.fullName" type="text" placeholder="Nhập tên hiển thị" required />
         </div>
 
         <div class="form-group">
-          <label><i class="fas fa-id-card"></i> Tên hiển thị (Tên nhân vật)</label>
-          <input v-model="form.fullName" type="text" placeholder="Nhập tên đại hiệp (VD: Độc Cô Cầu Bại)" required />
+          <label><i class="fas fa-user"></i> Tài khoản</label>
+          <input v-model="form.username" type="text" placeholder="Tên đăng nhập" required />
         </div>
 
         <div class="form-group">
           <label><i class="fas fa-envelope"></i> Email</label>
-          <input v-model="form.email" type="email" placeholder="Nhập địa chỉ email" required />
+          <input v-model="form.email" type="email" placeholder="Địa chỉ email" required />
         </div>
 
         <div class="form-group">
@@ -28,24 +28,29 @@
           <input v-model="form.password" type="password" placeholder="Nhập mật khẩu" required />
         </div>
 
+        <div class="form-group">
+          <label><i class="fas fa-lock"></i> Xác nhận mật khẩu</label>
+          <input v-model="confirmPassword" type="password" placeholder="Nhập lại mật khẩu" required />
+        </div>
+
         <button type="submit" class="btn-submit" :disabled="authStore.isLoading">
           <span v-if="authStore.isLoading"><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span>
-          <span v-else>ĐĂNG KÝ NGAY</span>
+          <span v-else>KHỞI TẠO NHÂN VẬT</span>
         </button>
       </form>
 
       <div class="auth-footer">
-        <p>Đã có tài khoản? <router-link to="/login">Đăng nhập</router-link></p>
+        <p>Đã có tài khoản? <router-link to="/login">Đăng nhập ngay</router-link></p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive } from 'vue';
+import { reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/authStore';
-import { useNotificationStore } from '../stores/notificationStore';
+import { useNotificationStore } from '../stores/notificationStore'; // [THÊM] Import Notification Store
 
 const authStore = useAuthStore();
 const notiStore = useNotificationStore();
@@ -53,33 +58,54 @@ const router = useRouter();
 
 const form = reactive({
   username: '',
-  fullName: '', // Đã thêm trường này
+  password: '',
   email: '',
-  password: ''
+  fullName: ''
 });
 
-const handleRegister = async () => {
-  try {
-    // Gọi action register, form đã bao gồm fullName
-    await authStore.register(form);
-    
-    // Hiện thông báo đẹp
-    notiStore.showToast(`Chào mừng đại hiệp ${form.fullName}! Đang chuyển đến cổng đăng nhập...`, "success");
-    
-    // Chuyển trang sau 1.5s
-    setTimeout(() => {
-      router.push({ name: 'Login' });
-    }, 1500);
+const confirmPassword = ref('');
 
+const handleRegister = async () => {
+  // 1. Validate mật khẩu khớp nhau
+  if (form.password !== confirmPassword.value) {
+    notiStore.showToast("Mật khẩu xác nhận không khớp!", "error");
+    return;
+  }
+
+  // 2. Validate độ dài mật khẩu
+  if (form.password.length < 6) {
+    notiStore.showToast("Mật khẩu phải có ít nhất 6 ký tự!", "error");
+    return;
+  }
+
+  try {
+    const success = await authStore.register(form);
+    if (success) {
+      notiStore.showToast(`Chào mừng đại hiệp ${form.username} gia nhập giang hồ!`, "success");
+      router.push('/'); // Chuyển hướng về trang chủ sau khi đăng ký thành công
+    }
   } catch (error) {
-    const msg = error.response?.data?.message || "Đăng ký thất bại, có thể tên tài khoản đã tồn tại!";
+    // [FIX QUAN TRỌNG] Bắt lỗi chi tiết từ Backend trả về
+    console.error("Lỗi đăng ký:", error);
+    
+    // Ưu tiên 1: Lấy message từ JSON { "message": "..." } (Code mới sửa ở Backend)
+    let msg = error.response?.data?.message;
+    
+    // Ưu tiên 2: Nếu Backend cũ trả về String, lấy trực tiếp data
+    if (!msg && typeof error.response?.data === 'string') {
+      msg = error.response.data;
+    }
+    
+    // Fallback: Nếu không có gì hết thì báo lỗi chung
+    if (!msg) msg = "Đăng ký thất bại! Vui lòng kiểm tra lại thông tin.";
+
     notiStore.showToast(msg, "error");
   }
 };
 </script>
 
 <style scoped>
-/* CSS Auth (Dùng chung) */
+/* Style đồng bộ với Login.vue */
 .auth-page {
   min-height: 100vh;
   display: flex;
@@ -89,48 +115,25 @@ const handleRegister = async () => {
   position: relative;
 }
 .auth-page::before { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.7); }
-
 .auth-container {
-  position: relative;
-  width: 100%;
-  max-width: 420px;
-  background: rgba(30, 20, 15, 0.9);
-  padding: 40px;
-  border-radius: 8px;
-  border: 2px solid #5d4037;
-  box-shadow: 0 0 20px rgba(0,0,0,0.8);
-  backdrop-filter: blur(5px);
-  color: #f3f4f6;
+  position: relative; width: 100%; max-width: 450px; /* Rộng hơn xíu để chứa form dài */
+  background: rgba(30, 20, 15, 0.9); padding: 40px;
+  border-radius: 8px; border: 2px solid #5d4037;
+  box-shadow: 0 0 20px rgba(0,0,0,0.8); backdrop-filter: blur(5px); color: #f3f4f6;
 }
-
-.auth-header { text-align: center; margin-bottom: 30px; }
+.auth-header { text-align: center; margin-bottom: 25px; }
 .logo { width: 80px; margin-bottom: 10px; }
 .auth-header h2 { margin: 10px 0 5px; color: #fbc02d; font-family: "Noto Serif TC"; font-size: 2rem; }
 .auth-header p { color: #a1887f; font-size: 0.9rem; }
 
 .form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 8px; color: #fbc02d; font-weight: bold; font-size: 0.9rem; }
-.form-group input {
-  width: 100%; padding: 12px;
-  background: rgba(0,0,0,0.3);
-  border: 1px solid #5d4037;
-  border-radius: 4px;
-  color: #fff;
-  font-size: 1rem;
-  box-sizing: border-box; 
-}
+.form-group label { display: block; margin-bottom: 5px; color: #fbc02d; font-weight: bold; font-size: 0.9rem; }
+.form-group input { width: 100%; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid #5d4037; border-radius: 4px; color: #fff; font-size: 1rem; box-sizing: border-box; }
 .form-group input:focus { outline: none; border-color: #fbc02d; box-shadow: 0 0 5px rgba(251, 192, 45, 0.5); }
 
-.btn-submit {
-  width: 100%; padding: 12px; margin-top: 10px;
-  background: #b71c1c; color: #fff;
-  border: none; border-radius: 4px;
-  font-size: 1.1rem; font-weight: bold;
-  cursor: pointer; transition: 0.3s;
-  font-family: "Noto Serif TC";
-}
+.btn-submit { width: 100%; padding: 12px; background: #b71c1c; color: #fff; border: none; border-radius: 4px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.3s; font-family: "Noto Serif TC"; margin-top: 10px; }
 .btn-submit:hover { background: #d32f2f; transform: translateY(-2px); }
-.btn-submit:disabled { background: #5d4037; cursor: not-allowed; transform: none; }
+.btn-submit:disabled { background: #5d4037; cursor: not-allowed; }
 
 .auth-footer { margin-top: 20px; text-align: center; font-size: 0.9rem; color: #a1887f; }
 .auth-footer a { color: #fbc02d; text-decoration: none; font-weight: bold; }
