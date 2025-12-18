@@ -709,10 +709,10 @@ onUnmounted(() => clearInterval(moveInterval));
 </style> -->
 
 <template>
-  <div class="explore-container">
+  <div class="page-container explore-page">
     <div class="explore-layout">
-      <div class="row top-row">
-        <div class="game-main-panel shadow-ink">
+      <div class="center-zone">
+        <div class="game-board">
           <div class="status-header">
             <div class="level-badge">
               <span>Lv.{{ charStore.character?.level }}</span>
@@ -722,52 +722,82 @@ onUnmounted(() => clearInterval(moveInterval));
                 <div class="stat-row">
                   <span class="stat-icon">❤️</span>
                   <div class="progress-bg">
-                    <div class="progress-fill hp" :style="{ width: charStore.hpPercent + '%' }"></div>
-                    <span class="stat-text">{{ charStore.character?.hp }}/{{
-                      charStore.character?.maxHp
-                    }}</span>
+                    <div
+                      class="progress-fill hp"
+                      :style="{ width: charStore.hpPercent + '%' }"
+                    ></div>
+                    <span class="stat-text"
+                      >{{ charStore.character?.currentHp }}/{{
+                        charStore.character?.maxHp
+                      }}</span
+                    >
                   </div>
                 </div>
                 <div class="stat-row">
                   <span class="stat-icon">⚡</span>
                   <div class="progress-bg">
-                    <div class="progress-fill energy" :style="{ width: charStore.energyPercent + '%' }"></div>
-                    <span class="stat-text">{{ charStore.character?.energy }}/{{
-                      charStore.character?.maxEnergy
-                    }}</span>
+                    <div
+                      class="progress-fill energy"
+                      :style="{ width: charStore.energyPercent + '%' }"
+                    ></div>
+                    <span class="stat-text"
+                      >{{ charStore.character?.currentEnergy }}/{{
+                        charStore.character?.maxEnergy
+                      }}</span
+                    >
                   </div>
                 </div>
               </div>
               <div class="exp-row">
                 <div class="exp-bg">
-                  <div class="exp-fill" :style="{ width: charStore.xpPercent + '%' }"></div>
+                  <div
+                    class="exp-fill"
+                    :style="{ width: charStore.xpPercent + '%' }"
+                  ></div>
                 </div>
               </div>
             </div>
           </div>
 
           <div class="stage-viewport">
-            <div class="stage-background" :style="{ backgroundImage: `url(${getMapBg()})` }">
-              <div class="actor player" :style="{
-                left: charStore.explorationState.playerPos + '%',
-                transform: `scaleX(${charStore.explorationState.moveDir})`,
-              }">
+            <div
+              class="stage-background"
+              :style="{ backgroundImage: `url(${getMapBg()})` }"
+            >
+              <div
+                class="actor player"
+                :style="{
+                  left: charStore.explorationState.playerPos + '%',
+                  transform: `scaleX(${charStore.explorationState.moveDir})`,
+                }"
+              >
                 <div class="avatar-circle">
                   <img :src="imgPlayer" class="avatar-img" />
                 </div>
                 <div class="actor-label">Bạn</div>
               </div>
-              <div class="actor target" v-if="showTarget" :style="{
-                left:
-                  charStore.explorationState.playerPos +
-                  15 * charStore.explorationState.moveDir +
-                  '%',
-              }">
-                <div class="avatar-target" :class="{
-                  'is-enemy': isEncounter,
-                  'is-reward': !isEncounter,
-                }">
-                  <img v-if="targetImage" :src="targetImage" class="avatar-img" />
+              <div
+                class="actor target"
+                v-if="showTarget"
+                :style="{
+                  left:
+                    charStore.explorationState.playerPos +
+                    15 * charStore.explorationState.moveDir +
+                    '%',
+                }"
+              >
+                <div
+                  class="avatar-target"
+                  :class="{
+                    'is-enemy': isEncounter,
+                    'is-reward': !isEncounter,
+                  }"
+                >
+                  <img
+                    v-if="targetImage"
+                    :src="targetImage"
+                    class="avatar-img"
+                  />
                   <div v-else class="text-3xl">🎁</div>
                 </div>
                 <div class="actor-label target-name">{{ targetName }}</div>
@@ -777,19 +807,31 @@ onUnmounted(() => clearInterval(moveInterval));
 
           <div class="action-panel">
             <template v-if="!isEncounter">
-              <button class="btn-action map-btn" @click="showMapModal = true" :disabled="isMoving">
+              <button
+                class="btn-action map-btn"
+                @click="showMapModal = true"
+                :disabled="isMoving"
+              >
                 <div class="btn-content">
                   <span>🗺️ {{ currentMapName }}</span>
                 </div>
               </button>
-              <button class="btn-action main-btn" @click="startExploration" :disabled="isMoving">
+              <button
+                class="btn-action main-btn"
+                @click="startExploration"
+                :disabled="isMoving"
+              >
                 <div class="btn-content">
-                  <i class="fas fa-walking"></i>
-                  <span v-if="!isMoving">HÀNH TẨU</span>
-                  <span v-else>... ({{ countdown }}s)</span>
+                  <i class="fas fa-walking"></i
+                  ><span v-if="!isMoving">HÀNH TẨU</span
+                  ><span v-else>... ({{ countdown }}s)</span>
                 </div>
               </button>
-              <button class="btn-action sub-btn" @click="$router.push('/village')" :disabled="isMoving">
+              <button
+                class="btn-action sub-btn"
+                @click="$router.push('/village')"
+                :disabled="isMoving"
+              >
                 <i class="fas fa-home"></i>
               </button>
             </template>
@@ -797,10 +839,14 @@ onUnmounted(() => clearInterval(moveInterval));
           </div>
         </div>
 
-        <div class="log-panel shadow-ink">
-          <div class="panel-header">
-            <i class="fas fa-scroll"></i> <span>Hành Trình</span>
-          </div>
+        <div class="chat-board">
+          <ChatPanel />
+        </div>
+      </div>
+
+      <div class="right-zone">
+        <div class="log-panel">
+          <div class="log-header">NHẬT KÝ</div>
           <div class="log-content custom-scroll">
             <div v-for="(log, index) in logs" :key="index" class="log-line">
               <span class="log-time">[{{ log.time }}]</span>
@@ -808,37 +854,30 @@ onUnmounted(() => clearInterval(moveInterval));
             </div>
           </div>
         </div>
-      </div>
-
-      <div class="row bottom-row">
-        <div class="chat-expanded-panel shadow-ink">
-          <div class="panel-header">
-            <i class="fas fa-comments"></i> <span>Giang Hồ Đàm</span>
-          </div>
-          <div class="chat-wrapper">
-            <ChatPanel />
-          </div>
-        </div>
-
-        <div class="quest-aligned-panel shadow-ink">
-          <div class="panel-header">
-            <i class="fas fa-tasks"></i> <span>Nhiệm Vụ</span>
-          </div>
-          <div class="quest-wrapper">
-            <QuestPanel />
-          </div>
+        <div class="quest-panel-wrapper">
+          <QuestPanel />
         </div>
       </div>
     </div>
 
-    <div v-if="showMapModal" class="modal-overlay" @click.self="showMapModal = false">
+    <div
+      v-if="showMapModal"
+      class="modal-overlay"
+      @click.self="showMapModal = false"
+    >
       <div class="map-modal-card">
         <div class="map-header">CHỌN KHU VỰC</div>
         <div class="map-grid">
-          <div v-for="map in maps" :key="map.id" class="map-item" :class="{
-            active: currentMapId === map.id,
-            locked: userLv < map.minLv,
-          }" @click="selectMap(map)">
+          <div
+            v-for="map in maps"
+            :key="map.id"
+            class="map-item"
+            :class="{
+              active: currentMapId === map.id,
+              locked: userLv < map.minLv,
+            }"
+            @click="selectMap(map)"
+          >
             <div class="map-info">
               <div class="map-name">{{ map.name }}</div>
               <div class="map-lv">Lv.{{ map.minLv }}-{{ map.maxLv }}</div>
@@ -858,12 +897,15 @@ onUnmounted(() => clearInterval(moveInterval));
             <img :src="targetImage" class="enemy-preview-img" />
           </div>
           <p>
-            Gặp <strong>{{ targetName }}</strong>!
+            Gặp <strong>{{ targetName }}</strong
+            >!
           </p>
         </div>
         <div class="modal-footer">
-          <button class="modal-btn flee" @click="flee">Bỏ Chạy</button>
-          <button class="modal-btn fight" @click="goToBattle">CHIẾN ĐẤU</button>
+          <button class="modal-btn flee" @click="flee">Bỏ Chạy</button
+          ><button class="modal-btn fight" @click="goToBattle">
+            CHIẾN ĐẤU
+          </button>
         </div>
       </div>
     </div>
@@ -881,12 +923,10 @@ import CaptchaModal from "@/components/CaptchaModal.vue";
 import ChatPanel from "@/components/ChatPanel.vue";
 import QuestPanel from "@/components/QuestPanel.vue";
 import {
-  getRandomEnemyData,
   getItemImage,
   getCurrentSkin,
 } from "@/utils/assetHelper";
 
-// --- KHÔI PHỤC LOGIC TỪ BẢN CŨ ---
 const charStore = useCharacterStore();
 const authStore = useAuthStore();
 const battleStore = useBattleStore();
@@ -926,9 +966,10 @@ const selectMap = (map) => {
   addLog(`Đã chọn: <b>${map.name}</b>`);
 };
 
-// Cập nhật lại đường dẫn ảnh cho phù hợp
+// [CHÚ Ý] Cần đảm bảo file này tồn tại hoặc sửa lại đường dẫn
 const getMapBg = () =>
   new URL(`../assets/Background/b_doanhtrai.png`, import.meta.url).href;
+  
 const imgPlayer = computed(() => {
   const skin = getCurrentSkin(authStore.user?.avatarUrl);
   return isMoving.value ? skin.sprites.run : skin.sprites.idle;
@@ -975,36 +1016,46 @@ const handleResult = async () => {
   clearInterval(moveInterval);
   isMoving.value = false;
 
-  // [FIX] BỎ HOÀN TOÀN ĐOẠN RANDOM CLIENT
-  // const eventChance = Math.random() * 100; ... (XÓA)
-
   try {
+    // Gọi API từ Server (Đã bao gồm random bên Server)
     const res = await charStore.explore({ mapId: currentMapId.value });
 
-    // [FIX] Kiểm tra type từ Server
+    // 1. Trường hợp tìm thấy TÀI NGUYÊN -> Chuyển trang
     if (res.type === "GATHERING") {
-      addLog(`<span style="color:#00e676; font-weight:bold;">🌿 ${res.message}</span>`);
+      addLog(
+        `<span style="color:#00e676; font-weight:bold;">🌿 ${res.message}</span>`,
+      );
       setTimeout(() => {
         router.push("/gathering");
-      }, 800);
+      }, 500); // Chuyển trang nhanh hơn chút
       return;
     }
 
+    // 2. Trường hợp nhặt được ITEM
     if (res.type === "ITEM" && res.rewardName) {
-      // ... giữ nguyên code hiển thị item
       showTarget.value = true;
       targetName.value = res.rewardName;
-      targetImage.value = getItemImage(res.rewardName) || getItemImage("GOLD"); // Có thể dùng res.rewardItemId để lấy ảnh chuẩn hơn nếu muốn
+      targetImage.value = getItemImage(res.rewardName) || getItemImage("GOLD");
       addLog(`<span style="color:#00e676;">${res.message}</span>`);
-    } else if (res.type === "ENEMY") {
-      // ... giữ nguyên code enemy
+    } 
+    // 3. Trường hợp gặp QUÁI
+    else if (res.type === "ENEMY") {
       isEncounter.value = true;
       showTarget.value = true;
       targetName.value = res.rewardName;
-      targetImage.value = new URL(`../assets/enemy/idle_goblin.png`, import.meta.url).href;
-      battleStore.setEncounter({ name: res.rewardName, img: targetImage.value });
+      // Dùng ảnh goblin mặc định nếu chưa có ảnh quái cụ thể
+      targetImage.value = new URL(
+        `../assets/enemy/idle_goblin.png`,
+        import.meta.url,
+      ).href;
+      battleStore.setEncounter({
+        name: res.rewardName,
+        img: targetImage.value,
+      });
       addLog(`<span style="color:#ef5350;">⚠️ ${res.message}</span>`);
-    } else {
+    } 
+    // 4. Trường hợp Text thường
+    else {
       addLog(`<span style="color:#aaa;">${res.message}</span>`);
     }
   } catch (e) {
@@ -1025,84 +1076,50 @@ onUnmounted(() => clearInterval(moveInterval));
 </script>
 
 <style scoped>
-/* --- LAYOUT CHUNG (Style Mới) --- */
-.explore-container {
-  padding: 15px;
-  min-height: 100vh;
-  background: #1a120b;
-  color: #e0d5c1;
-  font-family: "Noto Serif TC", serif;
+.explore-page {
+  padding: 10px;
+  height: 100vh;
   overflow: hidden;
-  /* Tránh scroll trang chính */
+  color: #eee;
+  font-family: "Noto Serif TC", serif;
+  background-color: #1a1a1a;
 }
 
 .explore-layout {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 300px;
   gap: 15px;
-  max-width: 1600px;
+  height: 100%;
+  max-width: 1400px;
   margin: 0 auto;
-  height: calc(100vh - 30px);
-  /* Full màn hình trừ padding */
 }
 
-.row {
-  display: flex;
-  gap: 15px;
-}
-
-.top-row {
-  flex: 6;
-  /* Chiếm 6 phần chiều cao */
-  min-height: 0;
-}
-
-.bottom-row {
-  flex: 4;
-  /* Chiếm 4 phần chiều cao */
-  min-height: 0;
-}
-
-.game-main-panel,
-.chat-expanded-panel {
-  flex: 3;
+.center-zone {
   display: flex;
   flex-direction: column;
-}
-
-.log-panel,
-.quest-aligned-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 300px;
-}
-
-/* Khung viền */
-.shadow-ink {
-  border: 1px solid #3e2723;
-  background: rgba(30, 20, 15, 0.95);
-  border-radius: 4px;
+  gap: 10px;
+  height: 100%;
   overflow: hidden;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+}
+
+.game-board {
+  flex: 0 0 320px;
+  background: #261815;
+  border: 2px solid #5d4037;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
   position: relative;
 }
 
-.panel-header {
-  background: linear-gradient(to right, #3e2723, #261815);
-  padding: 8px 15px;
-  border-bottom: 2px solid #5d4037;
-  color: #ffecb3;
-  font-weight: bold;
-  font-size: 0.85em;
-  text-transform: uppercase;
-  flex-shrink: 0;
-  /* Không bị co lại */
+.chat-board {
+  flex: 1;
+  min-height: 0;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #444;
+  border-radius: 8px;
 }
 
-/* --- GAME COMPONENTS (Style Cũ - được chỉnh sửa để fit vào khung mới) --- */
-
-/* 1. Header Bars */
 .status-header {
   padding: 8px 12px;
   background: rgba(0, 0, 0, 0.4);
@@ -1110,15 +1127,6 @@ onUnmounted(() => clearInterval(moveInterval));
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-shrink: 0;
-}
-
-.level-badge span {
-  background: #d4af37;
-  color: #000;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: bold;
 }
 
 .bars-container {
@@ -1171,28 +1179,15 @@ onUnmounted(() => clearInterval(moveInterval));
   font-size: 0.65em;
   font-weight: bold;
   text-shadow: 1px 1px 0 #000;
-  z-index: 2;
 }
 
-.exp-row .exp-bg {
-  height: 4px;
-  background: #222;
-  width: 100%;
-}
-
-.exp-fill {
-  height: 100%;
-  background: #29b6f6;
-  width: 0%;
-}
-
-/* 2. Viewport - QUAN TRỌNG: flex 1 để chiếm hết chỗ trống */
 .stage-viewport {
   flex: 1;
-  margin: 0;
+  margin: 5px;
+  border: 2px solid #3e2723;
+  border-radius: 6px;
   overflow: hidden;
   position: relative;
-  border-bottom: 2px solid #5d4037;
 }
 
 .stage-background {
@@ -1231,16 +1226,15 @@ onUnmounted(() => clearInterval(moveInterval));
   transform: scale(1.2);
 }
 
-/* 3. Action Panel */
 .action-panel {
   height: 60px;
   background: #1a100e;
+  border-top: 2px solid #5d4037;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   padding: 0 15px;
-  flex-shrink: 0;
 }
 
 .btn-action {
@@ -1253,11 +1247,6 @@ onUnmounted(() => clearInterval(moveInterval));
   justify-content: center;
   font-weight: bold;
   color: #fff;
-  transition: transform 0.1s;
-}
-
-.btn-action:active {
-  transform: scale(0.95);
 }
 
 .map-btn {
@@ -1279,34 +1268,42 @@ onUnmounted(() => clearInterval(moveInterval));
   border: 1px solid #5d4037;
 }
 
-/* --- LOG & CHAT & QUEST CONTENT --- */
-.log-content,
-.chat-wrapper,
-.quest-wrapper {
+.right-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  height: 100%;
+}
+
+.log-panel {
+  flex: 0 0 40%;
+  background: #1e1e1e;
+  border: 2px solid #5d4037;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-content {
   flex: 1;
-  padding: 10px;
+  padding: 8px;
   overflow-y: auto;
+  background: #111;
+  font-size: 0.85em;
 }
 
-.log-item,
-.log-line {
-  font-size: 0.9em;
-  margin-bottom: 6px;
-  border-bottom: 1px solid rgba(93, 64, 55, 0.2);
-  padding-bottom: 4px;
+.quest-panel-wrapper {
+  flex: 1;
+  background: #1e1e1e;
+  border: 2px solid #5d4037;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
-.log-time {
-  color: #8d6e63;
-  margin-right: 5px;
-}
-
-/* --- MODALS (Copy y nguyên) --- */
-.modal-overlay,
-.encounter-modal {
+.modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.8);
   z-index: 3000;
   display: flex;
   align-items: center;
@@ -1365,7 +1362,16 @@ onUnmounted(() => clearInterval(moveInterval));
   cursor: pointer;
 }
 
-/* Encounter Modal */
+.encounter-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .modal-card {
   width: 350px;
   background: #261815;
@@ -1403,8 +1409,6 @@ onUnmounted(() => clearInterval(moveInterval));
   padding: 10px;
   cursor: pointer;
   font-weight: bold;
-  border: none;
-  border-radius: 4px;
 }
 
 .modal-btn.flee {
@@ -1426,23 +1430,12 @@ onUnmounted(() => clearInterval(moveInterval));
   background: #5d4037;
 }
 
-@media (max-width: 1100px) {
-  .row {
-    flex-direction: column;
-    height: auto;
+@media (max-width: 900px) {
+  .explore-layout {
+    grid-template-columns: 1fr;
   }
 
-  .top-row,
-  .bottom-row {
-    flex: none;
-  }
-
-  .game-main-panel,
-  .log-panel,
-  .chat-expanded-panel,
-  .quest-aligned-panel {
-    flex: none;
-    width: 100%;
+  .right-zone {
     height: 400px;
   }
 }

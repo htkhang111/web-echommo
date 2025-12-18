@@ -87,6 +87,36 @@
 
       <div v-if="activeTab === 'users'" class="content-panel">
         <div class="panel-header"><h3>DANH SÁCH NHÂN SĨ</h3></div>
+        
+        <div class="filter-box">
+          <div class="filter-row">
+            <div class="search-input-wrapper">
+              <i class="fas fa-search search-icon"></i>
+              <input
+                v-model="userFilters.search"
+                placeholder="Tìm kiếm theo tên, email..."
+                class="dark-input search-input"
+              />
+            </div>
+            <select v-model="userFilters.role" class="dark-input filter-select">
+              <option value="">Tất cả vai trò</option>
+              <option value="USER">USER</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+            <select v-model="userFilters.status" class="dark-input filter-select">
+              <option value="">Tất cả trạng thái</option>
+              <option value="active">Hoạt động</option>
+              <option value="banned">Đã giam</option>
+            </select>
+            <button @click="resetUserFilters" class="btn-wood small reset-btn">
+              <i class="fas fa-redo"></i> Reset
+            </button>
+          </div>
+          <div class="result-count">
+            Tìm thấy: <span class="highlight-text">{{ filteredUsers.length }}</span> / {{ adminStore.users?.length || 0 }}
+          </div>
+        </div>
+
         <div class="table-responsive custom-scroll">
           <table class="dark-table">
             <thead>
@@ -100,17 +130,21 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="u in adminStore.users" :key="u.userId">
+              <tr v-if="filteredUsers.length === 0">
+                <td colspan="6" class="empty-state">
+                  <i class="fas fa-search"></i>
+                  <p>Không tìm thấy nhân sĩ phù hợp</p>
+                </td>
+              </tr>
+              <tr v-for="u in filteredUsers" :key="u.userId">
                 <td class="dim-text">#{{ u.userId }}</td>
                 <td class="highlight-text">{{ u.username }}</td>
                 <td>{{ u.email }}</td>
                 <td>
-                  <span class="role-tag">{{ u.role }}</span>
+                  <span class="role-tag" :class="'role-' + u.role.toLowerCase()">{{ u.role }}</span>
                 </td>
                 <td>
-                  <span v-if="u.isActive" class="status-tag active"
-                    >HOẠT ĐỘNG</span
-                  >
+                  <span v-if="u.isActive" class="status-tag active">HOẠT ĐỘNG</span>
                   <span v-else class="status-tag banned">ĐÃ GIAM</span>
                 </td>
                 <td class="action-cell">
@@ -211,6 +245,43 @@
           </div>
         </transition>
 
+        <div class="filter-box mt-20">
+          <div class="filter-row">
+            <div class="search-input-wrapper">
+              <i class="fas fa-search search-icon"></i>
+              <input
+                v-model="itemFilters.search"
+                placeholder="Tìm kiếm vật phẩm..."
+                class="dark-input search-input"
+              />
+            </div>
+            <select v-model="itemFilters.type" class="dark-input filter-select">
+              <option value="">Tất cả loại</option>
+              <option value="WEAPON">Binh Khí</option>
+              <option value="ARMOR">Y Phục</option>
+              <option value="HELMET">Mũ</option>
+              <option value="BOOTS">Giày</option>
+              <option value="RING">Nhẫn</option>
+              <option value="NECKLACE">Dây Chuyền</option>
+              <option value="CONSUMABLE">Tiêu Hao</option>
+              <option value="MATERIAL">Nguyên Liệu</option>
+            </select>
+            <select v-model="itemFilters.rarity" class="dark-input filter-select">
+              <option value="">Tất cả phẩm cấp</option>
+              <option value="C">Thường (C)</option>
+              <option value="B">Hiếm (B)</option>
+              <option value="A">Sử Thi (A)</option>
+              <option value="S">Truyền Thuyết (S)</option>
+            </select>
+            <button @click="resetItemFilters" class="btn-wood small reset-btn">
+              <i class="fas fa-redo"></i> Reset
+            </button>
+          </div>
+          <div class="result-count">
+            Tìm thấy: <span class="highlight-text">{{ filteredItems.length }}</span> / {{ adminStore.items?.length || 0 }}
+          </div>
+        </div>
+
         <div class="table-responsive custom-scroll mt-20">
           <table class="dark-table">
             <thead>
@@ -224,7 +295,13 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="i in adminStore.items" :key="i.itemId">
+              <tr v-if="filteredItems.length === 0">
+                <td colspan="6" class="empty-state">
+                  <i class="fas fa-search"></i>
+                  <p>Không tìm thấy vật phẩm phù hợp</p>
+                </td>
+              </tr>
+              <tr v-for="i in filteredItems" :key="i.itemId">
                 <td class="dim-text">#{{ i.itemId }}</td>
                 <td class="highlight-text">{{ i.name }}</td>
                 <td>{{ i.type }}</td>
@@ -399,11 +476,11 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from "vue";
 import { useAdminStore } from "../stores/adminStore";
-import { useNotificationStore } from "../stores/notificationStore"; // [MỚI]
+import { useNotificationStore } from "../stores/notificationStore";
 import axiosClient from "../api/axiosClient";
 
 const adminStore = useAdminStore();
-const notificationStore = useNotificationStore(); // [MỚI]
+const notificationStore = useNotificationStore();
 
 const activeTab = ref("stats");
 const showCreateItem = ref(false);
@@ -411,7 +488,19 @@ const showBanModal = ref(false);
 const selectedUser = ref(null);
 const banReason = ref("");
 
-// [MỚI] State cho Modal Xác Nhận
+// Filter states
+const userFilters = reactive({
+  search: "",
+  role: "",
+  status: ""
+});
+
+const itemFilters = reactive({
+  search: "",
+  type: "",
+  rarity: ""
+});
+
 const confirmModal = reactive({
   visible: false,
   title: "",
@@ -437,9 +526,59 @@ const notificationForm = reactive({
   recipientUsername: "",
 });
 
+// Computed filters (AN TOÀN)
+const filteredUsers = computed(() => {
+  let users = adminStore.users || [];
+  
+  if (userFilters.search) {
+    const search = userFilters.search.toLowerCase();
+    users = users.filter(u => 
+      (u.username || "").toLowerCase().includes(search) ||
+      (u.email || "").toLowerCase().includes(search) ||
+      (u.userId || "").toString().includes(search)
+    );
+  }
+  
+  if (userFilters.role) {
+    users = users.filter(u => u.role === userFilters.role);
+  }
+  
+  if (userFilters.status === "active") {
+    users = users.filter(u => u.isActive === true);
+  } else if (userFilters.status === "banned") {
+    users = users.filter(u => u.isActive === false);
+  }
+  
+  return users;
+});
+
+const filteredItems = computed(() => {
+  let items = adminStore.items || [];
+  
+  if (itemFilters.search) {
+    const search = itemFilters.search.toLowerCase();
+    items = items.filter(i => 
+      (i.name || "").toLowerCase().includes(search) ||
+      (i.description || "").toLowerCase().includes(search) ||
+      (i.itemId || "").toString().includes(search)
+    );
+  }
+  
+  if (itemFilters.type) {
+    items = items.filter(i => i.type === itemFilters.type);
+  }
+  
+  if (itemFilters.rarity) {
+    items = items.filter(i => i.rarity === itemFilters.rarity);
+  }
+  
+  return items;
+});
+
 const itemOptions = computed(() =>
-  adminStore.items.map((i) => ({ id: i.itemId, name: i.name })),
+  (adminStore.items || []).map((i) => ({ id: i.itemId, name: i.name })),
 );
+
 const formatNumber = (n) => Number(n).toLocaleString();
 
 const switchTab = (tab) => {
@@ -449,7 +588,18 @@ const switchTab = (tab) => {
   if (tab === "items" || tab === "grant") adminStore.fetchItems();
 };
 
-// --- Helper hiển thị Confirm ---
+const resetUserFilters = () => {
+  userFilters.search = "";
+  userFilters.role = "";
+  userFilters.status = "";
+};
+
+const resetItemFilters = () => {
+  itemFilters.search = "";
+  itemFilters.type = "";
+  itemFilters.rarity = "";
+};
+
 const showConfirm = (title, msg, action) => {
   confirmModal.title = title;
   confirmModal.message = msg;
@@ -465,18 +615,17 @@ const executeConfirm = () => {
   closeConfirmModal();
 };
 
-// --- ACTIONS ---
 const createItem = async () => {
   try {
     await axiosClient.post("/admin/item/create", itemForm);
-    notificationStore.showToast("Chế tác vật phẩm thành công!", "success"); // [MỚI]
+    notificationStore.showToast("Chế tác vật phẩm thành công!", "success");
     adminStore.fetchItems();
     showCreateItem.value = false;
   } catch (e) {
     notificationStore.showToast(
       e.response?.data?.message || "Lỗi chế tác",
       "error",
-    ); // [MỚI]
+    );
   }
 };
 
@@ -489,14 +638,9 @@ const handleGrantGold = async () => {
     );
     grantGoldForm.amount = 1000;
   } catch (e) {
-    /* Error handled in Store via alert? Better move logic here or change store */
+    notificationStore.showToast("Lỗi khi cấp vàng", "error");
   }
 };
-
-// Lưu ý: Store đang dùng alert(), ta nên sửa lại store hoặc try/catch ở đây nếu store ném lỗi
-// Ở đây tui sửa lại cách gọi: AdminStore nên return Promise và throw error thay vì alert.
-// Nhưng để nhanh, ta cứ gọi store, nếu store alert thì đành chịu, hoặc sửa store sau.
-// Tốt nhất là sửa store Admin một chút (bước sau) để bỏ alert.
 
 const handleGrantItem = async () => {
   try {
@@ -504,7 +648,7 @@ const handleGrantItem = async () => {
     notificationStore.showToast("Gửi vật phẩm thành công!", "success");
     grantItemForm.itemId = 0;
   } catch (e) {
-    /* ... */
+    notificationStore.showToast("Lỗi khi cấp vật phẩm", "error");
   }
 };
 
@@ -515,11 +659,10 @@ const handleSendNotification = async () => {
     notificationForm.title = "";
     notificationForm.message = "";
   } catch (e) {
-    /* ... */
+    notificationStore.showToast("Lỗi khi gửi thông báo", "error");
   }
 };
 
-// Ban User
 const openBanModal = (u) => {
   selectedUser.value = u;
   banReason.value = "";
@@ -537,7 +680,6 @@ const confirmBan = async () => {
   }
 };
 
-// Unban User
 const requestUnban = (u) => {
   showConfirm(
     "XÁC NHẬN ÂN XÁ",
@@ -553,7 +695,6 @@ const requestUnban = (u) => {
   );
 };
 
-// Delete User
 const requestDeleteUser = (u) => {
   showConfirm(
     "TRẢM QUYẾT",
@@ -570,7 +711,6 @@ const requestDeleteUser = (u) => {
   );
 };
 
-// Delete Item
 const requestDeleteItem = (i) => {
   showConfirm(
     "HỦY VẬT PHẨM",
@@ -590,18 +730,18 @@ const requestDeleteItem = (i) => {
   );
 };
 
+// LOAD DỮ LIỆU BAN ĐẦU
 onMounted(() => {
   adminStore.fetchStats();
-  adminStore.fetchItems();
+  adminStore.fetchUsers(); // QUAN TRỌNG: Load users ngay
+  adminStore.fetchItems(); // QUAN TRỌNG: Load items ngay
 });
 </script>
 
 <style scoped>
-/* Giữ nguyên CSS cũ và thêm phần Modal mới */
 @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
 @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
 
-/* CSS Gốc (Giữ nguyên các class cũ để không vỡ layout) */
 :root {
   --wood-dark: #3e2723;
   --wood-light: #5d4037;
@@ -799,6 +939,56 @@ onMounted(() => {
 .flex-between {
   justify-content: space-between;
 }
+
+/* Filter Box Styles */
+.filter-box {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--wood-light);
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+}
+.filter-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+}
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gold);
+  pointer-events: none;
+}
+.search-input {
+  padding-left: 40px !important;
+}
+.filter-select {
+  min-width: 150px;
+}
+.reset-btn {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: #666 !important;
+  color: #ccc !important;
+}
+.reset-btn:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+.result-count {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  text-align: right;
+}
+
 .table-responsive {
   overflow-x: auto;
 }
@@ -823,6 +1013,21 @@ onMounted(() => {
 .dark-table tr:hover td {
   background: rgba(255, 255, 255, 0.02);
 }
+.empty-state {
+  text-align: center;
+  padding: 40px !important;
+  color: var(--text-dim);
+}
+.empty-state i {
+  font-size: 3rem;
+  margin-bottom: 10px;
+  opacity: 0.3;
+  display: block;
+}
+.empty-state p {
+  margin: 0;
+  font-size: 1.1rem;
+}
 .dim-text {
   color: #777;
   font-size: 0.9rem;
@@ -836,6 +1041,16 @@ onMounted(() => {
   padding: 2px 8px;
   border-radius: 4px;
   font-size: 0.8rem;
+}
+.role-tag.role-admin {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  border: 1px solid #ffc107;
+}
+.role-tag.role-user {
+  background: rgba(33, 150, 243, 0.2);
+  color: #2196f3;
+  border: 1px solid #2196f3;
 }
 .status-tag {
   padding: 2px 8px;
@@ -1056,8 +1271,6 @@ onMounted(() => {
   opacity: 0;
   transform: translateY(-10px);
 }
-
-/* [MỚI] Style cho Modal Xác Nhận */
 .dark-modal.small {
   width: 350px;
   border-color: var(--wood-light);

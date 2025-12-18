@@ -62,12 +62,12 @@
       <div class="progress-container">
         <div class="progress-label">
           <span>Tiến độ</span>
-          <span>{{ Math.round((1 - remainingNode / maxNode) * 100) }}%</span>
+          <span>{{ maxNode > 0 ? Math.round((1 - remainingNode / maxNode) * 100) : 100 }}%</span>
         </div>
         <div class="progress-track">
           <div
             class="progress-fill"
-            :style="{ width: (1 - remainingNode / maxNode) * 100 + '%' }"
+            :style="{ width: (maxNode > 0 ? (1 - remainingNode / maxNode) * 100 : 100) + '%' }"
           ></div>
         </div>
       </div>
@@ -109,9 +109,7 @@
               (charStore.character?.currentEnergy || 0) < 1 ||
               playerLevel < currentEvent.reqLevel
             "
-            :title="
-              'Khai thác tối đa 10 lần'
-            "
+            :title="'Khai thác tối đa 10 lần'"
           >
             <span class="btn-main">TỰ ĐỘNG</span>
             <span class="btn-sub">Gom nhanh (Max 10)</span>
@@ -128,32 +126,28 @@
         </div>
       </div>
     </div>
-
-    <div class="floating-layer">
-      <transition-group name="float-up">
-        <div v-for="loot in floatingLoots" :key="loot.id" class="float-item">
-          <span class="plus">+{{ loot.amount }}</span> {{ loot.name }}
-        </div>
-      </transition-group>
+    
+    <div v-else class="gathering-panel" style="text-align: center; color: #aaa;">
+      <p>Đang đồng bộ dữ liệu mỏ...</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useCharacterStore } from "@/stores/characterStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "vue-router";
 import axiosClient from "@/api/axiosClient";
 
 // --- IMPORT ẢNH ---
-import woodImg from "@/assets/resources/r_wood.png";          // Gỗ Xoài
-import stoneImg from "@/assets/resources/stone_1.png";        // Đá
-import copperImg from "@/assets/resources/r_copper_node.png"; // Quặng Đồng
-import ironImg from "@/assets/resources/r_silver_node.png";   // Sắt
-import fishImg from "@/assets/resources/r_fish.png";          // Cá
-import mystrileImg from "@/assets/resources/r_mystrile_node.png"; // Bạch Kim
-import redWoodImg from "@/assets/resources/r_red_wood.png";   // Gỗ Khô
+import woodImg from "@/assets/resources/r_wood.png";          
+import stoneImg from "@/assets/resources/stone_1.png";        
+import copperImg from "@/assets/resources/r_copper_node.png"; 
+import ironImg from "@/assets/resources/r_silver_node.png";   
+import fishImg from "@/assets/resources/r_fish.png";          
+import mystrileImg from "@/assets/resources/r_mystrile_node.png"; 
+import redWoodImg from "@/assets/resources/r_red_wood.png";   
 
 const charStore = useCharacterStore();
 const authStore = useAuthStore();
@@ -162,7 +156,7 @@ let energyRefreshInterval = null;
 
 const currentEvent = ref(null);
 const remainingNode = ref(0);
-const maxNode = ref(0);
+const maxNode = ref(10); // Giá trị mặc định để hiển thị thanh progress đẹp
 const isGathering = ref(false);
 const feedbackMsg = ref("");
 const floatingLoots = ref([]);
@@ -171,130 +165,90 @@ const playerLevel = computed(() => charStore.character?.lv || 1);
 
 // --- CẤU HÌNH DATA TÀI NGUYÊN ---
 const EVENT_TYPES = [
-  {
-    id: "wood",       
-    rewardItemId: 1,  // ID 1: Gỗ Xoài
-    name: "Cây Gỗ Xoài",
-    image: woodImg,
-    rarityClass: "common",
-    rarityText: "Phổ Thông",
-    reqLevel: 1,
-    reqTool: "Rìu",
-    minYield: 5,
-    maxYield: 15,
-    lootName: "Gỗ Xoài",
-  },
-  {
-    id: "stone",      
-    rewardItemId: 2,  // ID 2: Đá
-    name: "Mỏ Đá Tự Nhiên",
-    image: stoneImg,
-    rarityClass: "common",
-    rarityText: "Phổ Thông",
-    reqLevel: 1,
-    reqTool: "Búa",
-    minYield: 5,
-    maxYield: 15,
-    lootName: "Đá",
-  },
-  {
-    id: "mining",     
-    rewardItemId: 3,  // ID 3: Quặng Đồng
-    name: "Mạch Đồng Lộ Thiên",
-    image: copperImg,
-    rarityClass: "common",
-    rarityText: "Phổ Thông",
-    reqLevel: 1,
-    reqTool: "Cuốc",
-    minYield: 3,
-    maxYield: 10,
-    lootName: "Quặng Đồng",
-  },
-  {
-    id: "mining",
-    rewardItemId: 4,  // ID 4: Sắt
-    name: "Mỏ Sắt Già",
-    image: ironImg,
-    rarityClass: "rare", 
-    rarityText: "Hiếm",
-    reqLevel: 20,
-    reqTool: "Cuốc Sắt",
-    minYield: 2,
-    maxYield: 8,
-    lootName: "Sắt",
-  },
-  {
-    id: "fishing",
-    rewardItemId: 5,  // ID 5: Cá
-    name: "Hồ Cá Yên Bình",
-    image: fishImg,
-    rarityClass: "common",
-    rarityText: "Phổ Thông",
-    reqLevel: 1,
-    reqTool: "Cần Câu",
-    minYield: 1,
-    maxYield: 5,
-    lootName: "Cá",
-  },
-  {
-    id: "mining",
-    rewardItemId: 6,  // ID 6: Bạch Kim
-    name: "Tinh Thể Bạch Kim",
-    image: mystrileImg,
-    rarityClass: "epic",
-    rarityText: "Cực Phẩm",
-    reqLevel: 40,
-    reqTool: "Găng Tay",
-    minYield: 1,
-    maxYield: 3,
-    lootName: "Bạch Kim",
-  },
-  {
-    id: "wood",
-    rewardItemId: 7,  // ID 7: Gỗ Khô
-    name: "Cây Gỗ Khô",
-    image: redWoodImg,
-    rarityClass: "common",
-    rarityText: "Phổ Thông",
-    reqLevel: 30, 
-    reqTool: "Rìu",
-    minYield: 5,
-    maxYield: 10,
-    lootName: "Gỗ Khô",
-  }
+  { id: "wood", rewardItemId: 1, name: "Cây Gỗ Xoài", image: woodImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Xoài" },
+  { id: "stone", rewardItemId: 2, name: "Mỏ Đá Tự Nhiên", image: stoneImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Búa", lootName: "Đá" },
+  { id: "mining", rewardItemId: 3, name: "Mạch Đồng Lộ Thiên", image: copperImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cuốc", lootName: "Quặng Đồng" },
+  { id: "mining", rewardItemId: 4, name: "Mỏ Sắt Già", image: ironImg, rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Cuốc Sắt", lootName: "Sắt" },
+  { id: "fishing", rewardItemId: 5, name: "Hồ Cá Yên Bình", image: fishImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cần Câu", lootName: "Cá" },
+  { id: "mining", rewardItemId: 6, name: "Tinh Thể Bạch Kim", image: mystrileImg, rarityClass: "epic", rarityText: "Cực Phẩm", reqLevel: 40, reqTool: "Găng Tay", lootName: "Bạch Kim" },
+  { id: "wood", rewardItemId: 7, name: "Cây Gỗ Khô", image: redWoodImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 30, reqTool: "Rìu", lootName: "Gỗ Khô" }
 ];
 
+// --- [LOGIC MỚI] LẤY DATA TRỰC TIẾP TỪ DB (Thông qua Character Info) ---
 const initEvent = () => {
-  const rnd = Math.floor(Math.random() * EVENT_TYPES.length);
-  const evt = EVENT_TYPES[rnd];
-  
-  currentEvent.value = evt;
+  // Đảm bảo dữ liệu nhân vật đã tải xong
+  if (!charStore.character) return;
 
-  const amount =
-    Math.floor(Math.random() * (evt.maxYield - evt.minYield + 1)) +
-    evt.minYield;
-  maxNode.value = amount;
-  remainingNode.value = amount;
-  feedbackMsg.value = `Phát hiện: ${evt.name}`;
+  // Lấy dữ liệu mỏ từ cột DB (Java trả về camelCase: gatheringItemId, gatheringRemainingAmount)
+  const dbItemId = charStore.character.gatheringItemId;
+  const dbAmount = charStore.character.gatheringRemainingAmount;
+
+  // Nếu DB = null (Không có phiên khai thác nào), đá về trang khám phá
+  if (!dbItemId || dbItemId === 0) {
+    console.warn("Không tìm thấy phiên khai thác trong DB, quay về Explore...");
+    router.push('/explore');
+    return;
+  }
+
+  // Tìm UI config dựa trên ID trong DB
+  const evt = EVENT_TYPES.find(e => e.rewardItemId === dbItemId);
+
+  if (evt) {
+    currentEvent.value = evt;
+    
+    // Set số lượng thực tế từ DB
+    remainingNode.value = dbAmount || 0;
+    
+    // Vì DB không lưu maxAmount ban đầu, ta tạm lấy amount hiện tại làm mốc 
+    // hoặc giữ maxNode cũ nếu chưa reload trang
+    if (maxNode.value < remainingNode.value) {
+        maxNode.value = remainingNode.value; 
+    }
+    
+    if (remainingNode.value <= 0) {
+      feedbackMsg.value = "Tài nguyên này đã cạn kiệt...";
+      setTimeout(() => router.push("/explore"), 1500);
+    } else {
+      feedbackMsg.value = `Đang khai thác: ${evt.name} (Còn lại: ${remainingNode.value})`;
+    }
+  } else {
+    feedbackMsg.value = "Phát hiện tài nguyên lạ (ID không khớp)!";
+    router.push('/explore');
+  }
 };
+
+// Theo dõi sự thay đổi của character (để khi F5 trang, data load xong thì UI tự cập nhật)
+watch(() => charStore.character, (newVal) => {
+    if (newVal) {
+        initEvent();
+    }
+}, { immediate: true });
 
 const handleGather = async (times) => {
   if (isGathering.value) return;
 
   if (!charStore.character) {
-     feedbackMsg.value = "⚠️ Đang tải dữ liệu nhân vật...";
+     feedbackMsg.value = "⚠️ Đang tải dữ liệu...";
      return;
   }
   
-  // Kiểm tra cấp độ
+  // Client check: Level
   if (playerLevel.value < currentEvent.value.reqLevel) {
     feedbackMsg.value = `⛔ Cấp độ chưa đủ! Cần cấp ${currentEvent.value.reqLevel}.`;
     return;
   }
 
+  // Client check: Energy
   const cost = times;
   if ((charStore.character?.currentEnergy || 0) < cost) {
     feedbackMsg.value = "⚠️ Nội năng không đủ!";
+    return;
+  }
+
+  // Client check: Amount
+  if (remainingNode.value <= 0) {
+    feedbackMsg.value = "Mỏ tài nguyên đã cạn!";
+    setTimeout(() => router.push("/explore"), 1000);
     return;
   }
 
@@ -306,24 +260,21 @@ const handleGather = async (times) => {
   try {
     const charId = charStore.character._id || charStore.character.id;
 
-    // [FIX QUAN TRỌNG] Gửi đúng key 'itemId' để khớp với Controller Backend
+    // Gửi yêu cầu lên Server
+    // LƯU Ý BẢO MẬT: Backend bây giờ cần check DB xem user có đang ở mỏ này không, 
+    // chứ không chỉ tin vào itemId gửi lên.
     const payload = {
-      // Backend không đọc characterId từ body trong đoạn code bạn gửi, 
-      // nhưng mình vẫn để đây phòng khi logic Service cần.
       characterId: charId,   
-      
-      // Backend check: if (req.get("itemId") == null)
-      // Nên key ở đây BẮT BUỘC phải là 'itemId'
       itemId: currentEvent.value.rewardItemId, 
-      
       amount: actualGathered,
     };
 
     const res = await axiosClient.post("/exploration/gather", payload);
 
+    // Cập nhật UI (Optimistic update)
     remainingNode.value -= actualGathered;
-
-    // Đồng bộ lại data
+    
+    // [QUAN TRỌNG] Đồng bộ lại data từ Server để lấy số lượng chuẩn xác nhất từ DB
     await charStore.syncGameData();
 
     if (actualGathered > 0) {
@@ -340,7 +291,12 @@ const handleGather = async (times) => {
   } catch (error) {
     console.error(error);
     const serverMsg = error.response?.data?.message || error.response?.data;
-    // Hiển thị lỗi chi tiết trả về từ Backend (nếu có)
+    
+    // Xử lý lỗi bảo mật: Nếu server báo không có mỏ hoặc sai ID
+    if (serverMsg && (serverMsg.includes("không tồn tại") || serverMsg.includes("hết hạn"))) {
+       router.push("/explore");
+    }
+    
     feedbackMsg.value = typeof serverMsg === 'string' ? serverMsg : "Lỗi khai thác!";
   } finally {
     isGathering.value = false;
@@ -371,11 +327,12 @@ const showFloatingText = (text) => {
 };
 
 onMounted(async () => {
-  await charStore.syncGameData(); 
-  await authStore.fetchProfile();
-  initEvent();
-
+  // Fetch dữ liệu mới nhất từ DB
+  await charStore.syncGameData();
+  // initEvent sẽ tự chạy nhờ watcher
+  
   energyRefreshInterval = setInterval(async () => {
+    // Chỉ fetch lại character để update năng lượng và trạng thái mỏ
     await charStore.fetchCharacter(); 
   }, 5000);
 });
