@@ -1,6 +1,5 @@
 package com.echommo.controller;
 
-import com.echommo.dto.ExplorationResponse;
 import com.echommo.service.ExplorationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -16,18 +15,14 @@ public class ExplorationController {
     @Autowired
     private ExplorationService explorationService;
 
-    // [FIXED] Sửa @RequestParam thành @RequestBody để nhận JSON Payload từ Frontend
+    // 1. API Khám phá (Tìm quái/tài nguyên)
     @PostMapping("/explore")
     public ResponseEntity<?> explore(@RequestBody Map<String, String> req) {
         try {
-            // Lấy mapId từ JSON body thay vì URL parameter
             String mapId = req.get("mapId");
-
-            // Validate mapId
             if (mapId == null || mapId.isEmpty()) {
                 throw new IllegalArgumentException("Thiếu thông tin bản đồ (mapId)!");
             }
-
             return ResponseEntity.ok(explorationService.explore(mapId));
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
@@ -36,19 +31,18 @@ public class ExplorationController {
         }
     }
 
-    // API Thu hoạch
+    // 2. API Thu hoạch (Đã fix để nhận itemId và amount)
     @PostMapping("/gather")
     public ResponseEntity<?> gather(@RequestBody Map<String, Object> req) {
         try {
-            // Kiểm tra itemId đầu vào
+            // Kiểm tra input từ Frontend
             if (req.get("itemId") == null) {
                 throw new RuntimeException("Thiếu ID vật phẩm!");
             }
 
+            // Convert an toàn từ JSON sang Integer
             int itemId = Integer.parseInt(req.get("itemId").toString());
             int amount = 1;
-
-            // Xử lý amount an toàn hơn
             if (req.get("amount") != null) {
                 try {
                     amount = (int) Double.parseDouble(req.get("amount").toString());
@@ -61,6 +55,7 @@ public class ExplorationController {
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("message", "Lỗi thu hoạch: " + e.getMessage());
+            // Trả về 400 để Frontend hiển thị lỗi đỏ
             return ResponseEntity.status(400).body(error);
         }
     }

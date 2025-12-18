@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class AdminService {
@@ -20,6 +21,7 @@ public class AdminService {
     @Autowired private UserItemRepository uiRepo;
     @Autowired private MarketListingRepository listingRepo;
     @Autowired private NotificationService notiService;
+    @Autowired private NotificationRepository notiRepo;
     @Autowired private CharacterRepository charRepo;
 
     public Map<String, Object> getServerStats() {
@@ -27,7 +29,7 @@ public class AdminService {
         m.put("totalUsers", userRepo.count());
         m.put("totalItems", itemRepo.count());
         BigDecimal totalGold = walletRepo.findAll().stream()
-                .map(Wallet::getGold) // [LƯU Ý] Đảm bảo Wallet.java dùng field là 'gold'
+                .map(Wallet::getGold)
                 .filter(Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         m.put("totalGold", totalGold);
@@ -45,33 +47,31 @@ public class AdminService {
 
     public void deleteItem(Integer id) { itemRepo.deleteById(id); }
 
+    public void deleteListing(Integer id) { listingRepo.deleteById(id); }
+
     @Transactional
     public void deleteUser(Integer id) {
-        // 1. Tìm user
         User u = userRepo.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 2. Tìm Character của User
-        // [FIX LỖI] Xóa .longValue() đi vì Repository nhận Integer
-        Character character = charRepo.findByUser_UserId(id).orElse(null);
+        // Xóa sạch ràng buộc trước khi xóa User
+        listingRepo.deleteAll(listingRepo.findAll().stream().filter(l -> l.getSeller().getUserId().equals(id)).collect(Collectors.toList()));
+        notiRepo.deleteAll(notiRepo.findAll().stream().filter(n -> n.getUser().getUserId().equals(id)).collect(Collectors.toList()));
 
+        if (u.getWallet() != null) {
+            walletRepo.delete(u.getWallet());
+        }
+
+        Character character = charRepo.findByUser_UserId(id).orElse(null);
         if (character != null) {
-            // Lấy tất cả đồ của nhân vật đó để xóa
-            List<UserItem> charItems = uiRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(character.getCharId());
-            if (charItems != null && !charItems.isEmpty()) {
-                uiRepo.deleteAll(charItems);
-            }
-            // Xóa nhân vật
+            uiRepo.deleteAll(uiRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(character.getCharId()));
             charRepo.delete(character);
         }
 
-        // 3. Xóa User
         userRepo.delete(u);
     }
 
-    public void deleteListing(Integer id) { listingRepo.deleteById(id); }
-
     public void banUser(Integer id, String reason) {
-        User u = userRepo.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+        User u = userRepo.findById(id).orElseThrow();
         u.setIsActive(false);
         u.setBanReason(reason);
         u.setBannedAt(LocalDateTime.now());
@@ -79,7 +79,7 @@ public class AdminService {
     }
 
     public void unbanUser(Integer id) {
-        User u = userRepo.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
+        User u = userRepo.findById(id).orElseThrow();
         u.setIsActive(true);
         u.setBanReason(null);
         u.setBannedAt(null);
@@ -95,7 +95,6 @@ public class AdminService {
     @Transactional
     public String grantGold(String uName, BigDecimal amt) {
         User u = userRepo.findByUsername(uName).orElseThrow();
-        // [LƯU Ý] Đảm bảo Wallet dùng field 'gold' (BigDecimal) thay vì 'balance'
         u.getWallet().setGold(u.getWallet().getGold().add(amt));
         walletRepo.save(u.getWallet());
         return "Done";
@@ -103,63 +102,34 @@ public class AdminService {
 
     @Transactional
     public String grantItem(String uName, Integer iId, Integer qty) {
-        // 1. Tìm User
-        User u = userRepo.findByUsername(uName)
-                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+        User u = userRepo.findByUsername(uName).orElseThrow();
+        Character c = charRepo.findByUser_UserId(u.getUserId()).orElseThrow();
+        Item i = itemRepo.findById(iId).orElseThrow();
 
-        // 2. Tìm Character
-        // [FIX LỖI] Xóa .longValue(), truyền thẳng Integer vào
-        Character c = charRepo.findByUser_UserId(u.getUserId())
-                .orElseThrow(() -> new RuntimeException("User này chưa tạo nhân vật!"));
-
-        // 3. Tìm Item gốc
-        Item i = itemRepo.findById(iId)
-                .orElseThrow(() -> new RuntimeException("Item ID không tồn tại"));
-
-        // 4. Kiểm tra stack số lượng
         UserItem ui = uiRepo.findByCharacter_CharIdAndItem_ItemId(c.getCharId(), iId).orElse(null);
-
         if (ui != null) {
             ui.setQuantity(ui.getQuantity() + qty);
         } else {
-            // Tạo mới UserItem cho Character
             ui = new UserItem();
-            ui.setCharacter(c);
-            ui.setItem(i);
-            ui.setQuantity(qty);
-            ui.setIsEquipped(false);
-            ui.setEnhancementLevel(0);
-            ui.setAcquiredAt(LocalDateTime.now());
-
-            ui.setRarity(Rarity.COMMON);
-            ui.setSubStats("[]");
-            ui.setMainStatValue(BigDecimal.ZERO);
-
-            if (i.getSlotType() != null) {
-                ui.setMainStatType("ATK_FLAT");
-                ui.setMainStatValue(BigDecimal.valueOf(10));
-            }
+            ui.setCharacter(c); ui.setItem(i); ui.setQuantity(qty);
+            ui.setIsEquipped(false); ui.setEnhancementLevel(0);
+            ui.setAcquiredAt(LocalDateTime.now()); ui.setRarity(Rarity.COMMON);
+            ui.setSubStats("[]"); ui.setMainStatValue(BigDecimal.ZERO);
         }
-
         uiRepo.save(ui);
-        return "Đã tặng " + qty + " x " + i.getName() + " cho " + uName;
+        return "Done";
     }
 
     @Transactional
     public void sendCustomNotification(Map<String, String> payload) {
         String title = payload.get("title");
         String message = payload.get("message");
-        String type = payload.get("type");
         String recipient = payload.get("recipientUsername");
-
         if (recipient != null && !recipient.trim().isEmpty()) {
             User user = userRepo.findByUsername(recipient).orElseThrow();
-            notiService.sendNotification(user, title, message, type);
+            notiService.sendNotification(user, title, message, "SYSTEM");
         } else {
-            List<User> allUsers = userRepo.findAll();
-            for (User user : allUsers) {
-                notiService.sendNotification(user, title, message, type);
-            }
+            userRepo.findAll().forEach(user -> notiService.sendNotification(user, title, message, "SYSTEM"));
         }
     }
 }

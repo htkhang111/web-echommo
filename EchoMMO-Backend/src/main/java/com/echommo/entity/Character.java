@@ -68,16 +68,16 @@ public class Character {
     @Column(name = "spa_end_time") private LocalDateTime spaEndTime;
     @Column(name = "spa_package_type") private String spaPackageType;
 
-    // --- [NEW] GATHERING SECURITY STATE ---
+    // --- [NEW] CÁC TRƯỜNG CHO HỆ THỐNG KHAI THÁC (BẮT BUỘC) ---
     @Column(name = "gathering_item_id")
-    private Integer gatheringItemId;
+    private Integer gatheringItemId; // ID vật phẩm đang được phép khai thác
 
     @Column(name = "gathering_remaining_amount")
     @Builder.Default
-    private Integer gatheringRemainingAmount = 0;
+    private Integer gatheringRemainingAmount = 0; // Số lượng còn lại tại mỏ
 
     @Column(name = "gathering_expiry")
-    private LocalDateTime gatheringExpiry;
+    private LocalDateTime gatheringExpiry; // Thời gian mỏ biến mất
 
     // --- TIME ---
     private LocalDateTime createdAt;

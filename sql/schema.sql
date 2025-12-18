@@ -312,29 +312,108 @@ ALTER TABLE items
 
 USE echommo_db;
 
-SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE echommo_db.items;
-SET FOREIGN_KEY_CHECKS = 1;
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 1, null, 1, 'Vật phẩm hệ thống.', 'r_wood.png', 'Gỗ Xoài', 'MATERIAL', 'COMMON', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 2, null, 1, 'Vật phẩm hệ thống.', 'stone_1.png', 'Đá', 'MATERIAL', 'COMMON', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 3, null, 1, 'Vật phẩm hệ thống.', 'r_copper_node.png', 'Quặng Đồng', 'MATERIAL', 'COMMON', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 4, null, 2, 'Vật phẩm hệ thống.', 'r_silver_node.png', 'Sắt', 'MATERIAL', 'RARE', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 5, null, 1, 'Vật phẩm hệ thống.', 'r_fish.png', 'Cá', 'MATERIAL', 'COMMON', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 6, null, 3, 'Vật phẩm hệ thống.', 'r_mystrile_node.png', 'Bạch Kim', 'MATERIAL', 'EPIC', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 7, null, 1, 'Vật phẩm hệ thống.', 'r_red_wood.png', 'Gỗ Khô', 'MATERIAL', 'COMMON', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 8, null, 2, 'Vật phẩm hệ thống.', 'r_white_wood.png', 'Gỗ Lạnh', 'MATERIAL', 'UNCOMMON', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 9, null, 3, 'Vật phẩm hệ thống.', 'r_black_wood.png', 'Gỗ Lạ', 'MATERIAL', 'RARE', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 10, null, 2, 'Vật phẩm hệ thống.', 'r_shark.png', 'Cá Mập', 'MATERIAL', 'UNCOMMON', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 11, null, 5, 'Vật phẩm hệ thống.', 'r_echo_coin.png', 'Echo Coin', 'MATERIAL', 'LEGENDARY', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 12, null, 4, 'Vật phẩm hệ thống.', 'r_unknown.png', 'Nguyên liệu lạ', 'MATERIAL', 'EPIC', 'MATERIAL');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 13, null, 1, 'Vật phẩm hệ thống.', 's_sword_0.png', 'Kiếm Gỗ', 'WEAPON', 'COMMON', 'WEAPON');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 14, null, 1, 'Vật phẩm hệ thống.', 'a_armor_0.png', 'Áo Vải', 'ARMOR', 'COMMON', 'ARMOR');
-insert into echommo_db.items (attack, base_price, defense, hp, item_id, speed, tier, description, image_url, name, type, rarity, slot_type) values (null, 10, null, null, 15, null, 1, 'Vật phẩm hệ thống.', 'r_potion.png', 'Bình Máu', 'CONSUMABLE', 'COMMON', 'CONSUMABLE');
-
-
 ALTER TABLE characters
     ADD COLUMN gathering_item_id INT DEFAULT NULL,
     ADD COLUMN gathering_remaining_amount INT DEFAULT 0,
     ADD COLUMN gathering_expiry DATETIME DEFAULT NULL;
 
-SHOW COLUMNS FROM characters;
+
+USE echommo_db;
+
+-- =============================================
+-- 1. SETUP TABLE ITEMS (RE-INDEXED IDs)
+-- =============================================
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE echommo_db.items;
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- --- GROUP 1: GỖ (WOODS) ---
+-- ID chạy từ 1 -> 4
+INSERT INTO echommo_db.items (item_id, name, type, rarity, tier, base_price, description, image_url, slot_type) VALUES
+                                                                                                                    (1, 'Gỗ Sồi',     'MATERIAL', 'COMMON',   1, 10, 'Vật phẩm hệ thống.', 'r_wood.png',       'MATERIAL'),
+                                                                                                                    (2, 'Gỗ Khô',     'MATERIAL', 'COMMON',   1, 10, 'Vật phẩm hệ thống.', 'r_red_wood.png',   'MATERIAL'),
+                                                                                                                    (3, 'Gỗ Lạnh',    'MATERIAL', 'UNCOMMON', 2, 10, 'Vật phẩm hệ thống.', 'r_white_wood.png', 'MATERIAL'),
+                                                                                                                    (4, 'Gỗ Lạ',      'MATERIAL', 'RARE',     3, 10, 'Vật phẩm hệ thống.', 'r_black_wood.png', 'MATERIAL');
+
+-- --- GROUP 2: KHOÁNG SẢN (MINERALS) ---
+-- ID chạy từ 5 -> 8
+INSERT INTO echommo_db.items (item_id, name, type, rarity, tier, base_price, description, image_url, slot_type) VALUES
+                                                                                                                    (5, 'Đá',         'MATERIAL', 'COMMON',   1, 10, 'Vật phẩm hệ thống.', 'stone_1.png',      'MATERIAL'),
+                                                                                                                    (6, 'Quặng Đồng', 'MATERIAL', 'COMMON',   1, 10, 'Vật phẩm hệ thống.', 'r_copper_node.png','MATERIAL'),
+                                                                                                                    (7, 'Sắt',        'MATERIAL', 'RARE',     2, 10, 'Vật phẩm hệ thống.', 'r_silver_node.png','MATERIAL'),
+                                                                                                                    (8, 'Bạch Kim',   'MATERIAL', 'EPIC',     3, 10, 'Vật phẩm hệ thống.', 'r_mystrile_node.png','MATERIAL');
+
+-- --- GROUP 3: THỰC PHẨM (FOOD/FISH) ---
+-- ID chạy từ 9 -> 10
+INSERT INTO echommo_db.items (item_id, name, type, rarity, tier, base_price, description, image_url, slot_type) VALUES
+                                                                                                                    (9, 'Cá',         'MATERIAL', 'COMMON',   1, 10, 'Vật phẩm hệ thống.', 'r_fish.png',       'MATERIAL'),
+                                                                                                                    (10, 'Cá Mập',    'MATERIAL', 'UNCOMMON', 2, 10, 'Vật phẩm hệ thống.', 'r_shark.png',      'MATERIAL');
+
+-- --- GROUP 4: ĐẶC BIỆT (SPECIAL) ---
+-- ID chạy từ 11 -> 12
+INSERT INTO echommo_db.items (item_id, name, type, rarity, tier, base_price, description, image_url, slot_type) VALUES
+                                                                                                                    (11, 'Echo Coin',      'MATERIAL', 'LEGENDARY', 5, 10, 'Vật phẩm hệ thống.', 'r_echo_coin.png', 'MATERIAL'),
+                                                                                                                    (12, 'Nguyên liệu lạ', 'MATERIAL', 'EPIC',      4, 10, 'Vật phẩm hệ thống.', 'r_unknown.png',   'MATERIAL');
+
+-- --- GROUP 5: TRANG BỊ & TIÊU HAO ---
+-- ID chạy tiếp từ 13 -> 15
+INSERT INTO echommo_db.items (item_id, name, type, rarity, tier, base_price, description, image_url, slot_type) VALUES
+                                                                                                                    (13, 'Kiếm Gỗ',   'WEAPON',     'COMMON', 1, 10, 'Vật phẩm hệ thống.', 's_sword_0.png',  'WEAPON'),
+                                                                                                                    (14, 'Áo Vải',    'ARMOR',      'COMMON', 1, 10, 'Vật phẩm hệ thống.', 'a_armor_0.png',  'ARMOR'),
+                                                                                                                    (15, 'Bình Máu',  'CONSUMABLE', 'COMMON', 1, 10, 'Vật phẩm hệ thống.', 'r_potion.png',   'CONSUMABLE');
+
+
+-- =============================================
+-- 2. SETUP TABLE WALLET (CẤU TRÚC KHỚP ID)
+-- =============================================
+DROP TABLE IF EXISTS wallet;
+
+CREATE TABLE wallet (
+                        wallet_id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL UNIQUE,
+
+    -- Currency
+                        gold DECIMAL(18, 2) DEFAULT 100.00,
+                        diamonds INT DEFAULT 0,
+
+    -- --- GROUP 1: GỖ (ID 1-4) ---
+                        wood INT DEFAULT 0,           -- Gỗ Sồi (ID 1)
+                        dried_wood INT DEFAULT 0,     -- Gỗ Khô (ID 2)
+                        cold_wood INT DEFAULT 0,      -- Gỗ Lạnh (ID 3)
+                        strange_wood INT DEFAULT 0,   -- Gỗ Lạ  (ID 4)
+
+    -- --- GROUP 2: KHOÁNG SẢN (ID 5-8) ---
+                        stone INT DEFAULT 0,          -- Đá (ID 5)
+                        copper_ore INT DEFAULT 0,     -- Đồng (ID 6)
+                        iron_ore INT DEFAULT 0,       -- Sắt (ID 7)
+                        platinum INT DEFAULT 0,       -- Bạch Kim (ID 8)
+
+    -- --- GROUP 3: THỰC PHẨM (ID 9-10) ---
+                        fish INT DEFAULT 0,           -- Cá (ID 9)
+                        shark INT DEFAULT 0,          -- Cá Mập (ID 10)
+
+    -- --- GROUP 4: ĐẶC BIỆT (ID 11-12) ---
+                        echo_coin INT DEFAULT 0,      -- Echo Coin (ID 11)
+                        unknown_material INT DEFAULT 0, -- Nguyên liệu lạ (ID 12)
+
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        CONSTRAINT FK_Wallet_User FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+);
+
+-- =============================================
+-- 3. SEED DATA WALLET (ADMIN)
+-- =============================================
+INSERT INTO wallet (
+    user_id, gold, diamonds,
+    wood, dried_wood, cold_wood, strange_wood,
+    stone, copper_ore, iron_ore, platinum,
+    fish, shark,
+    echo_coin, unknown_material
+)
+VALUES (
+           1, 999999, 99999,
+           1000, 100, 100, 50,    -- Gỗ
+           1000, 500, 500, 100,   -- Khoáng
+           200, 10,               -- Thực phẩm
+           5, 1                   -- Đặc biệt
+       );

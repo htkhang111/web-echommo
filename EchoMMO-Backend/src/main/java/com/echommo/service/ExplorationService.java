@@ -26,8 +26,8 @@ public class ExplorationService {
     @Autowired private BattleSessionRepository battleSessionRepo;
 
     public enum GameMap {
-        MAP_01("MAP_01", "Đồng Bằng", 1, 19, List.of(1, 2), List.of("Goblin", "Skeleton")),
-        MAP_02("MAP_02", "Rừng Rậm", 20, 30, List.of(1, 3), List.of("Người Rừng", "Gấu Hoang"));
+        MAP_01("MAP_01", "Đồng Bằng", 1, 19, List.of(1, 5, 6, 9), List.of("Goblin", "Skeleton")),
+        MAP_02("MAP_02", "Rừng Rậm", 20, 30, List.of(1, 2, 7), List.of("Người Rừng", "Gấu Hoang"));
 
         public final String id; public final String name;
         public final int minLv; public final int maxLv;
@@ -45,7 +45,6 @@ public class ExplorationService {
 
     @Transactional
     public ExplorationResponse explore(String mapId) {
-        // [BẢO MẬT] Load đầy đủ quan hệ User/Wallet để tránh lỗi Lazy Loading 500
         Character c = characterService.getMyCharacter();
         if (c == null) throw new RuntimeException("Chưa có nhân vật!");
 
@@ -54,7 +53,6 @@ public class ExplorationService {
 
         captchaService.checkLockStatus(c.getUser());
 
-        // Kiểm tra năng lượng
         if (c.getCurrentEnergy() < 1) throw new RuntimeException("Bạn đã kiệt sức! Hãy nghỉ ngơi.");
 
         GameMap map = GameMap.findById(mapId);
@@ -63,14 +61,14 @@ public class ExplorationService {
         Random r = new Random();
         Wallet w = c.getUser().getWallet();
 
-        // 1. Trừ năng lượng & Cộng EXP/Vàng
+        // Trừ năng lượng & Cộng EXP/Gold
         c.setCurrentEnergy(c.getCurrentEnergy() - 1);
         long expGain = 10L + c.getLevel();
         c.setCurrentExp(c.getCurrentExp() + expGain);
         BigDecimal coinGain = BigDecimal.valueOf(1 + r.nextInt(5));
         w.setGold(w.getGold().add(coinGain));
 
-        // 2. Xử lý RNG nội dung hành tẩu
+        // Logic Random Sự Kiện
         int roll = r.nextInt(100);
         String type; String msg;
         String rewardName = null; Integer rewardAmount = 0; Integer rewardItemId = null;
@@ -96,6 +94,7 @@ public class ExplorationService {
                 rewardItemId = item.getItemId();
             } else {
                 type = "TEXT"; msg = "Khu vực này có vẻ đã bị khai thác hết.";
+                clearGatheringState(c);
             }
         } else if (roll < 91) { // 11% ENEMY
             type = "ENEMY";
@@ -110,7 +109,10 @@ public class ExplorationService {
             List<Item> items = itemRepo.findAll();
             if (!items.isEmpty()) {
                 Item item = items.get(r.nextInt(items.size()));
+                // Tạm thời vẫn dùng addItemToInventory cho random drop (nếu là trang bị)
+                // Nếu item là tài nguyên (ID 1-12) thì sẽ vào ví sau này, tạm thời để logic cũ cho phần random này
                 addItemToInventory(c, item, 1);
+
                 msg = "May mắn! Nhặt được " + item.getName();
                 rewardName = item.getName();
                 rewardAmount = 1;
@@ -121,13 +123,10 @@ public class ExplorationService {
             clearGatheringState(c);
         }
 
-        // 3. Kiểm tra lên cấp
         Integer newLevel = checkLevelUp(c);
-
         characterRepository.save(c);
         walletRepository.save(w);
 
-        // [QUAN TRỌNG] Trả về Response dùng BUILDER để tránh lệch kiểu dữ liệu gây lỗi 500
         return ExplorationResponse.builder()
                 .message(msg)
                 .type(type)
@@ -147,33 +146,76 @@ public class ExplorationService {
     public Map<String, Object> gatherResource(Integer itemId, int amount) {
         Character c = characterService.getMyCharacter();
 
+        // 1. Check ID & Time
         if (c.getGatheringItemId() == null || !c.getGatheringItemId().equals(itemId)) {
-            throw new RuntimeException("Tài nguyên không còn ở đây!");
+            throw new RuntimeException("Tài nguyên không còn ở đây hoặc ID không khớp!");
         }
-        if (LocalDateTime.now().isAfter(c.getGatheringExpiry())) {
+        if (c.getGatheringExpiry() != null && LocalDateTime.now().isAfter(c.getGatheringExpiry())) {
             clearGatheringState(c);
             characterRepository.save(c);
-            throw new RuntimeException("Mỏ tài nguyên đã cạn kiệt!");
+            throw new RuntimeException("Mỏ tài nguyên đã cạn kiệt (hết thời gian)!");
         }
 
+        // 2. Check Amount & Energy
         if (c.getGatheringRemainingAmount() < amount) amount = c.getGatheringRemainingAmount();
         if (c.getCurrentEnergy() < amount) throw new RuntimeException("Không đủ năng lượng!");
 
+        // 3. Trừ Năng lượng & Số lượng mỏ
         c.setCurrentEnergy(c.getCurrentEnergy() - amount);
         c.setGatheringRemainingAmount(c.getGatheringRemainingAmount() - amount);
 
-        Item item = itemRepo.findById(itemId).orElseThrow(() -> new RuntimeException("Vật phẩm lỗi"));
-        addItemToInventory(c, item, amount);
+        // 4. Cộng vào Wallet (SỬ DỤNG HÀM AN TOÀN)
+        Wallet wallet = c.getUser().getWallet();
+        addItemToWallet(wallet, itemId, amount);
+        walletRepository.save(wallet);
 
+        // 5. Cleanup
         if (c.getGatheringRemainingAmount() <= 0) clearGatheringState(c);
-
         characterRepository.save(c);
 
+        Item item = itemRepo.findById(itemId).orElse(null);
+        String itemName = (item != null) ? item.getName() : "Vật phẩm";
+
         Map<String, Object> res = new HashMap<>();
-        res.put("message", "Thu hoạch thành công " + amount + " " + item.getName());
+        res.put("message", "Thu hoạch thành công " + amount + " " + itemName);
         res.put("currentEnergy", c.getCurrentEnergy());
         res.put("remainingAmount", c.getGatheringRemainingAmount());
         return res;
+    }
+
+    // --- [HÀM MỚI] CHECK NULL AN TOÀN ---
+    // Nếu giá trị trong DB là null -> trả về 0 -> Code chạy mượt không cần sửa DB
+    private int safeGet(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    // --- CẬP NHẬT LOGIC CỘNG VÀO WALLET ---
+    private void addItemToWallet(Wallet w, int itemId, int amount) {
+        switch (itemId) {
+            // Dùng safeGet(...) bao bọc lấy giá trị cũ
+            // GỖ
+            case 1: w.setWood(safeGet(w.getWood()) + amount); break;
+            case 2: w.setDriedWood(safeGet(w.getDriedWood()) + amount); break;
+            case 3: w.setColdWood(safeGet(w.getColdWood()) + amount); break;
+            case 4: w.setStrangeWood(safeGet(w.getStrangeWood()) + amount); break;
+
+            // KHOÁNG SẢN
+            case 5: w.setStone(safeGet(w.getStone()) + amount); break;
+            case 6: w.setCopperOre(safeGet(w.getCopperOre()) + amount); break;
+            case 7: w.setIronOre(safeGet(w.getIronOre()) + amount); break;
+            case 8: w.setPlatinum(safeGet(w.getPlatinum()) + amount); break;
+
+            // THỰC PHẨM
+            case 9: w.setFish(safeGet(w.getFish()) + amount); break;
+            case 10: w.setShark(safeGet(w.getShark()) + amount); break;
+
+            // ĐẶC BIỆT
+            case 11: w.setEchoCoin(safeGet(w.getEchoCoin()) + amount); break;
+            case 12: w.setUnknownMaterial(safeGet(w.getUnknownMaterial()) + amount); break;
+
+            default:
+                System.out.println("Warning: Item ID " + itemId + " không được hỗ trợ trong Wallet.");
+        }
     }
 
     private void clearGatheringState(Character c) {

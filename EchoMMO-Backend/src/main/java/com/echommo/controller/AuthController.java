@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -46,6 +47,13 @@ public class AuthController {
             response.put("error", "BANNED");
             response.put("message", "Tài khoản đã bị khóa!");
             response.put("reason", user.getBanReason() != null ? user.getBanReason() : "Vi phạm quy định");
+
+            if (user.getBannedAt() != null) {
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy");
+                response.put("bannedAt", user.getBannedAt().format(formatter));
+            } else {
+                response.put("bannedAt", "Không xác định");
+            }
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
         }
 
@@ -62,11 +70,12 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@RequestBody AuthRequest signUpRequest) {
+        // [FIX] Trả về JSON Object thay vì String thô để Frontend dễ bắt lỗi
         if (userRepository.existsByUsername(signUpRequest.getUsername())) {
-            return ResponseEntity.badRequest().body("Lỗi: Username đã tồn tại!");
+            return responseError("Tên đăng nhập đã tồn tại!");
         }
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            return ResponseEntity.badRequest().body("Lỗi: Email đã được sử dụng!");
+            return responseError("Email này đã được sử dụng!");
         }
 
         // 1. Tạo User
@@ -74,7 +83,7 @@ public class AuthController {
         user.setUsername(signUpRequest.getUsername());
         user.setEmail(signUpRequest.getEmail());
         user.setPasswordHash(encoder.encode(signUpRequest.getPassword()));
-        user.setPassword(signUpRequest.getPassword()); // Lưu raw để debug (nên bỏ trong production thực tế)
+        user.setPassword(signUpRequest.getPassword());
         user.setFullName(signUpRequest.getFullName());
         user.setAvatarUrl("🐲");
         user.setIsActive(true);
@@ -83,7 +92,7 @@ public class AuthController {
         // 2. Tạo Wallet
         Wallet wallet = new Wallet();
         wallet.setUser(user);
-        wallet.setGold(new BigDecimal("1000.00")); // Tăng quà tân thủ lên 1000
+        wallet.setGold(new BigDecimal("1000.00"));
         user.setWallet(wallet);
 
         userRepository.save(user);
@@ -98,15 +107,21 @@ public class AuthController {
             charReq.setName(signUpRequest.getUsername());
             characterService.createCharacter(charReq);
 
-            // [QUAN TRỌNG] Tạo Token trả về luôn để Frontend tự đăng nhập
             String jwt = jwtUtils.generateToken((UserDetails) authentication.getPrincipal());
             UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
             return ResponseEntity.ok(new AuthResponse(jwt, userDetails.getUsername(), "USER"));
 
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Đăng ký thành công nhưng lỗi khởi tạo: " + e.getMessage());
+            return responseError("Đăng ký thành công nhưng lỗi khởi tạo: " + e.getMessage());
         }
+    }
+
+    // [HELPER] Hàm trả về lỗi dạng JSON
+    private ResponseEntity<?> responseError(String message) {
+        Map<String, String> response = new HashMap<>();
+        response.put("message", message);
+        return ResponseEntity.badRequest().body(response);
     }
 
     @PostMapping("/forgot-password")
@@ -114,9 +129,7 @@ public class AuthController {
         String email = payload.get("email");
         User user = userRepository.findByEmail(email).orElse(null);
 
-        if (user == null) {
-            return ResponseEntity.badRequest().body("Email không tồn tại trong hệ thống.");
-        }
+        if (user == null) return responseError("Email không tồn tại trong hệ thống.");
 
         String otp = String.format("%06d", new Random().nextInt(999999));
         user.setOtpCode(otp);
@@ -125,9 +138,9 @@ public class AuthController {
 
         try {
             emailService.sendOtpEmail(email, otp);
-            return ResponseEntity.ok("Đã gửi mã OTP qua email.");
+            return ResponseEntity.ok("Đã gửi mã OTP qua email."); // Trả String ở đây OK vì logic đơn giản, nhưng trả JSON sẽ tốt hơn
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Lỗi gửi mail: " + e.getMessage());
+            return responseError("Lỗi gửi mail: " + e.getMessage());
         }
     }
 
@@ -138,14 +151,14 @@ public class AuthController {
         String newPassword = payload.get("newPassword");
 
         User user = userRepository.findByEmail(email).orElse(null);
-        if (user == null) return ResponseEntity.badRequest().body("User không tồn tại");
+        if (user == null) return responseError("User không tồn tại");
 
         if (user.getOtpCode() == null || !user.getOtpCode().equals(otp)) {
-            return ResponseEntity.badRequest().body("Mã OTP không đúng.");
+            return responseError("Mã OTP không đúng.");
         }
 
         if (user.getOtpExpiry().isBefore(LocalDateTime.now())) {
-            return ResponseEntity.badRequest().body("Mã OTP đã hết hạn.");
+            return responseError("Mã OTP đã hết hạn.");
         }
 
         user.setPasswordHash(encoder.encode(newPassword));
