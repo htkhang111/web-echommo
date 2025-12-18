@@ -2129,6 +2129,7 @@ onUnmounted(() => {
 
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Cinzel:wght@700;900&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Bangers&display=swap'); /* Font cho Damage số */
 
 :root {
   --bg-dark: #121212;
@@ -2137,7 +2138,8 @@ onUnmounted(() => {
   --text-main: #e0e0e0;
   --text-muted: #aaa;
   --gold: #fdd835;
-  --red: #b71c1c;
+  --red: #d32f2f;
+  --green: #43a047;
 }
 
 .battle-page {
@@ -2154,7 +2156,8 @@ onUnmounted(() => {
   position: absolute; inset: 0;
   background-image: url("@/assets/Background/b_doanhtrai.png");
   background-size: cover; background-position: center;
-  opacity: 0.15; z-index: 0; pointer-events: none;
+  opacity: 0.2; z-index: 0; pointer-events: none;
+  filter: blur(2px); /* Làm mờ nền để nhân vật nổi hơn */
 }
 
 /* === LAYOUT === */
@@ -2175,209 +2178,317 @@ onUnmounted(() => {
 
 /* PANEL STYLE */
 .leaderboard-list, .combat-log-panel, .char-detail-card {
-  background: rgba(30, 30, 30, 0.95);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+  background: rgba(20, 20, 20, 0.85); /* Tối hơn chút */
+  border: 1px solid #444;
+  border-radius: 12px; /* Bo góc mềm hơn */
   overflow: hidden;
   display: flex; flex-direction: column;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.6);
 }
 
 .leaderboard-list { flex: 1; }
 .combat-log-panel { flex: 1; margin-top: 10px; }
 
 .panel-header {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 10px; font-weight: bold; font-size: 0.9em;
-  border-bottom: 1px solid var(--border-color);
-  text-align: center; color: var(--gold); letter-spacing: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+  padding: 12px; font-weight: bold; font-size: 0.95em;
+  border-bottom: 1px solid #444;
+  text-align: center; color: var(--gold); letter-spacing: 1.5px;
+  text-transform: uppercase;
 }
 
-/* === BẢNG XẾP HẠNG SÁT THẦN (Màu xịn) === */
+/* === RANKING === */
 .rank-item {
   display: flex; align-items: center; padding: 10px 12px;
   border-bottom: 1px solid #333; gap: 10px; transition: 0.2s;
 }
-.rank-item:hover { background: rgba(255,255,255,0.05); }
+.rank-item:hover { background: rgba(255,255,255,0.08); }
 
 .rank-num {
-  width: 24px; height: 24px; border-radius: 50%;
-  background: #444; color: #fff; display: flex;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #333; color: #fff; display: flex;
   align-items: center; justify-content: center;
-  font-weight: bold; font-size: 0.75em;
-  border: 2px solid transparent;
+  font-weight: bold; font-size: 0.8em;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
 }
-
-/* TOP 1 - Vàng */
-.top-1 { 
-  background: linear-gradient(135deg, #FFD700, #FDB931); 
-  color: #000; border-color: #FFECB3; 
-  box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
-}
-/* TOP 2 - Bạc */
-.top-2 { 
-  background: linear-gradient(135deg, #E0E0E0, #BDBDBD); 
-  color: #000; border-color: #FFF; 
-  box-shadow: 0 0 8px rgba(192, 192, 192, 0.5);
-}
-/* TOP 3 - Đồng */
-.top-3 { 
-  background: linear-gradient(135deg, #CD7F32, #A0522D); 
-  color: #fff; border-color: #F4A460;
-  box-shadow: 0 0 8px rgba(205, 127, 50, 0.5);
-}
-
-.text-gold { color: #FFD700 !important; text-shadow: 0 0 5px rgba(255,215,0,0.5); }
+.top-1 { background: linear-gradient(135deg, #FFD700, #FDB931); color: #000; box-shadow: 0 0 8px #FFD700; }
+.top-2 { background: linear-gradient(135deg, #E0E0E0, #BDBDBD); color: #000; }
+.top-3 { background: linear-gradient(135deg, #CD7F32, #A0522D); color: #fff; }
 
 .rank-content { flex: 1; overflow: hidden; }
-.rank-name { font-weight: bold; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rank-sub { font-size: 0.8em; color: #aaa; display: flex; align-items: center; gap: 5px; }
-.kill-count { color: #ff5252; font-weight: bold; }
-.rank-avatar-mini img { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #555; }
+.rank-name { font-weight: bold; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rank-sub { font-size: 0.8em; color: #aaa; margin-top: 2px; }
+.rank-avatar-mini img { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #555; }
 
-/* === CENTER PANEL & ARENA === */
+/* === CENTER ARENA (QUAN TRỌNG) === */
 .arena-wrapper {
   flex: 1; display: flex; flex-direction: column;
   min-height: 0; margin-bottom: 10px; position: relative;
 }
 
 .chat-section-wrapper {
-  height: 250px; flex-shrink: 0;
-  background: rgba(0,0,0,0.5); border-radius: 8px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  height: 200px; flex-shrink: 0;
+  background: rgba(0,0,0,0.6); border-radius: 8px;
+  box-shadow: 0 -4px 10px rgba(0,0,0,0.5);
+  border: 1px solid #333;
 }
 
 .combat-arena, .loading-arena {
   width: 100%; height: 100%;
-  /* Nền đẹp hơn */
-  background: radial-gradient(circle at center, #2a1a1a 0%, #0a0a0a 100%);
-  border: 1px solid #5c2b2b;
-  border-radius: 8px;
+  background: radial-gradient(circle at center, #3a2a2a 0%, #050505 100%);
+  border: 2px solid #5c2b2b;
+  border-radius: 12px;
   position: relative;
   display: flex; flex-direction: column;
   justify-content: center; align-items: center;
-  box-shadow: inset 0 0 50px rgba(0,0,0,0.8); /* Vignette */
+  box-shadow: inset 0 0 80px rgba(0,0,0,0.9);
+  overflow: hidden; /* Giữ hiệu ứng không tràn ra ngoài */
 }
 
-/* Loading Animation */
-.swords-cross { font-size: 3em; animation: clash 1s infinite alternate; margin-bottom: 10px; }
-@keyframes clash { from { transform: rotate(0deg) scale(1); } to { transform: rotate(15deg) scale(1.1); } }
+/* VS Badge */
+.vs-badge {
+  position: absolute; top: 40%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: "Cinzel", serif;
+  font-size: 5em; /* To hơn */
+  font-weight: 900;
+  background: linear-gradient(to bottom, #d32f2f, #580808);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 15px rgba(211, 47, 47, 0.5));
+  z-index: 0; opacity: 0.3;
+}
 
-/* Fighter Cards */
-.fighter-card { position: absolute; width: 120px; text-align: center; z-index: 5; transition: 0.2s; }
-.fighter-card.player { bottom: 80px; left: 15%; }
-.fighter-card.enemy { top: 40px; right: 15%; }
+/* === FIGHTER CARDS (UPDATED BIGGER & BETTER) === */
+.fighter-card {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center;
+  width: 200px; /* Tăng từ 120px lên 200px */
+  z-index: 5;
+  transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Hiệu ứng nảy */
+}
 
+/* Vị trí */
+.fighter-card.player { bottom: 100px; left: 15%; }
+.fighter-card.enemy { top: 60px; right: 15%; }
+
+/* Hiệu ứng tấn công */
+.fighter-card.player.attacking { transform: translateX(80px) scale(1.1); z-index: 10; }
+
+/* Visual Container */
+.fighter-visual {
+  position: relative;
+  animation: breathing 3s ease-in-out infinite; /* Hiệu ứng thở */
+}
+
+/* Avatar Circle (TO HƠN, ĐẸP HƠN) */
 .fighter-circle {
-  width: 90px; height: 90px; border-radius: 50%;
-  background: rgba(0,0,0,0.6); margin: 0 auto;
-  overflow: hidden; border: 3px solid #555;
-  box-shadow: 0 0 20px rgba(0,0,0,0.6);
+  width: 150px; height: 150px; /* Tăng từ 90px lên 150px */
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  margin: 0 auto;
+  overflow: hidden;
+  border: 4px solid #555;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.8); /* Bóng đổ sâu */
+  transition: all 0.3s;
 }
-.green-ring { border-color: #43a047; box-shadow: 0 0 10px #43a047; }
-.brown-ring { border-color: #8d6e63; box-shadow: 0 0 10px #8d6e63; }
-.fighter-img { width: 100%; height: 100%; object-fit: contain; }
 
-.stat-bar-box { width: 100%; height: 10px; background: #222; margin-top: 4px; border-radius: 3px; overflow: hidden; border: 1px solid #000; }
-.bar-fill { height: 100%; transition: width 0.3s; }
-.hp-fill { background: linear-gradient(to bottom, #ef5350, #c62828); }
-.energy-fill { background: linear-gradient(to bottom, #42a5f5, #1565c0); }
-.name-tag { font-size: 0.8em; font-weight: bold; padding: 2px 8px; border-radius: 4px; color: white; display: inline-block; text-shadow: 1px 1px 0 #000; margin-bottom: 2px;}
-.red-tag { background: #b71c1c; } .blue-tag { background: #0d47a1; }
+/* Aura (Hào quang) */
+.green-ring {
+  border-color: #43a047;
+  box-shadow: 0 0 20px rgba(67, 160, 71, 0.6), inset 0 0 10px rgba(67, 160, 71, 0.4);
+}
+.brown-ring {
+  border-color: #d84315;
+  box-shadow: 0 0 20px rgba(216, 67, 21, 0.6), inset 0 0 10px rgba(216, 67, 21, 0.4);
+}
 
-/* === KẾT QUẢ TRẬN ĐẤU (OVERLAY) === */
+.fighter-img {
+  width: 100%; height: 100%; object-fit: contain;
+  filter: drop-shadow(0 5px 5px rgba(0,0,0,0.5));
+}
+
+/* Hit Animation */
+.hit-anim .fighter-circle {
+  animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+  border-color: #fff;
+}
+.hit-anim .fighter-img {
+  filter: brightness(3) sepia(1) hue-rotate(-50deg); /* Flash trắng đỏ khi trúng đòn */
+}
+
+/* === DAMAGE TEXT (NỔI BẬT HƠN) === */
+.damage-text {
+  position: absolute;
+  top: -40px; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Bangers', cursive, sans-serif; /* Font kiểu truyện tranh */
+  font-size: 3rem; /* Rất to */
+  font-weight: normal;
+  color: #ffeb3b;
+  text-shadow: 3px 3px 0 #b71c1c, -1px -1px 0 #000; /* Viền đen đỏ */
+  animation: popUp 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
+  z-index: 20;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.player-dmg {
+  color: #ff5252;
+  text-shadow: 3px 3px 0 #3e2723, -1px -1px 0 #000;
+}
+
+/* Stats Bars */
+.fighter-stats {
+  width: 120%; /* Rộng hơn hình 1 chút */
+  margin-top: 15px;
+  text-align: center;
+  background: rgba(0,0,0,0.6);
+  padding: 5px;
+  border-radius: 8px;
+  backdrop-filter: blur(2px);
+}
+
+.name-tag {
+  font-size: 0.9em; font-weight: bold;
+  padding: 3px 10px; border-radius: 4px; color: white;
+  display: inline-block; text-shadow: 1px 1px 2px #000;
+  margin-bottom: 5px; letter-spacing: 0.5px;
+}
+.red-tag { background: linear-gradient(to right, #c62828, #b71c1c); box-shadow: 0 2px 5px rgba(198, 40, 40, 0.4); }
+.blue-tag { background: linear-gradient(to right, #1565c0, #0d47a1); box-shadow: 0 2px 5px rgba(21, 101, 192, 0.4); }
+
+.stat-bar-box {
+  width: 100%; height: 12px; background: #111;
+  margin-top: 4px; border-radius: 6px; overflow: hidden;
+  border: 1px solid #444; position: relative;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+}
+.energy-box { height: 8px; margin-top: 3px; width: 90%; margin-left: auto; margin-right: auto;}
+
+.bar-fill { height: 100%; transition: width 0.3s ease-out; position: relative; }
+/* Thêm hiệu ứng bóng sáng trên thanh máu */
+.bar-fill::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%;
+  background: rgba(255,255,255,0.2);
+}
+
+.hp-fill { background: linear-gradient(to right, #ef5350, #c62828); box-shadow: 0 0 10px rgba(239, 83, 80, 0.5); }
+.energy-fill { background: linear-gradient(to right, #42a5f5, #1565c0); box-shadow: 0 0 10px rgba(66, 165, 245, 0.5); }
+
+/* === CONTROLS === */
 .combat-controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-/* Cho phép click vào nút con */
 .ongoing-actions, .qte-overlay, .result-overlay button { pointer-events: auto; }
 
 .ongoing-actions {
-  position: absolute; bottom: 20px; width: 100%; text-align: center;
+  position: absolute; bottom: 30px; width: 100%; text-align: center;
+  display: flex; justify-content: center; gap: 20px;
 }
 
+.btn-skill {
+  background: linear-gradient(to bottom, #FFD700, #FBC02D);
+  color: #3e2723; font-weight: 900; font-size: 1.1em;
+  border: 2px solid #F57F17; padding: 12px 30px;
+  border-radius: 8px; cursor: pointer;
+  box-shadow: 0 5px 15px rgba(253, 216, 53, 0.4), inset 0 2px 0 rgba(255,255,255,0.5);
+  text-transform: uppercase; letter-spacing: 1px;
+  transition: transform 0.1s, filter 0.2s;
+}
+.btn-skill:hover { filter: brightness(1.1); transform: translateY(-2px); }
+.btn-skill:active { transform: translateY(1px); box-shadow: 0 2px 5px rgba(253, 216, 53, 0.4); }
+.btn-skill:disabled { background: #555; border-color: #333; color: #888; box-shadow: none; transform: none; cursor: not-allowed; }
+
+/* QTE BUTTON */
+.qte-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; }
+.qte-button {
+  font-size: 2.5rem; padding: 20px 50px;
+  background: #d32f2f; color: white;
+  border: 6px solid #b71c1c; border-radius: 10px;
+  font-family: 'Bangers', sans-serif; letter-spacing: 2px;
+  animation: pulseQTE 0.6s infinite; cursor: pointer;
+  box-shadow: 0 0 30px rgba(211, 47, 47, 0.8);
+}
+
+/* === RESULT OVERLAY === */
 .result-overlay {
   position: absolute; inset: 0;
-  background: rgba(0, 0, 0, 0.85); /* Nền tối mờ che sàn đấu */
+  background: rgba(0, 0, 0, 0.85);
   display: flex; justify-content: center; align-items: center;
-  z-index: 50;
-  animation: fadeIn 0.3s ease-out;
-  pointer-events: auto; /* Chặn click xuống dưới */
+  z-index: 50; animation: fadeIn 0.3s ease-out;
+  pointer-events: auto;
 }
-
-.result-content {
-  text-align: center;
-  display: flex; flex-direction: column; align-items: center; gap: 15px;
-}
-
+.result-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px; }
 .result-title {
-  font-family: 'Cinzel', serif;
-  font-size: 3.5rem;
-  font-weight: 900;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-bottom: 10px;
+  font-family: 'Cinzel', serif; font-size: 4rem; font-weight: 900;
+  letter-spacing: 4px; text-transform: uppercase; margin-bottom: 10px;
 }
 .result-title.VICTORY {
-  color: #FFD700; /* Vàng kim */
-  text-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 2px 2px 0 #B8860B;
+  color: transparent;
+  background: linear-gradient(to bottom, #FFD700, #FFA000);
+  -webkit-background-clip: text;
+  text-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
   animation: zoomIn 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
 .result-title.DEFEAT {
-  color: #B0BEC5; /* Xám bạc */
-  text-shadow: 0 0 10px rgba(0,0,0,0.8), 2px 2px 0 #37474F;
+  color: #B0BEC5; text-shadow: 0 0 20px rgba(176, 190, 197, 0.5);
 }
 
 .loot-display {
-  font-size: 1.2rem; color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 10px 20px; border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  display: flex; align-items: center; gap: 10px;
+  font-size: 1.4rem; color: #fff;
+  background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.15), rgba(255,255,255,0.05));
+  padding: 15px 30px; border-radius: 50px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  display: flex; align-items: center; gap: 15px;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
 }
-.loot-name { color: #FFD700; font-weight: bold; }
+.loot-icon { font-size: 1.5em; animation: bounce 2s infinite; }
+.loot-name { color: #FFD700; font-weight: bold; text-shadow: 0 0 5px #FFD700; }
 
-/* === NÚT BẤM TO (BIG BUTTONS) === */
-.btn-group-large {
-  display: flex; gap: 20px; margin-top: 10px;
-}
-
+.btn-group-large { display: flex; gap: 20px; margin-top: 15px; }
 .btn-big {
-  padding: 12px 24px;
-  font-size: 1.1rem;
-  font-weight: bold;
-  font-family: 'Inter', sans-serif;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex; align-items: center; gap: 8px;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  padding: 15px 30px; font-size: 1.2rem; font-weight: bold;
+  font-family: 'Inter', sans-serif; color: white;
+  border: none; border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  transition: all 0.2s; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
 }
-.btn-big:hover { transform: translateY(-2px) scale(1.05); filter: brightness(1.1); }
-.btn-big:active { transform: translateY(0) scale(0.98); }
+.btn-big:hover { transform: translateY(-3px) scale(1.02); filter: brightness(1.1); box-shadow: 0 8px 20px rgba(0,0,0,0.6); }
+.forest { background: linear-gradient(to bottom, #43a047, #2e7d32); border-bottom: 4px solid #1b5e20; }
+.village { background: linear-gradient(to bottom, #8d6e63, #6d4c41); border-bottom: 4px solid #4e342e; }
 
-.forest { 
-  background: linear-gradient(to bottom, #43a047, #2e7d32); 
-  border-bottom: 4px solid #1b5e20;
-}
-.village { 
-  background: linear-gradient(to bottom, #8d6e63, #6d4c41); 
-  border-bottom: 4px solid #4e342e;
-}
-
-/* Logs */
-.logs-container { padding: 10px; font-size: 0.8em; line-height: 1.4; overflow-y: auto; font-family: monospace; }
-.log-entry { margin-bottom: 3px; }
-.log-player { color: #fff176; } .log-enemy { color: #ef9a9a; } .log-win { color: #a5d6a7; } .log-normal { color: #aaa; }
-
+/* === RESPONSIVE === */
 @media (max-width: 900px) {
-  .battle-layout { grid-template-columns: 1fr; grid-template-rows: 1fr 200px; height: auto; overflow-y: auto; }
+  .battle-layout { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; height: auto; padding-bottom: 80px; }
   .left-panel, .right-panel { display: none; }
   .battle-page { height: auto; overflow: auto; }
-  .arena-wrapper { height: 400px; }
+  .arena-wrapper { height: 500px; }
+  
+  /* Giảm size 1 chút trên mobile nhưng vẫn to hơn cũ */
+  .fighter-card { width: 160px; }
+  .fighter-circle { width: 110px; height: 110px; }
+  .fighter-card.player { left: 5%; bottom: 100px; }
+  .fighter-card.enemy { right: 5%; top: 50px; }
 }
 
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* === ANIMATIONS === */
+@keyframes breathing {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes popUp {
+  0% { opacity: 0; transform: translate(-50%, 20px) scale(0.5); }
+  50% { opacity: 1; transform: translate(-50%, -20px) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -60px) scale(1); }
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(4px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+  40%, 60% { transform: translate3d(6px, 0, 0); }
+}
+
 @keyframes zoomIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-@keyframes floatUp { 0% { transform: translate(-50%, 0); opacity: 1; } 100% { transform: translate(-50%, -30px); opacity: 0; } }
+@keyframes pulseQTE { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(211, 47, 47, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); } }
+@keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 </style>

@@ -163,15 +163,27 @@ const floatingLoots = ref([]);
 
 const playerLevel = computed(() => charStore.character?.lv || 1);
 
-// --- CẤU HÌNH DATA TÀI NGUYÊN ---
+// --- CẤU HÌNH DATA TÀI NGUYÊN (Khớp 12 ID) ---
 const EVENT_TYPES = [
-  { id: "wood", rewardItemId: 1, name: "Cây Gỗ Xoài", image: woodImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Xoài" },
-  { id: "stone", rewardItemId: 2, name: "Mỏ Đá Tự Nhiên", image: stoneImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Búa", lootName: "Đá" },
-  { id: "mining", rewardItemId: 3, name: "Mạch Đồng Lộ Thiên", image: copperImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cuốc", lootName: "Quặng Đồng" },
-  { id: "mining", rewardItemId: 4, name: "Mỏ Sắt Già", image: ironImg, rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Cuốc Sắt", lootName: "Sắt" },
-  { id: "fishing", rewardItemId: 5, name: "Hồ Cá Yên Bình", image: fishImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cần Câu", lootName: "Cá" },
-  { id: "mining", rewardItemId: 6, name: "Tinh Thể Bạch Kim", image: mystrileImg, rarityClass: "epic", rarityText: "Cực Phẩm", reqLevel: 40, reqTool: "Găng Tay", lootName: "Bạch Kim" },
-  { id: "wood", rewardItemId: 7, name: "Cây Gỗ Khô", image: redWoodImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 30, reqTool: "Rìu", lootName: "Gỗ Khô" }
+  // --- GỖ ---
+  { id: "wood", rewardItemId: 1, name: "Gỗ Sồi", image: woodImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Sồi" },
+  { id: "dry_wood", rewardItemId: 2, name: "Gỗ Khô", image: redWoodImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 10, reqTool: "Rìu", lootName: "Gỗ Khô" },
+  { id: "cold_wood", rewardItemId: 3, name: "Gỗ Lạnh", image: woodImg, rarityClass: "uncommon", rarityText: "Quý", reqLevel: 20, reqTool: "Rìu Băng", lootName: "Gỗ Lạnh" },
+  { id: "strange_wood", rewardItemId: 4, name: "Gỗ Lạ", image: woodImg, rarityClass: "rare", rarityText: "Hiếm", reqLevel: 30, reqTool: "Rìu Chiến", lootName: "Gỗ Lạ" },
+
+  // --- KHOÁNG SẢN ---
+  { id: "stone", rewardItemId: 5, name: "Mỏ Đá", image: stoneImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Búa", lootName: "Đá" },
+  { id: "copper", rewardItemId: 6, name: "Mạch Đồng", image: copperImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 5, reqTool: "Cuốc", lootName: "Quặng Đồng" },
+  { id: "iron", rewardItemId: 7, name: "Mỏ Sắt", image: ironImg, rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Cuốc Sắt", lootName: "Sắt" },
+  { id: "platinum", rewardItemId: 8, name: "Bạch Kim", image: mystrileImg, rarityClass: "epic", rarityText: "Cực Phẩm", reqLevel: 40, reqTool: "Găng Tay", lootName: "Bạch Kim" },
+
+  // --- THỰC PHẨM ---
+  { id: "fish", rewardItemId: 9, name: "Hồ Cá", image: fishImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cần Câu", lootName: "Cá" },
+  { id: "shark", rewardItemId: 10, name: "Vùng Cá Mập", image: fishImg, rarityClass: "uncommon", rarityText: "Nguy Hiểm", reqLevel: 25, reqTool: "Cần Câu Máy", lootName: "Cá Mập" },
+
+  // --- ĐẶC BIỆT ---
+  { id: "coin", rewardItemId: 11, name: "Kho Báu Echo", image: copperImg, rarityClass: "legendary", rarityText: "Huyền Thoại", reqLevel: 50, reqTool: "Tay Không", lootName: "Echo Coin" },
+  { id: "unknown", rewardItemId: 12, name: "Vật Thể Lạ", image: stoneImg, rarityClass: "epic", rarityText: "Bí Ẩn", reqLevel: 45, reqTool: "Găng Tay", lootName: "Nguyên Liệu Lạ" }
 ];
 
 // --- [LOGIC MỚI] LẤY DATA TRỰC TIẾP TỪ DB (Thông qua Character Info) ---

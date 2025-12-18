@@ -25,9 +25,13 @@ public class ExplorationService {
     @Autowired private FlavorTextRepository flavorTextRepo;
     @Autowired private BattleSessionRepository battleSessionRepo;
 
+    // [CẤU HÌNH DROP MAP] Sử dụng ID mới (1-12)
     public enum GameMap {
-        MAP_01("MAP_01", "Đồng Bằng", 1, 19, List.of(1, 5, 6, 9), List.of("Goblin", "Skeleton")),
-        MAP_02("MAP_02", "Rừng Rậm", 20, 30, List.of(1, 2, 7), List.of("Người Rừng", "Gấu Hoang"));
+        // Map 1: Drop Gỗ (1), Đá (5), Đồng (6), Cá (9)
+        MAP_01("MAP_01", "Đồng Bằng", 1, 19, List.of(1, 5, 6, 9), List.of("Yêu Tinh", "Bộ Xương")),
+
+        // Map 2: Drop Gỗ Khô (2), Sắt (7), Cá (9), Gỗ Lạnh (3)
+        MAP_02("MAP_02", "Rừng Rậm", 20, 30, List.of(2, 7, 9, 3), List.of("Nấm Độc"));
 
         public final String id; public final String name;
         public final int minLv; public final int maxLv;
@@ -68,7 +72,6 @@ public class ExplorationService {
         BigDecimal coinGain = BigDecimal.valueOf(1 + r.nextInt(5));
         w.setGold(w.getGold().add(coinGain));
 
-        // Logic Random Sự Kiện
         int roll = r.nextInt(100);
         String type; String msg;
         String rewardName = null; Integer rewardAmount = 0; Integer rewardItemId = null;
@@ -104,13 +107,12 @@ public class ExplorationService {
             c.setStatus(CharacterStatus.IN_COMBAT);
             rewardName = session.getEnemyName();
             clearGatheringState(c);
-        } else { // 9% ITEM
+        } else { // 9% ITEM (Trang bị ID > 12)
             type = "ITEM";
-            List<Item> items = itemRepo.findAll();
+            // Chỉ rơi Item trang bị (ID >= 13)
+            List<Item> items = itemRepo.findAll().stream().filter(i -> i.getItemId() >= 13).toList();
             if (!items.isEmpty()) {
                 Item item = items.get(r.nextInt(items.size()));
-                // Tạm thời vẫn dùng addItemToInventory cho random drop (nếu là trang bị)
-                // Nếu item là tài nguyên (ID 1-12) thì sẽ vào ví sau này, tạm thời để logic cũ cho phần random này
                 addItemToInventory(c, item, 1);
 
                 msg = "May mắn! Nhặt được " + item.getName();
@@ -146,7 +148,6 @@ public class ExplorationService {
     public Map<String, Object> gatherResource(Integer itemId, int amount) {
         Character c = characterService.getMyCharacter();
 
-        // 1. Check ID & Time
         if (c.getGatheringItemId() == null || !c.getGatheringItemId().equals(itemId)) {
             throw new RuntimeException("Tài nguyên không còn ở đây hoặc ID không khớp!");
         }
@@ -156,20 +157,16 @@ public class ExplorationService {
             throw new RuntimeException("Mỏ tài nguyên đã cạn kiệt (hết thời gian)!");
         }
 
-        // 2. Check Amount & Energy
         if (c.getGatheringRemainingAmount() < amount) amount = c.getGatheringRemainingAmount();
         if (c.getCurrentEnergy() < amount) throw new RuntimeException("Không đủ năng lượng!");
 
-        // 3. Trừ Năng lượng & Số lượng mỏ
         c.setCurrentEnergy(c.getCurrentEnergy() - amount);
         c.setGatheringRemainingAmount(c.getGatheringRemainingAmount() - amount);
 
-        // 4. Cộng vào Wallet (SỬ DỤNG HÀM AN TOÀN)
         Wallet wallet = c.getUser().getWallet();
         addItemToWallet(wallet, itemId, amount);
         walletRepository.save(wallet);
 
-        // 5. Cleanup
         if (c.getGatheringRemainingAmount() <= 0) clearGatheringState(c);
         characterRepository.save(c);
 
@@ -183,16 +180,13 @@ public class ExplorationService {
         return res;
     }
 
-    // --- [HÀM MỚI] CHECK NULL AN TOÀN ---
-    // Nếu giá trị trong DB là null -> trả về 0 -> Code chạy mượt không cần sửa DB
     private int safeGet(Integer value) {
         return value == null ? 0 : value;
     }
 
-    // --- CẬP NHẬT LOGIC CỘNG VÀO WALLET ---
+    // [QUAN TRỌNG] MAP ID 1-12 VÀO ĐÚNG CỘT WALLET
     private void addItemToWallet(Wallet w, int itemId, int amount) {
         switch (itemId) {
-            // Dùng safeGet(...) bao bọc lấy giá trị cũ
             // GỖ
             case 1: w.setWood(safeGet(w.getWood()) + amount); break;
             case 2: w.setDriedWood(safeGet(w.getDriedWood()) + amount); break;
@@ -214,7 +208,7 @@ public class ExplorationService {
             case 12: w.setUnknownMaterial(safeGet(w.getUnknownMaterial()) + amount); break;
 
             default:
-                System.out.println("Warning: Item ID " + itemId + " không được hỗ trợ trong Wallet.");
+                System.out.println("Warning: Item ID " + itemId + " không được hỗ trợ trong Wallet (Có thể là Trang bị).");
         }
     }
 
