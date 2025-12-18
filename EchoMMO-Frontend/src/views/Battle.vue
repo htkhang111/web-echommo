@@ -1898,6 +1898,9 @@ onUnmounted(() => {
                 </div>
 
                 <div v-else-if="battleStore.status === 'ONGOING'" class="ongoing-actions">
+                   <div class="auto-fight-btn">
+                      <div class="spinner"></div> AUTO FIGHT
+                   </div>
                    <button class="btn-skill" @click="activateBuff" :disabled="nextAttackBuffed || (charStore.character?.energy || 0) < 5">
                       <span v-if="!nextAttackBuffed">🔥 TỤ LỰC (5⚡)</span>
                       <span v-else>SẴN SÀNG!</span>
@@ -1999,7 +2002,7 @@ const lbStore = useLeaderboardStore();
 const router = useRouter();
 
 const logContainer = ref(null);
-const fireworksCanvas = ref(null); // Ref cho canvas pháo hoa
+const fireworksCanvas = ref(null);
 
 const isEnemyHit = ref(false);
 const isPlayerHit = ref(false);
@@ -2114,7 +2117,7 @@ const failQTE = async () => {
   startAutoLoop();
 };
 
-// --- HÀM BẮN PHÁO HOA (Không dùng thư viện ngoài) ---
+// --- FIREWORKS FUNCTION (Self-contained) ---
 const triggerFireworks = () => {
   const canvas = fireworksCanvas.value;
   if (!canvas) return;
@@ -2126,7 +2129,6 @@ const triggerFireworks = () => {
   const particles = [];
   const colors = ['#FFD700', '#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF', '#FFFFFF'];
   
-  // Tạo hạt pháo hoa
   const createExplosion = (x, y) => {
     for (let i = 0; i < 50; i++) {
       particles.push({
@@ -2141,7 +2143,6 @@ const triggerFireworks = () => {
     }
   };
 
-  // Vòng lặp Animation
   const animate = () => {
     ctx.globalCompositeOperation = 'destination-out';
     ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
@@ -2167,7 +2168,7 @@ const triggerFireworks = () => {
     else ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
-  // Kích hoạt nổ ở vài điểm ngẫu nhiên
+  // Trigger explosions at random points
   createExplosion(canvas.width / 2, canvas.height / 2);
   setTimeout(() => createExplosion(canvas.width / 3, canvas.height / 3), 200);
   setTimeout(() => createExplosion(canvas.width * 2 / 3, canvas.height / 3), 400);
@@ -2181,22 +2182,23 @@ watch(() => battleStore.combatLogs, () => {
   });
 }, { deep: true });
 
-// --- [UPDATE] LOGIC KẾT THÚC TRẬN ---
+// --- [UPDATE] HANDLE BATTLE END ---
 watch(() => battleStore.status, (st) => {
   if (st === "VICTORY") {
-    // 1. Dừng vòng lặp auto
+    // 1. Stop auto loop
     clearInterval(autoInterval);
     if (qteInterval) clearInterval(qteInterval);
     
-    // 2. Cập nhật lại thông tin nhân vật để khớp với Gold/Exp mới
+    // 2. Refresh character data for updated Gold/Exp
     charStore.fetchCharacter();
 
-    // 3. Kiểm tra nếu có đồ xịn (RARE trở lên) thì bắn pháo hoa
+    // 3. Check for rare item drops to trigger fireworks
     const item = battleStore.droppedItem;
     if (item) {
         const rareTypes = ['RARE', 'EPIC', 'LEGENDARY', 'MYTHIC'];
+        // Check if item rarity matches high-value types
         if (rareTypes.includes(item.rarity) || rareTypes.includes(item.baseRarity)) {
-            setTimeout(triggerFireworks, 500); // Đợi bảng hiện ra rồi bắn
+            setTimeout(triggerFireworks, 500); // Delay slightly for UI to settle
         }
     }
   } else if (st !== "ONGOING") {
@@ -2244,16 +2246,16 @@ onUnmounted(() => {
   overflow: hidden;
   padding: 10px;
   box-sizing: border-box;
-  position: relative; /* Cho canvas đè lên */
+  position: relative; /* Allow canvas overlay */
 }
 
-/* Canvas pháo hoa */
+/* Fireworks Canvas */
 .fireworks-canvas {
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  pointer-events: none; /* Không chặn click */
-  z-index: 9999; /* Luôn nổi trên cùng */
+  pointer-events: none; /* Allow clicks to pass through */
+  z-index: 9999; /* Always on top */
 }
 
 .battle-bg-layer {
@@ -2432,6 +2434,18 @@ onUnmounted(() => {
   display: flex; justify-content: center; gap: 20px;
 }
 
+.auto-fight-btn {
+  background: #333; color: #aaa; padding: 12px 30px;
+  border-radius: 8px; font-size: 1.1em; font-weight: bold;
+  display: flex; gap: 10px; align-items: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+  font-family: 'Inter', sans-serif;
+}
+.spinner {
+  width: 14px; height: 14px;
+  border: 2px solid #aaa; border-top-color: transparent;
+  border-radius: 50%; animation: spin 1s infinite linear;
+}
+
 .btn-skill {
   background: linear-gradient(to bottom, #FFD700, #FBC02D);
   color: #3e2723; font-weight: 900; font-size: 1.1em;
@@ -2528,4 +2542,5 @@ onUnmounted(() => {
 @keyframes zoomIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes pulseQTE { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(211, 47, 47, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); } }
 @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>

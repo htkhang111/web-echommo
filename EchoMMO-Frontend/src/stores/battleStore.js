@@ -139,24 +139,22 @@ import { useCharacterStore } from "./characterStore";
 
 export const useBattleStore = defineStore("battle", {
   state: () => ({
-    enemy: null,        // { enemyId, name, level, ... }
-    enemyVisual: null,  // Dự phòng cho hình ảnh từ Encounter
+    enemy: null,        
+    enemyVisual: null,  
     
-    // Chỉ số chiến đấu
     enemyHp: 0,
     enemyMaxHp: 100,
     playerHp: 0,
     playerMaxHp: 100,
     
     combatLogs: [],
-    status: "IDLE", // IDLE, LOADING, ONGOING, VICTORY, DEFEAT, ERROR
+    status: "IDLE", 
     
-    // Phần thưởng
-    goldEarned: 0,
-    expEarned: 0,
+    rewardGold: 0, 
+    rewardExp: 0,  
     droppedItem: null,
     
-    isReady: false, // Cờ hiệu để component biết đã load xong dữ liệu đầu trận
+    isReady: false, 
   }),
 
   actions: {
@@ -164,7 +162,6 @@ export const useBattleStore = defineStore("battle", {
       this.enemyVisual = visualData;
     },
 
-    // 1. BẮT ĐẦU TRẬN ĐẤU
     async startBattle() {
       this.status = "LOADING";
       this.isReady = false;
@@ -173,23 +170,22 @@ export const useBattleStore = defineStore("battle", {
 
       try {
         const res = await axiosClient.post("/battle/start");
-        console.log("Battle Start:", res.data);
         this.handleResult(res.data);
         this.isReady = true;
       } catch (e) {
         this.status = "ERROR";
-        this.combatLogs.push("Lỗi kết nối: " + (e.response?.data?.message || e.message));
+        // Hiển thị lỗi rõ ràng
+        const msg = e.response?.data?.message || "Không thể tải trận đấu (Có thể do lỗi server hoặc dữ liệu cũ).";
+        this.combatLogs.push(msg);
         console.error(e);
       }
     },
 
-    // 2. ĐÁNH TỰ ĐỘNG
     async autoTurn(isBuffed) {
       if (!this.isReady) return null;
 
       try {
         const res = await axiosClient.post("/battle/attack", {
-          // Backend có thể không cần ID nếu dùng Session, nhưng gửi thêm cho chắc
           enemyId: this.enemy?.enemyId || 0, 
           isBuffed: isBuffed,
         });
@@ -197,16 +193,18 @@ export const useBattleStore = defineStore("battle", {
         return res.data;
       } catch (e) {
         console.error("Turn Error:", e);
-        if (e.response && (e.response.status === 403 || e.response.status === 401)) {
-          this.status = "ERROR";
-          this.combatLogs.push("Phiên đăng nhập hết hạn.");
-          this.isReady = false;
-        }
+        
+        // [FIX QUAN TRỌNG: CHẶN ĐỨNG VÒNG LẶP NẾU CÓ LỖI]
+        this.status = "ERROR"; // Chuyển trạng thái sang Error để hiện nút Về Làng
+        this.isReady = false;  // Dừng vòng lặp auto
+        
+        const msg = e.response?.data?.message || e.message || "Mất kết nối với trận đấu.";
+        this.combatLogs.push("⚠️ LỖI: " + msg);
+        
         return null;
       }
     },
 
-    // 3. GỬI HÀNH ĐỘNG (QTE)
     async sendAction(actionType) {
       try {
         const res = await axiosClient.post("/battle/action", {
@@ -218,34 +216,25 @@ export const useBattleStore = defineStore("battle", {
       }
     },
 
-    // --- HÀM XỬ LÝ DỮ LIỆU TỪ SERVER (QUAN TRỌNG) ---
     handleResult(data) {
       if (!data) return;
 
-      // A. Cập nhật thông tin Quái (nếu có thay đổi)
       if (data.enemyId || data.enemyName) {
         this.enemy = {
           enemyId: data.enemyId || (this.enemy ? this.enemy.enemyId : 0),
           name: data.enemyName || "Quái Lạ",
           level: data.enemyLv || "??",
         };
-      } 
-      else if (data.enemy) {
-        // Trường hợp Backend trả về nguyên cục object
+      } else if (data.enemy) {
         this.enemy = data.enemy;
       }
-      // Nếu data không có enemy info -> Giữ nguyên enemy cũ (đừng set null)
 
-      // B. Cập nhật HP
       this.enemyHp = data.enemyHp ?? this.enemyHp;
       this.enemyMaxHp = data.enemyMaxHp || this.enemyMaxHp;
-      
       this.playerHp = data.playerHp ?? this.playerHp;
       this.playerMaxHp = data.playerMaxHp || this.playerMaxHp;
-      
       this.status = data.status || this.status;
 
-      // C. Xử lý Log
       if (data.combatLog) {
         if (Array.isArray(data.combatLog)) {
            this.combatLogs = [...this.combatLogs, ...data.combatLog].slice(-20);
@@ -254,34 +243,31 @@ export const useBattleStore = defineStore("battle", {
         }
       }
 
-      // D. Xử lý Kết quả (Thắng/Thua)
       if (data.status === "VICTORY") {
-        this.goldEarned = data.goldEarned || 0; // Khớp với DTO Java
-        this.expEarned = data.expEarned || 0;   // Khớp với DTO Java
+        this.rewardGold = data.goldEarned || 0; 
+        this.rewardExp = data.expEarned || 0;   
         
         if (data.droppedItemName) {
           this.droppedItem = {
             name: data.droppedItemName,
             image: data.droppedItemImage,
-            rarity: data.droppedItemRarity,
+            rarity: data.droppedItemRarity || 'COMMON',
           };
         }
-        this.isReady = false; // Dừng đánh
+        this.isReady = false; 
       } else if (data.status === "DEFEAT") {
-        this.isReady = false; // Dừng đánh
+        this.isReady = false; 
       }
 
-      // E. Đồng bộ máu về Character Store (để thanh máu trên Header đẹp)
       const charStore = useCharacterStore();
       if (charStore.character) {
         charStore.character.currentHp = this.playerHp; 
-        // Lưu ý: check xem store dùng 'currentHp' hay 'hp'
       }
     },
 
     resetRewards() {
-        this.goldEarned = 0;
-        this.expEarned = 0;
+        this.rewardGold = 0;
+        this.rewardExp = 0;
         this.droppedItem = null;
     },
 

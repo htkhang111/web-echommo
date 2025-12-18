@@ -140,14 +140,20 @@ import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "vue-router";
 import axiosClient from "@/api/axiosClient";
 
-// --- IMPORT ẢNH ---
+// --- IMPORT ASSETS (Đảm bảo có đủ file ảnh) ---
 import woodImg from "@/assets/resources/r_wood.png";          
 import stoneImg from "@/assets/resources/stone_1.png";        
 import copperImg from "@/assets/resources/r_copper_node.png"; 
 import ironImg from "@/assets/resources/r_silver_node.png";   
 import fishImg from "@/assets/resources/r_fish.png";          
 import mystrileImg from "@/assets/resources/r_mystrile_node.png"; 
-import redWoodImg from "@/assets/resources/r_red_wood.png";   
+import redWoodImg from "@/assets/resources/r_red_wood.png";
+import blackWoodImg from "@/assets/resources/r_black_wood.png"; 
+import whiteWoodImg from "@/assets/resources/r_white_wood.png";
+import sharkImg from "@/assets/resources/r_shark.png";
+import coinImg from "@/assets/resources/r_echo_coin.png";
+// Dùng tạm mystrile bar cho unknown material nếu chưa có hình
+import unknownImg from "@/assets/resources/r_mystrile_bar.png"; 
 
 const charStore = useCharacterStore();
 const authStore = useAuthStore();
@@ -156,63 +162,52 @@ let energyRefreshInterval = null;
 
 const currentEvent = ref(null);
 const remainingNode = ref(0);
-const maxNode = ref(10); // Giá trị mặc định để hiển thị thanh progress đẹp
+const maxNode = ref(10); 
 const isGathering = ref(false);
 const feedbackMsg = ref("");
-const floatingLoots = ref([]);
 
 const playerLevel = computed(() => charStore.character?.lv || 1);
 
-// --- CẤU HÌNH DATA TÀI NGUYÊN (Khớp 12 ID) ---
+// --- [CẬP NHẬT] DATA UI KHỚP VỚI DB MỚI (ID 1-12) ---
 const EVENT_TYPES = [
-  // --- GỖ ---
-  { id: "wood", rewardItemId: 1, name: "Gỗ Sồi", image: woodImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Sồi" },
-  { id: "dry_wood", rewardItemId: 2, name: "Gỗ Khô", image: redWoodImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 10, reqTool: "Rìu", lootName: "Gỗ Khô" },
-  { id: "cold_wood", rewardItemId: 3, name: "Gỗ Lạnh", image: woodImg, rarityClass: "uncommon", rarityText: "Quý", reqLevel: 20, reqTool: "Rìu Băng", lootName: "Gỗ Lạnh" },
-  { id: "strange_wood", rewardItemId: 4, name: "Gỗ Lạ", image: woodImg, rarityClass: "rare", rarityText: "Hiếm", reqLevel: 30, reqTool: "Rìu Chiến", lootName: "Gỗ Lạ" },
+  // Group 1: WOODS
+  { id: "wood", rewardItemId: 1, name: "Cây Gỗ Sồi", image: woodImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Sồi" },
+  { id: "dried_wood", rewardItemId: 2, name: "Cây Gỗ Khô", image: redWoodImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Khô" },
+  { id: "cold_wood", rewardItemId: 3, name: "Cây Gỗ Lạnh", image: whiteWoodImg, rarityClass: "uncommon", rarityText: "Ít Gặp", reqLevel: 10, reqTool: "Rìu Sắt", lootName: "Gỗ Lạnh" },
+  { id: "strange_wood", rewardItemId: 4, name: "Cây Gỗ Lạ", image: blackWoodImg, rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Rìu Chiến", lootName: "Gỗ Lạ" },
 
-  // --- KHOÁNG SẢN ---
+  // Group 2: MINERALS
   { id: "stone", rewardItemId: 5, name: "Mỏ Đá", image: stoneImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Búa", lootName: "Đá" },
   { id: "copper", rewardItemId: 6, name: "Mạch Đồng", image: copperImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 5, reqTool: "Cuốc", lootName: "Quặng Đồng" },
-  { id: "iron", rewardItemId: 7, name: "Mỏ Sắt", image: ironImg, rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Cuốc Sắt", lootName: "Sắt" },
-  { id: "platinum", rewardItemId: 8, name: "Bạch Kim", image: mystrileImg, rarityClass: "epic", rarityText: "Cực Phẩm", reqLevel: 40, reqTool: "Găng Tay", lootName: "Bạch Kim" },
+  { id: "iron", rewardItemId: 7, name: "Mỏ Sắt", image: ironImg, rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Cuốc Sắt", lootName: "Quặng Sắt" },
+  { id: "platinum", rewardItemId: 8, name: "Tinh Thể Bạch Kim", image: mystrileImg, rarityClass: "epic", rarityText: "Cực Phẩm", reqLevel: 40, reqTool: "Găng Tay", lootName: "Bạch Kim" },
 
-  // --- THỰC PHẨM ---
+  // Group 3: FOOD/SPECIAL
   { id: "fish", rewardItemId: 9, name: "Hồ Cá", image: fishImg, rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cần Câu", lootName: "Cá" },
-  { id: "shark", rewardItemId: 10, name: "Vùng Cá Mập", image: fishImg, rarityClass: "uncommon", rarityText: "Nguy Hiểm", reqLevel: 25, reqTool: "Cần Câu Máy", lootName: "Cá Mập" },
-
-  // --- ĐẶC BIỆT ---
-  { id: "coin", rewardItemId: 11, name: "Kho Báu Echo", image: copperImg, rarityClass: "legendary", rarityText: "Huyền Thoại", reqLevel: 50, reqTool: "Tay Không", lootName: "Echo Coin" },
-  { id: "unknown", rewardItemId: 12, name: "Vật Thể Lạ", image: stoneImg, rarityClass: "epic", rarityText: "Bí Ẩn", reqLevel: 45, reqTool: "Găng Tay", lootName: "Nguyên Liệu Lạ" }
+  { id: "shark", rewardItemId: 10, name: "Vùng Nước Nguy Hiểm", image: sharkImg, rarityClass: "uncommon", rarityText: "Nguy Hiểm", reqLevel: 30, reqTool: "Cần Câu Máy", lootName: "Cá Mập" },
+  { id: "coin", rewardItemId: 11, name: "Kho Báu Cổ", image: coinImg, rarityClass: "legendary", rarityText: "Huyền Thoại", reqLevel: 50, reqTool: "Tay Không", lootName: "Echo Coin" },
+  { id: "unknown", rewardItemId: 12, name: "Vật Thể Lạ", image: unknownImg, rarityClass: "epic", rarityText: "Bí Ẩn", reqLevel: 45, reqTool: "Găng Tay", lootName: "Nguyên liệu lạ" }
 ];
 
-// --- [LOGIC MỚI] LẤY DATA TRỰC TIẾP TỪ DB (Thông qua Character Info) ---
+// --- LOGIC LẤY DATA TRỰC TIẾP TỪ DB ---
 const initEvent = () => {
-  // Đảm bảo dữ liệu nhân vật đã tải xong
   if (!charStore.character) return;
 
-  // Lấy dữ liệu mỏ từ cột DB (Java trả về camelCase: gatheringItemId, gatheringRemainingAmount)
   const dbItemId = charStore.character.gatheringItemId;
   const dbAmount = charStore.character.gatheringRemainingAmount;
 
-  // Nếu DB = null (Không có phiên khai thác nào), đá về trang khám phá
   if (!dbItemId || dbItemId === 0) {
     console.warn("Không tìm thấy phiên khai thác trong DB, quay về Explore...");
     router.push('/explore');
     return;
   }
 
-  // Tìm UI config dựa trên ID trong DB
   const evt = EVENT_TYPES.find(e => e.rewardItemId === dbItemId);
 
   if (evt) {
     currentEvent.value = evt;
-    
-    // Set số lượng thực tế từ DB
     remainingNode.value = dbAmount || 0;
     
-    // Vì DB không lưu maxAmount ban đầu, ta tạm lấy amount hiện tại làm mốc 
-    // hoặc giữ maxNode cũ nếu chưa reload trang
     if (maxNode.value < remainingNode.value) {
         maxNode.value = remainingNode.value; 
     }
@@ -224,12 +219,11 @@ const initEvent = () => {
       feedbackMsg.value = `Đang khai thác: ${evt.name} (Còn lại: ${remainingNode.value})`;
     }
   } else {
-    feedbackMsg.value = "Phát hiện tài nguyên lạ (ID không khớp)!";
-    router.push('/explore');
+    feedbackMsg.value = `Phát hiện tài nguyên lạ (ID: ${dbItemId})!`;
+    // router.push('/explore'); // Uncomment nếu muốn đá về khi gặp item lạ
   }
 };
 
-// Theo dõi sự thay đổi của character (để khi F5 trang, data load xong thì UI tự cập nhật)
 watch(() => charStore.character, (newVal) => {
     if (newVal) {
         initEvent();
@@ -244,20 +238,17 @@ const handleGather = async (times) => {
      return;
   }
   
-  // Client check: Level
   if (playerLevel.value < currentEvent.value.reqLevel) {
     feedbackMsg.value = `⛔ Cấp độ chưa đủ! Cần cấp ${currentEvent.value.reqLevel}.`;
     return;
   }
 
-  // Client check: Energy
   const cost = times;
   if ((charStore.character?.currentEnergy || 0) < cost) {
     feedbackMsg.value = "⚠️ Nội năng không đủ!";
     return;
   }
 
-  // Client check: Amount
   if (remainingNode.value <= 0) {
     feedbackMsg.value = "Mỏ tài nguyên đã cạn!";
     setTimeout(() => router.push("/explore"), 1000);
@@ -272,9 +263,6 @@ const handleGather = async (times) => {
   try {
     const charId = charStore.character._id || charStore.character.id;
 
-    // Gửi yêu cầu lên Server
-    // LƯU Ý BẢO MẬT: Backend bây giờ cần check DB xem user có đang ở mỏ này không, 
-    // chứ không chỉ tin vào itemId gửi lên.
     const payload = {
       characterId: charId,   
       itemId: currentEvent.value.rewardItemId, 
@@ -283,15 +271,11 @@ const handleGather = async (times) => {
 
     const res = await axiosClient.post("/exploration/gather", payload);
 
-    // Cập nhật UI (Optimistic update)
     remainingNode.value -= actualGathered;
-    
-    // [QUAN TRỌNG] Đồng bộ lại data từ Server để lấy số lượng chuẩn xác nhất từ DB
     await charStore.syncGameData();
 
     if (actualGathered > 0) {
-      showFloatingText(`+${actualGathered} ${currentEvent.value.lootName}`);
-      feedbackMsg.value = `Thu hoạch thành công!`;
+      feedbackMsg.value = `Thu hoạch thành công! (+${actualGathered} ${currentEvent.value.lootName})`;
     }
 
     if (remainingNode.value <= 0) {
@@ -304,7 +288,6 @@ const handleGather = async (times) => {
     console.error(error);
     const serverMsg = error.response?.data?.message || error.response?.data;
     
-    // Xử lý lỗi bảo mật: Nếu server báo không có mỏ hoặc sai ID
     if (serverMsg && (serverMsg.includes("không tồn tại") || serverMsg.includes("hết hạn"))) {
        router.push("/explore");
     }
@@ -326,25 +309,10 @@ const handleGatherAll = () => {
   }
 };
 
-const showFloatingText = (text) => {
-  const id = Date.now();
-  floatingLoots.value.push({
-    id,
-    amount: text.split(" ")[0],
-    name: text.substring(text.indexOf(" ")),
-  });
-  setTimeout(() => {
-    floatingLoots.value = floatingLoots.value.filter((i) => i.id !== id);
-  }, 1500);
-};
-
 onMounted(async () => {
-  // Fetch dữ liệu mới nhất từ DB
   await charStore.syncGameData();
-  // initEvent sẽ tự chạy nhờ watcher
   
   energyRefreshInterval = setInterval(async () => {
-    // Chỉ fetch lại character để update năng lượng và trạng thái mỏ
     await charStore.fetchCharacter(); 
   }, 5000);
 });
@@ -357,10 +325,10 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* (Giữ nguyên Style cũ của bạn) */
 @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
 @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
 
-/* --- PALETTE --- */
 :root {
   --wood-dark: #3e2723;
   --wood-light: #5d4037;
@@ -511,6 +479,16 @@ onUnmounted(() => {
   color: #fff;
   border-color: var(--gold);
 }
+.bg-uncommon {
+  background: #2e7d32;
+  color: #fff;
+}
+.bg-legendary {
+  background: #ff6f00;
+  color: #fff;
+  border: 1px solid #ffca28;
+  box-shadow: 0 0 10px #ffca28;
+}
 
 .node-name {
   font-size: 1.6rem;
@@ -529,6 +507,13 @@ onUnmounted(() => {
 .text-epic {
   color: #ab47bc;
   text-shadow: 0 0 10px rgba(171, 71, 188, 0.6);
+}
+.text-uncommon {
+  color: #66bb6a;
+}
+.text-legendary {
+  color: #ffca28;
+  text-shadow: 0 0 10px rgba(255, 202, 40, 0.8);
 }
 
 .req-box {

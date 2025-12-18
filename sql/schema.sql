@@ -440,3 +440,7 @@ UPDATE enemies SET gold_reward = 45, exp_reward = 75 WHERE name = 'Bộ Xương'
 
 -- Kiểm tra lại kết quả
 SELECT enemy_id, name, level, gold_reward, exp_reward FROM enemies;
+
+USE echommo_db;
+TRUNCATE TABLE battle_sessions;
+UPDATE characters SET current_hp = max_hp, current_energy = max_energy;

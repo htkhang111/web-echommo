@@ -25,13 +25,34 @@ public class ExplorationService {
     @Autowired private FlavorTextRepository flavorTextRepo;
     @Autowired private BattleSessionRepository battleSessionRepo;
 
-    // [CẤU HÌNH DROP MAP] Sử dụng ID mới (1-12)
-    public enum GameMap {
-        // Map 1: Drop Gỗ (1), Đá (5), Đồng (6), Cá (9)
-        MAP_01("MAP_01", "Đồng Bằng", 1, 19, List.of(1, 5, 6, 9), List.of("Yêu Tinh", "Bộ Xương")),
+    // [THÊM MỚI] Inject EnemyRepository để lấy quái thật
+    @Autowired private EnemyRepository enemyRepo;
 
-        // Map 2: Drop Gỗ Khô (2), Sắt (7), Cá (9), Gỗ Lạnh (3)
-        MAP_02("MAP_02", "Rừng Rậm", 20, 30, List.of(2, 7, 9, 3), List.of("Nấm Độc"));
+    // [GIỮ NGUYÊN] Cấu hình Map của bạn
+    public enum GameMap {
+        MAP_01("MAP_01", "Đồng Bằng", 1, 19,
+                List.of(1, 1, 1, 1, 5, 5, 5, 6, 6, 9),
+                List.of("Slime Đồng Cỏ", "Sói Non", "Chuột Đồng")),
+
+        MAP_02("MAP_02", "Rừng Rậm", 20, 30,
+                createWeightedList(Map.of(1, 6, 5, 4, 6, 4, 7, 3, 9, 3)),
+                List.of("Người Rừng", "Gấu Hoang", "Nhện Rừng")),
+
+        MAP_03("MAP_03", "Sa Mạc", 30, 40,
+                createWeightedList(Map.of(2, 4, 5, 6, 6, 5, 7, 5)),
+                List.of("Bọ Cát", "Xác Ướp Lang Thang", "Bọ Hung Khổng Lồ")),
+
+        MAP_04("MAP_04", "Núi Cao", 40, 50,
+                createWeightedList(Map.of(1, 3, 5, 5, 6, 4, 7, 5, 8, 3)),
+                List.of("Golem Đá", "Đại Bàng Núi", "Người Lùn Đào Mỏ")),
+
+        MAP_05("MAP_05", "Băng Đảo", 50, 60,
+                createWeightedList(Map.of(3, 2, 7, 7, 8, 7, 12, 4)),
+                List.of("Gấu Băng", "Người Tuyết", "Tinh Linh Băng")),
+
+        MAP_06("MAP_06", "Đầm Lầy", 60, 70,
+                createWeightedList(Map.of(4, 3, 10, 2, 11, 1, 12, 4)),
+                List.of("Quái Đầm Lầy", "Rắn Độc Khổng Lồ", "Linh Hồn Sa Lầy"));
 
         public final String id; public final String name;
         public final int minLv; public final int maxLv;
@@ -42,6 +63,15 @@ public class ExplorationService {
             this.id = id; this.name = name; this.minLv = minLv; this.maxLv = maxLv;
             this.resourceIds = resourceIds; this.enemies = enemies;
         }
+
+        private static List<Integer> createWeightedList(Map<Integer, Integer> weights) {
+            List<Integer> list = new ArrayList<>();
+            weights.forEach((id, count) -> {
+                for (int i = 0; i < count; i++) list.add(id);
+            });
+            return list;
+        }
+
         public static GameMap findById(String id) {
             return Arrays.stream(values()).filter(m -> m.id.equalsIgnoreCase(id)).findFirst().orElse(MAP_01);
         }
@@ -62,10 +92,12 @@ public class ExplorationService {
         GameMap map = GameMap.findById(mapId);
         if (c.getLevel() < map.minLv) throw new RuntimeException("Cấp độ không đủ! Cần Lv." + map.minLv);
 
+        c.setCurrentMapId(map.id);
+        c.setCurrentLocation(map.name);
+
         Random r = new Random();
         Wallet w = c.getUser().getWallet();
 
-        // Trừ năng lượng & Cộng EXP/Gold
         c.setCurrentEnergy(c.getCurrentEnergy() - 1);
         long expGain = 10L + c.getLevel();
         c.setCurrentExp(c.getCurrentExp() + expGain);
@@ -101,24 +133,31 @@ public class ExplorationService {
             }
         } else if (roll < 91) { // 11% ENEMY
             type = "ENEMY";
-            String enemyName = map.enemies.get(r.nextInt(map.enemies.size()));
-            BattleSession session = createBattleSession(c, enemyName, map);
+
+            // [SỬA] Lấy quái từ DB thay vì String tên
+            List<Enemy> allEnemies = enemyRepo.findAll();
+            Enemy enemy;
+            if (!allEnemies.isEmpty()) {
+                enemy = allEnemies.get(r.nextInt(allEnemies.size()));
+            } else {
+                enemy = new Enemy(); enemy.setEnemyId(0); enemy.setName("Quái Lạ"); enemy.setHp(100); enemy.setAtk(10); enemy.setDef(0); enemy.setSpeed(10);
+            }
+
+            // Tạo session với Entity quái (có ID) và Player snapshot
+            BattleSession session = createBattleSession(c, enemy);
+
             msg = "Nguy hiểm! Gặp " + session.getEnemyName() + "!";
             c.setStatus(CharacterStatus.IN_COMBAT);
             rewardName = session.getEnemyName();
             clearGatheringState(c);
-        } else { // 9% ITEM (Trang bị ID > 12)
+        } else { // 9% ITEM
             type = "ITEM";
-            // Chỉ rơi Item trang bị (ID >= 13)
             List<Item> items = itemRepo.findAll().stream().filter(i -> i.getItemId() >= 13).toList();
             if (!items.isEmpty()) {
                 Item item = items.get(r.nextInt(items.size()));
                 addItemToInventory(c, item, 1);
-
                 msg = "May mắn! Nhặt được " + item.getName();
-                rewardName = item.getName();
-                rewardAmount = 1;
-                rewardItemId = item.getItemId();
+                rewardName = item.getName(); rewardAmount = 1; rewardItemId = item.getItemId();
             } else {
                 type = "TEXT"; msg = "Bạn tìm thấy một chiếc rương cũ nhưng bên trong trống rỗng.";
             }
@@ -144,10 +183,36 @@ public class ExplorationService {
                 .build();
     }
 
+    // [QUAN TRỌNG] Hàm tạo session mới, lưu đầy đủ thông tin để tránh NullPointer
+    private BattleSession createBattleSession(Character player, Enemy enemy) {
+        BattleSession session = battleSessionRepo.findByCharacter_CharId(player.getCharId())
+                .orElse(new BattleSession());
+
+        session.setCharacter(player);
+
+        // Lưu thông tin Quái
+        session.setEnemyId(enemy.getEnemyId());
+        session.setEnemyName(enemy.getName());
+        session.setEnemyMaxHp(enemy.getHp());
+        session.setEnemyCurrentHp(enemy.getHp());
+        session.setEnemyAtk(enemy.getAtk());
+        session.setEnemyDef(enemy.getDef());
+        session.setEnemySpeed(enemy.getSpeed());
+
+        // Lưu thông tin Người chơi (Snapshot) -> Sửa lỗi NullPointer
+        session.setPlayerMaxHp(player.getMaxHp());
+        session.setPlayerCurrentHp(player.getCurrentHp());
+        session.setPlayerCurrentEnergy(player.getCurrentEnergy());
+
+        session.setCurrentTurn(0);
+        session.setLog("Bạn đụng độ " + enemy.getName());
+        return battleSessionRepo.save(session);
+    }
+
+    // --- Các hàm phụ trợ giữ nguyên ---
     @Transactional
     public Map<String, Object> gatherResource(Integer itemId, int amount) {
         Character c = characterService.getMyCharacter();
-
         if (c.getGatheringItemId() == null || !c.getGatheringItemId().equals(itemId)) {
             throw new RuntimeException("Tài nguyên không còn ở đây hoặc ID không khớp!");
         }
@@ -156,7 +221,6 @@ public class ExplorationService {
             characterRepository.save(c);
             throw new RuntimeException("Mỏ tài nguyên đã cạn kiệt (hết thời gian)!");
         }
-
         if (c.getGatheringRemainingAmount() < amount) amount = c.getGatheringRemainingAmount();
         if (c.getCurrentEnergy() < amount) throw new RuntimeException("Không đủ năng lượng!");
 
@@ -184,31 +248,21 @@ public class ExplorationService {
         return value == null ? 0 : value;
     }
 
-    // [QUAN TRỌNG] MAP ID 1-12 VÀO ĐÚNG CỘT WALLET
     private void addItemToWallet(Wallet w, int itemId, int amount) {
         switch (itemId) {
-            // GỖ
             case 1: w.setWood(safeGet(w.getWood()) + amount); break;
             case 2: w.setDriedWood(safeGet(w.getDriedWood()) + amount); break;
             case 3: w.setColdWood(safeGet(w.getColdWood()) + amount); break;
             case 4: w.setStrangeWood(safeGet(w.getStrangeWood()) + amount); break;
-
-            // KHOÁNG SẢN
             case 5: w.setStone(safeGet(w.getStone()) + amount); break;
             case 6: w.setCopperOre(safeGet(w.getCopperOre()) + amount); break;
             case 7: w.setIronOre(safeGet(w.getIronOre()) + amount); break;
             case 8: w.setPlatinum(safeGet(w.getPlatinum()) + amount); break;
-
-            // THỰC PHẨM
             case 9: w.setFish(safeGet(w.getFish()) + amount); break;
             case 10: w.setShark(safeGet(w.getShark()) + amount); break;
-
-            // ĐẶC BIỆT
             case 11: w.setEchoCoin(safeGet(w.getEchoCoin()) + amount); break;
             case 12: w.setUnknownMaterial(safeGet(w.getUnknownMaterial()) + amount); break;
-
-            default:
-                System.out.println("Warning: Item ID " + itemId + " không được hỗ trợ trong Wallet (Có thể là Trang bị).");
+            default: System.out.println("Warning: Item ID " + itemId + " không được hỗ trợ trong Wallet.");
         }
     }
 
@@ -229,22 +283,6 @@ public class ExplorationService {
             leveledUpTo = c.getLevel();
         }
         return leveledUpTo;
-    }
-
-    private BattleSession createBattleSession(Character player, String enemyName, GameMap map) {
-        BattleSession session = battleSessionRepo.findByCharacter_CharId(player.getCharId())
-                .orElse(new BattleSession());
-
-        session.setCharacter(player);
-        session.setEnemyName(enemyName);
-        session.setEnemyMaxHp(100 + (map.minLv * 10));
-        session.setEnemyCurrentHp(session.getEnemyMaxHp());
-        session.setEnemyAtk(10 + map.minLv);
-        session.setEnemyDef(map.minLv);
-        session.setEnemySpeed(10);
-        session.setCurrentTurn(0);
-        session.setLog("Bạn đụng độ " + enemyName);
-        return battleSessionRepo.save(session);
     }
 
     private void addItemToInventory(Character character, Item item, int amount) {
