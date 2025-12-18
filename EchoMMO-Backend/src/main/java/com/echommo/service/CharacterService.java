@@ -1,8 +1,11 @@
 package com.echommo.service;
 
+import com.echommo.config.GameConstants;
 import com.echommo.dto.CharacterRequest;
-import com.echommo.entity.*;
 import com.echommo.entity.Character;
+import com.echommo.entity.Item;
+import com.echommo.entity.User;
+import com.echommo.entity.UserItem;
 import com.echommo.enums.CharacterStatus;
 import com.echommo.enums.Rarity;
 import com.echommo.enums.SlotType;
@@ -23,8 +26,6 @@ public class CharacterService {
 
     @Autowired private CharacterRepository characterRepo;
     @Autowired private UserRepository userRepo;
-
-    // [NEW] Thêm Repo để tặng đồ tân thủ
     @Autowired private ItemRepository itemRepo;
     @Autowired private UserItemRepository userItemRepo;
 
@@ -32,9 +33,17 @@ public class CharacterService {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepo.findByUsername(username).orElse(null);
         if (user == null) return null;
-        return characterRepo.findByUser_UserId(user.getUserId()).orElse(null);
+
+        Character c = characterRepo.findByUser_UserId(user.getUserId()).orElse(null);
+        if (c != null) {
+            int expectedPoints = (c.getLevel() - 1) * GameConstants.STAT_POINTS_PER_LEVEL;
+            int usedPoints = (c.getStr() - 5) + (c.getDex() - 5) + (c.getIntelligence() - 5) + (c.getLuck() - 5);
+            c.setStatPoints(Math.max(0, expectedPoints - usedPoints));
+        }
+        return c;
     }
 
+    // [QUAN TRỌNG] Hàm này được GameService gọi
     @Transactional
     public Character createDefaultCharacter(User user) {
         if (characterRepo.findByUser_UserId(user.getUserId()).isPresent()) {
@@ -47,14 +56,8 @@ public class CharacterService {
         c.setLevel(1);
         c.setStatus(CharacterStatus.IDLE);
 
-        // Stats
-        initStats(c);
-
         Character savedChar = characterRepo.save(c);
-
-        // [NEW] Tặng đồ tân thủ
         grantStarterPack(savedChar);
-
         return savedChar;
     }
 
@@ -73,67 +76,37 @@ public class CharacterService {
         c.setLevel(1);
         c.setStatus(CharacterStatus.IDLE);
 
-        // Stats
-        initStats(c);
-
         Character savedChar = characterRepo.save(c);
-
-        // [NEW] Tặng đồ tân thủ
         grantStarterPack(savedChar);
-
         return savedChar;
     }
 
-    // --- Helper: Khởi tạo chỉ số ---
-    private void initStats(Character c) {
-        c.setStr(5); c.setDex(5); c.setIntelligence(5); c.setLuck(5);
-        c.setStatPoints(0);
-        c.setBaseAtk(10);
-        c.setBaseDef(2);
-        c.setBaseSpeed(10);
-        c.setBaseCritRate(5);
-        c.setBaseCritDmg(150);
-        c.setMaxHp(100); c.setCurrentHp(100);
-        c.setMaxEnergy(50); c.setCurrentEnergy(50);
-        c.setCurrentExp(0L);
-    }
-
-    // --- [NEW] Helper: Tặng đồ tân thủ ---
     private void grantStarterPack(Character character) {
-        // 1. Tặng Kiếm Gỗ (Nếu có trong DB)
         Item sword = itemRepo.findByName("Kiếm Gỗ").orElse(null);
-        if (sword != null) {
-            createItemForChar(character, sword, 1, true); // Mặc luôn cho máu
-        }
+        if (sword != null) createItemForChar(character, sword, 1, true);
 
-        // 2. Tặng 5 Bình Máu Nhỏ
         Item potion = itemRepo.findByName("Bình Máu Nhỏ").orElse(null);
-        if (potion != null) {
-            createItemForChar(character, potion, 5, false);
-        }
+        if (potion != null) createItemForChar(character, potion, 5, false);
     }
 
     private void createItemForChar(Character c, Item item, int qty, boolean equip) {
         UserItem ui = new UserItem();
-        ui.setCharacter(c); // Quan trọng: Link với Character
+        ui.setCharacter(c);
         ui.setItem(item);
         ui.setQuantity(qty);
         ui.setIsEquipped(equip);
         ui.setRarity(Rarity.COMMON);
         ui.setEnhanceLevel(0);
 
-        // Set Main Stat cơ bản nếu là trang bị
         if (item.getSlotType() == SlotType.WEAPON) {
             ui.setMainStatType("ATK_FLAT");
-            ui.setMainStatValue(BigDecimal.valueOf(5)); // Kiếm gỗ cùi +5 dame
-        } else if (item.getSlotType() == SlotType.CONSUMABLE) {
+            ui.setMainStatValue(BigDecimal.valueOf(5));
+        } else {
             ui.setMainStatType(null);
             ui.setMainStatValue(BigDecimal.ZERO);
         }
-
         ui.setSubStats("[]");
         ui.setAcquiredAt(LocalDateTime.now());
-
         userItemRepo.save(ui);
     }
 }

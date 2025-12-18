@@ -139,18 +139,24 @@ import { useCharacterStore } from "./characterStore";
 
 export const useBattleStore = defineStore("battle", {
   state: () => ({
-    enemy: null,
-    enemyVisual: null,
+    enemy: null,        // { enemyId, name, level, ... }
+    enemyVisual: null,  // Dự phòng cho hình ảnh từ Encounter
+    
+    // Chỉ số chiến đấu
     enemyHp: 0,
     enemyMaxHp: 100,
     playerHp: 0,
     playerMaxHp: 100,
+    
     combatLogs: [],
-    status: "IDLE",
+    status: "IDLE", // IDLE, LOADING, ONGOING, VICTORY, DEFEAT, ERROR
+    
+    // Phần thưởng
     goldEarned: 0,
     expEarned: 0,
     droppedItem: null,
-    isReady: false,
+    
+    isReady: false, // Cờ hiệu để component biết đã load xong dữ liệu đầu trận
   }),
 
   actions: {
@@ -158,40 +164,39 @@ export const useBattleStore = defineStore("battle", {
       this.enemyVisual = visualData;
     },
 
+    // 1. BẮT ĐẦU TRẬN ĐẤU
     async startBattle() {
       this.status = "LOADING";
       this.isReady = false;
       this.combatLogs = [];
+      this.resetRewards();
 
       try {
         const res = await axiosClient.post("/battle/start");
-        console.log("Start Battle Data:", res.data); // Debug xem API trả về gì
+        console.log("Battle Start:", res.data);
         this.handleResult(res.data);
         this.isReady = true;
       } catch (e) {
         this.status = "ERROR";
-        this.combatLogs.push("Lỗi kết nối: " + (e.response?.data || e.message));
+        this.combatLogs.push("Lỗi kết nối: " + (e.response?.data?.message || e.message));
         console.error(e);
       }
     },
 
+    // 2. ĐÁNH TỰ ĐỘNG
     async autoTurn(isBuffed) {
-      // Nếu chưa có enemyId thì thử lấy từ enemy hiện tại (phòng trường hợp backend cần)
-      const currentEnemyId = this.enemy?.enemyId || 0; 
-      
       if (!this.isReady) return null;
 
       try {
         const res = await axiosClient.post("/battle/attack", {
-          enemyId: currentEnemyId,
-          enemyHp: this.enemyHp,
+          // Backend có thể không cần ID nếu dùng Session, nhưng gửi thêm cho chắc
+          enemyId: this.enemy?.enemyId || 0, 
           isBuffed: isBuffed,
         });
         this.handleResult(res.data);
         return res.data;
       } catch (e) {
-        console.error("Lỗi turn:", e);
-
+        console.error("Turn Error:", e);
         if (e.response && (e.response.status === 403 || e.response.status === 401)) {
           this.status = "ERROR";
           this.combatLogs.push("Phiên đăng nhập hết hạn.");
@@ -201,6 +206,7 @@ export const useBattleStore = defineStore("battle", {
       }
     },
 
+    // 3. GỬI HÀNH ĐỘNG (QTE)
     async sendAction(actionType) {
       try {
         const res = await axiosClient.post("/battle/action", {
@@ -212,30 +218,25 @@ export const useBattleStore = defineStore("battle", {
       }
     },
 
-    // --- HÀM QUAN TRỌNG ĐÃ SỬA ---
+    // --- HÀM XỬ LÝ DỮ LIỆU TỪ SERVER (QUAN TRỌNG) ---
     handleResult(data) {
       if (!data) return;
 
-      // 1. Xử lý thông tin Quái (Logic lỏng hơn để dễ bắt dính)
-      // Ưu tiên 1: Có ID quái hoặc Tên quái từ Backend gửi dạng phẳng
+      // A. Cập nhật thông tin Quái (nếu có thay đổi)
       if (data.enemyId || data.enemyName) {
         this.enemy = {
           enemyId: data.enemyId || (this.enemy ? this.enemy.enemyId : 0),
-          name: data.enemyName || "Quái Lạ", // Tên mặc định nếu thiếu
+          name: data.enemyName || "Quái Lạ",
           level: data.enemyLv || "??",
         };
       } 
-      // Ưu tiên 2: Backend gửi nguyên cục object 'enemy'
       else if (data.enemy) {
+        // Trường hợp Backend trả về nguyên cục object
         this.enemy = data.enemy;
       }
-      // Ưu tiên 3: Nếu đang đánh nhau (ONGOING) mà API không trả info quái
-      // thì GIỮ NGUYÊN quái cũ, không set null (để tránh mất hình)
-      else if (this.status === 'ONGOING' && this.enemy) {
-        // Giữ nguyên this.enemy
-      }
+      // Nếu data không có enemy info -> Giữ nguyên enemy cũ (đừng set null)
 
-      // 2. Cập nhật chỉ số máu (Dùng toán tử ?? để không bị lỗi số 0)
+      // B. Cập nhật HP
       this.enemyHp = data.enemyHp ?? this.enemyHp;
       this.enemyMaxHp = data.enemyMaxHp || this.enemyMaxHp;
       
@@ -244,18 +245,19 @@ export const useBattleStore = defineStore("battle", {
       
       this.status = data.status || this.status;
 
-      // 3. Xử lý Log chiến đấu
-      if (data.combatLog && Array.isArray(data.combatLog)) {
-        // Nối log mới vào log cũ, giữ tối đa 20 dòng
-        this.combatLogs = [...this.combatLogs, ...data.combatLog].slice(-20);
-      } else if (typeof data.combatLog === 'string') {
-        this.combatLogs.push(data.combatLog);
+      // C. Xử lý Log
+      if (data.combatLog) {
+        if (Array.isArray(data.combatLog)) {
+           this.combatLogs = [...this.combatLogs, ...data.combatLog].slice(-20);
+        } else if (typeof data.combatLog === 'string') {
+           this.combatLogs.push(data.combatLog);
+        }
       }
 
-      // 4. Xử lý Kết quả trận đấu
+      // D. Xử lý Kết quả (Thắng/Thua)
       if (data.status === "VICTORY") {
-        this.goldEarned = data.goldEarned;
-        this.expEarned = data.expEarned;
+        this.goldEarned = data.goldEarned || 0; // Khớp với DTO Java
+        this.expEarned = data.expEarned || 0;   // Khớp với DTO Java
         
         if (data.droppedItemName) {
           this.droppedItem = {
@@ -264,16 +266,23 @@ export const useBattleStore = defineStore("battle", {
             rarity: data.droppedItemRarity,
           };
         }
-        this.isReady = false; // Dừng auto fight
+        this.isReady = false; // Dừng đánh
       } else if (data.status === "DEFEAT") {
-        this.isReady = false; // Dừng auto fight
+        this.isReady = false; // Dừng đánh
       }
 
-      // 5. Đồng bộ HP về Character Store (để thanh máu trên Header cập nhật)
+      // E. Đồng bộ máu về Character Store (để thanh máu trên Header đẹp)
       const charStore = useCharacterStore();
       if (charStore.character) {
-        charStore.character.hp = this.playerHp;
+        charStore.character.currentHp = this.playerHp; 
+        // Lưu ý: check xem store dùng 'currentHp' hay 'hp'
       }
+    },
+
+    resetRewards() {
+        this.goldEarned = 0;
+        this.expEarned = 0;
+        this.droppedItem = null;
     },
 
     resetBattle() {
@@ -282,7 +291,7 @@ export const useBattleStore = defineStore("battle", {
       this.enemyVisual = null;
       this.combatLogs = [];
       this.isReady = false;
-      this.droppedItem = null;
+      this.resetRewards();
     },
   },
 });

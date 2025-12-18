@@ -1,12 +1,15 @@
 package com.echommo.service;
 
+import com.echommo.config.GameConstants;
 import com.echommo.dto.SubStatDTO;
 import com.echommo.entity.UserItem;
 import com.echommo.enums.SlotType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 @Service
@@ -18,80 +21,76 @@ public class ItemGenerationService {
     // --- 1. CORE: Hàm sinh dòng phụ ---
     public SubStatDTO generateRandomSubStat(UserItem userItem, List<SubStatDTO> currentStats) {
         SlotType slot = userItem.getItem().getSlotType();
-        String mainStat = userItem.getMainStatType();
+        int tier = userItem.getItem().getTier();
 
         while (true) {
-            String candidateType = rollStatType();
+            String candidateType = rollStatTypeWithWeight();
 
-            // Rule: Không trùng Main Stat
-            if (candidateType.equals(mainStat)) continue;
-
-            // Rule: Không trùng dòng phụ đã có
+            // Rule 1: Không trùng loại dòng phụ đã có
             boolean isDuplicate = currentStats.stream()
                     .anyMatch(s -> s.getCode().equals(candidateType));
             if (isDuplicate) continue;
 
-            // Rule: Blacklist (Luật cấm)
+            // Rule 2: Blacklist
             if (isBlacklisted(slot, candidateType)) continue;
 
-            // Roll giá trị
-            double value = getBaseRollValue(candidateType, userItem.getItem().getTier());
+            // Rule 3: Roll giá trị
+            double value = rollValue(candidateType, tier);
 
-            // Check Percent để hiển thị
+            // Xác định hiển thị %
             boolean isPercent = candidateType.contains("PERCENT")
                     || candidateType.equals("CRIT_RATE")
-                    || candidateType.equals("CRIT_DMG");
+                    || candidateType.equals("CRIT_DMG")
+                    || candidateType.equals("ACCURACY")
+                    || candidateType.equals("EVASION"); // Mấy cái này là Flat Point nhưng UI game thường hiện %
 
             return new SubStatDTO(candidateType, value, null, isPercent);
         }
     }
 
-    // --- 2. SUPPORT: Roll loại chỉ số ---
-    private String rollStatType() {
-        String[] stats = {
-                "ATK_FLAT", "ATK_PERCENT",
-                "DEF_FLAT", "DEF_PERCENT",
-                "HP_FLAT", "HP_PERCENT",
-                "SPEED",
-                "CRIT_RATE", "CRIT_DMG",
-                "ACCURACY", "EVASION" // [MỚI] Thêm 2 chỉ số này
-        };
-        return stats[random.nextInt(stats.length)];
+    // --- 2. SUPPORT: Weighted Random ---
+    private String rollStatTypeWithWeight() {
+        int totalWeight = GameConstants.STAT_WEIGHTS.values().stream().mapToInt(Integer::intValue).sum();
+        int roll = random.nextInt(totalWeight);
+        int currentSum = 0;
+
+        for (Map.Entry<String, Integer> entry : GameConstants.STAT_WEIGHTS.entrySet()) {
+            currentSum += entry.getValue();
+            if (roll < currentSum) {
+                return entry.getKey();
+            }
+        }
+        return "HP_FLAT"; // Fallback
     }
 
     // --- 3. SUPPORT: Blacklist ---
     private boolean isBlacklisted(SlotType slot, String statType) {
         switch (slot) {
-            case WEAPON: // Kiếm: Không Thủ, Không Né
+            case WEAPON: // Kiếm: Cấm Thủ, Cấm Né
                 return statType.contains("DEF") || statType.equals("EVASION");
-            case ARMOR: // Áo: Không Công, Không Chính xác
+            case ARMOR: // Áo: Cấm Công, Cấm Chính xác
                 return statType.contains("ATK") || statType.equals("ACCURACY");
             default:
                 return false;
         }
     }
 
-    // --- 4. SUPPORT: Giá trị Roll (Tier 1) ---
-    private double getBaseRollValue(String statType, int tier) {
-        int multiplier = Math.max(1, tier);
+    // --- 4. SUPPORT: Roll Value ---
+    private double rollValue(String statType, int tier) {
+        double[] range = GameConstants.ROLL_RANGES.getOrDefault(statType, new double[]{1.0, 2.0});
+        double min = range[0];
+        double max = range[1];
 
-        switch (statType) {
-            case "SPEED": return random.nextInt(3) + 1 + (tier > 3 ? 1 : 0);
-            case "CRIT_RATE": return random.nextInt(3) + 2;
-            case "CRIT_DMG": return random.nextInt(4) + 4;
-            case "ATK_PERCENT":
-            case "HP_PERCENT":
-            case "DEF_PERCENT": return random.nextInt(5) + 4;
+        // Công thức: Random trong range * Tier
+        // Ví dụ: Tier 2, Range ATK% [4, 8] -> Random(4,8) * 2 -> Kết quả từ 8 đến 16
+        double baseRoll = min + (max - min) * random.nextDouble();
 
-            // [MỚI] Roll phẳng cho ACC/EVA (10-20 điểm ở tier 1)
-            case "ACCURACY":
-            case "EVASION": return (random.nextInt(11) + 10) * multiplier;
-
-            default: return (random.nextInt(10) + 10) * multiplier;
-        }
+        // Làm tròn 2 chữ số thập phân
+        return Math.round(baseRoll * tier * 100.0) / 100.0;
     }
 
+    // Dùng cho cường hóa nhảy số
     public double getEnhanceRollValue(String statType, int tier) {
-        return getBaseRollValue(statType, tier);
+        return rollValue(statType, tier);
     }
 }

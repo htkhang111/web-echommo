@@ -1804,6 +1804,9 @@ onUnmounted(() => {
 <template>
   <div class="page-container battle-page">
     <div class="battle-bg-layer"></div>
+    
+    <canvas ref="fireworksCanvas" class="fireworks-canvas"></canvas>
+
     <div class="battle-layout">
       
       <aside class="side-panel left-panel">
@@ -1907,12 +1910,23 @@ onUnmounted(() => {
                         {{ battleStore.status === "VICTORY" ? "CHIẾN THẮNG" : "THẤT BẠI" }}
                      </div>
                      
-                     <div v-if="battleStore.droppedItem" class="loot-display">
-                        <div class="loot-icon">🎁</div>
-                        <div class="loot-name">{{ battleStore.droppedItem.name }}</div>
+                     <div v-if="battleStore.status === 'VICTORY'" class="rewards-row">
+                        <div class="reward-item">
+                            <span class="icon">💰</span>
+                            <span class="val">+{{ battleStore.rewardGold || 0 }} Vàng</span>
+                        </div>
+                        <div class="reward-item">
+                            <span class="icon">✨</span>
+                            <span class="val">+{{ battleStore.rewardExp || 0 }} EXP</span>
+                        </div>
                      </div>
-                     <div v-else-if="battleStore.status === 'VICTORY'" class="loot-display">
-                        <span style="color: #aaa; font-size: 0.9em;">(Không nhặt được gì)</span>
+
+                     <div v-if="battleStore.droppedItem" class="loot-display" :class="battleStore.droppedItem.rarity">
+                        <div class="loot-icon">🎁</div>
+                        <div class="loot-info">
+                            <div class="loot-label">NHẶT ĐƯỢC</div>
+                            <div class="loot-name">{{ battleStore.droppedItem.name }}</div>
+                        </div>
                      </div>
 
                      <div class="btn-group-large">
@@ -1985,6 +1999,8 @@ const lbStore = useLeaderboardStore();
 const router = useRouter();
 
 const logContainer = ref(null);
+const fireworksCanvas = ref(null); // Ref cho canvas pháo hoa
+
 const isEnemyHit = ref(false);
 const isPlayerHit = ref(false);
 const isPlayerAttacking = ref(false);
@@ -2098,14 +2114,92 @@ const failQTE = async () => {
   startAutoLoop();
 };
 
+// --- HÀM BẮN PHÁO HOA (Không dùng thư viện ngoài) ---
+const triggerFireworks = () => {
+  const canvas = fireworksCanvas.value;
+  if (!canvas) return;
+  
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  
+  const particles = [];
+  const colors = ['#FFD700', '#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF', '#FFFFFF'];
+  
+  // Tạo hạt pháo hoa
+  const createExplosion = (x, y) => {
+    for (let i = 0; i < 50; i++) {
+      particles.push({
+        x: x,
+        y: y,
+        vx: (Math.random() - 0.5) * 10,
+        vy: (Math.random() - 0.5) * 10,
+        alpha: 1,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 3 + 1
+      });
+    }
+  };
+
+  // Vòng lặp Animation
+  const animate = () => {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'lighter';
+
+    particles.forEach((p, index) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05; // Gravity
+      p.alpha -= 0.01;
+      
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (p.alpha <= 0) particles.splice(index, 1);
+    });
+
+    if (particles.length > 0) requestAnimationFrame(animate);
+    else ctx.clearRect(0, 0, canvas.width, canvas.height);
+  };
+
+  // Kích hoạt nổ ở vài điểm ngẫu nhiên
+  createExplosion(canvas.width / 2, canvas.height / 2);
+  setTimeout(() => createExplosion(canvas.width / 3, canvas.height / 3), 200);
+  setTimeout(() => createExplosion(canvas.width * 2 / 3, canvas.height / 3), 400);
+  
+  animate();
+};
+
 watch(() => battleStore.combatLogs, () => {
   nextTick(() => {
     if (logContainer.value) logContainer.value.scrollTop = logContainer.value.scrollHeight;
   });
 }, { deep: true });
 
+// --- [UPDATE] LOGIC KẾT THÚC TRẬN ---
 watch(() => battleStore.status, (st) => {
-  if (st !== "ONGOING") {
+  if (st === "VICTORY") {
+    // 1. Dừng vòng lặp auto
+    clearInterval(autoInterval);
+    if (qteInterval) clearInterval(qteInterval);
+    
+    // 2. Cập nhật lại thông tin nhân vật để khớp với Gold/Exp mới
+    charStore.fetchCharacter();
+
+    // 3. Kiểm tra nếu có đồ xịn (RARE trở lên) thì bắn pháo hoa
+    const item = battleStore.droppedItem;
+    if (item) {
+        const rareTypes = ['RARE', 'EPIC', 'LEGENDARY', 'MYTHIC'];
+        if (rareTypes.includes(item.rarity) || rareTypes.includes(item.baseRarity)) {
+            setTimeout(triggerFireworks, 500); // Đợi bảng hiện ra rồi bắn
+        }
+    }
+  } else if (st !== "ONGOING") {
     clearInterval(autoInterval);
     if (qteInterval) clearInterval(qteInterval);
   }
@@ -2129,7 +2223,7 @@ onUnmounted(() => {
 
 <style scoped>
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Cinzel:wght@700;900&display=swap");
-@import url('https://fonts.googleapis.com/css2?family=Bangers&display=swap'); /* Font cho Damage số */
+@import url('https://fonts.googleapis.com/css2?family=Bangers&display=swap');
 
 :root {
   --bg-dark: #121212;
@@ -2150,14 +2244,25 @@ onUnmounted(() => {
   overflow: hidden;
   padding: 10px;
   box-sizing: border-box;
+  position: relative; /* Cho canvas đè lên */
+}
+
+/* Canvas pháo hoa */
+.fireworks-canvas {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none; /* Không chặn click */
+  z-index: 9999; /* Luôn nổi trên cùng */
 }
 
 .battle-bg-layer {
   position: absolute; inset: 0;
   background-image: url("@/assets/Background/b_doanhtrai.png");
   background-size: cover; background-position: center;
-  opacity: 0.2; z-index: 0; pointer-events: none;
-  filter: blur(2px); /* Làm mờ nền để nhân vật nổi hơn */
+  opacity: 0.3;
+  z-index: 0; pointer-events: none;
+  filter: blur(1px);
 }
 
 /* === LAYOUT === */
@@ -2178,9 +2283,9 @@ onUnmounted(() => {
 
 /* PANEL STYLE */
 .leaderboard-list, .combat-log-panel, .char-detail-card {
-  background: rgba(20, 20, 20, 0.85); /* Tối hơn chút */
+  background: rgba(20, 20, 20, 0.85);
   border: 1px solid #444;
-  border-radius: 12px; /* Bo góc mềm hơn */
+  border-radius: 12px;
   overflow: hidden;
   display: flex; flex-direction: column;
   box-shadow: 0 8px 20px rgba(0,0,0,0.6);
@@ -2220,7 +2325,7 @@ onUnmounted(() => {
 .rank-sub { font-size: 0.8em; color: #aaa; margin-top: 2px; }
 .rank-avatar-mini img { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #555; }
 
-/* === CENTER ARENA (QUAN TRỌNG) === */
+/* === CENTER ARENA === */
 .arena-wrapper {
   flex: 1; display: flex; flex-direction: column;
   min-height: 0; margin-bottom: 10px; position: relative;
@@ -2235,147 +2340,90 @@ onUnmounted(() => {
 
 .combat-arena, .loading-arena {
   width: 100%; height: 100%;
-  background: radial-gradient(circle at center, #3a2a2a 0%, #050505 100%);
+  background: radial-gradient(ellipse at center bottom, rgba(60, 40, 40, 0.8) 0%, rgba(10, 10, 10, 0.95) 70%);
   border: 2px solid #5c2b2b;
   border-radius: 12px;
   position: relative;
   display: flex; flex-direction: column;
   justify-content: center; align-items: center;
-  box-shadow: inset 0 0 80px rgba(0,0,0,0.9);
-  overflow: hidden; /* Giữ hiệu ứng không tràn ra ngoài */
+  box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+  overflow: hidden;
 }
 
-/* VS Badge */
 .vs-badge {
   position: absolute; top: 40%; left: 50%;
   transform: translate(-50%, -50%);
   font-family: "Cinzel", serif;
-  font-size: 5em; /* To hơn */
-  font-weight: 900;
+  font-size: 6em; font-weight: 900;
   background: linear-gradient(to bottom, #d32f2f, #580808);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 15px rgba(211, 47, 47, 0.5));
-  z-index: 0; opacity: 0.3;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 20px rgba(211, 47, 47, 0.6));
+  z-index: 0; opacity: 0.4;
 }
 
-/* === FIGHTER CARDS (UPDATED BIGGER & BETTER) === */
 .fighter-card {
-  position: absolute;
-  display: flex; flex-direction: column; align-items: center;
-  width: 200px; /* Tăng từ 120px lên 200px */
-  z-index: 5;
-  transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Hiệu ứng nảy */
+  position: absolute; display: flex; flex-direction: column; align-items: center;
+  width: 220px; z-index: 5;
+  transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+.fighter-card.player { bottom: 100px; left: 12%; }
+.fighter-card.enemy { top: 60px; right: 12%; }
+.fighter-card.player.attacking { transform: translateX(100px) scale(1.1); z-index: 10; }
 
-/* Vị trí */
-.fighter-card.player { bottom: 100px; left: 15%; }
-.fighter-card.enemy { top: 60px; right: 15%; }
-
-/* Hiệu ứng tấn công */
-.fighter-card.player.attacking { transform: translateX(80px) scale(1.1); z-index: 10; }
-
-/* Visual Container */
 .fighter-visual {
-  position: relative;
-  animation: breathing 3s ease-in-out infinite; /* Hiệu ứng thở */
+  position: relative; animation: breathing 3s ease-in-out infinite;
+  width: 100%; display: flex; justify-content: center;
 }
 
-/* Avatar Circle (TO HƠN, ĐẸP HƠN) */
 .fighter-circle {
-  width: 150px; height: 150px; /* Tăng từ 90px lên 150px */
-  border-radius: 50%;
-  background: rgba(0,0,0,0.7);
-  margin: 0 auto;
-  overflow: hidden;
-  border: 4px solid #555;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.8); /* Bóng đổ sâu */
-  transition: all 0.3s;
-}
-
-/* Aura (Hào quang) */
-.green-ring {
-  border-color: #43a047;
-  box-shadow: 0 0 20px rgba(67, 160, 71, 0.6), inset 0 0 10px rgba(67, 160, 71, 0.4);
-}
-.brown-ring {
-  border-color: #d84315;
-  box-shadow: 0 0 20px rgba(216, 67, 21, 0.6), inset 0 0 10px rgba(216, 67, 21, 0.4);
+  width: auto; height: 200px; margin: 0 auto;
+  display: flex; justify-content: center; align-items: flex-end;
+  position: relative;
 }
 
 .fighter-img {
-  width: 100%; height: 100%; object-fit: contain;
-  filter: drop-shadow(0 5px 5px rgba(0,0,0,0.5));
+  width: auto; height: 100%; max-width: 100%; object-fit: contain;
+  filter: drop-shadow(0 15px 15px rgba(0,0,0,0.7)); transition: filter 0.2s;
 }
 
-/* Hit Animation */
-.hit-anim .fighter-circle {
-  animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
-  border-color: #fff;
-}
-.hit-anim .fighter-img {
-  filter: brightness(3) sepia(1) hue-rotate(-50deg); /* Flash trắng đỏ khi trúng đòn */
-}
+.hit-anim .fighter-circle { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+.hit-anim .fighter-img { filter: brightness(3) sepia(1) hue-rotate(-50deg) drop-shadow(0 15px 15px rgba(0,0,0,0.7)); }
 
-/* === DAMAGE TEXT (NỔI BẬT HƠN) === */
 .damage-text {
-  position: absolute;
-  top: -40px; left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Bangers', cursive, sans-serif; /* Font kiểu truyện tranh */
-  font-size: 3rem; /* Rất to */
-  font-weight: normal;
-  color: #ffeb3b;
-  text-shadow: 3px 3px 0 #b71c1c, -1px -1px 0 #000; /* Viền đen đỏ */
+  position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+  font-family: 'Bangers', cursive, sans-serif; font-size: 3.5rem;
+  color: #ffeb3b; text-shadow: 3px 3px 0 #b71c1c, -2px -2px 0 #000;
   animation: popUp 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards;
-  z-index: 20;
-  pointer-events: none;
-  white-space: nowrap;
+  z-index: 20; pointer-events: none; white-space: nowrap;
 }
-.player-dmg {
-  color: #ff5252;
-  text-shadow: 3px 3px 0 #3e2723, -1px -1px 0 #000;
-}
+.player-dmg { color: #ff5252; text-shadow: 3px 3px 0 #3e2723, -2px -2px 0 #000; }
 
-/* Stats Bars */
 .fighter-stats {
-  width: 120%; /* Rộng hơn hình 1 chút */
-  margin-top: 15px;
-  text-align: center;
-  background: rgba(0,0,0,0.6);
-  padding: 5px;
-  border-radius: 8px;
-  backdrop-filter: blur(2px);
+  width: 100%; margin-top: 5px; text-align: center; padding: 5px;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
 }
 
 .name-tag {
-  font-size: 0.9em; font-weight: bold;
-  padding: 3px 10px; border-radius: 4px; color: white;
-  display: inline-block; text-shadow: 1px 1px 2px #000;
-  margin-bottom: 5px; letter-spacing: 0.5px;
+  font-size: 1em; font-weight: bold; color: white; display: inline-block;
+  margin-bottom: 5px; letter-spacing: 0.5px; font-family: "Cinzel", serif;
 }
-.red-tag { background: linear-gradient(to right, #c62828, #b71c1c); box-shadow: 0 2px 5px rgba(198, 40, 40, 0.4); }
-.blue-tag { background: linear-gradient(to right, #1565c0, #0d47a1); box-shadow: 0 2px 5px rgba(21, 101, 192, 0.4); }
+.red-tag { color: #ff8a80; } .blue-tag { color: #90caf9; }
 
 .stat-bar-box {
-  width: 100%; height: 12px; background: #111;
-  margin-top: 4px; border-radius: 6px; overflow: hidden;
-  border: 1px solid #444; position: relative;
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+  width: 100%; height: 14px; background: #0a0a0a; margin-top: 4px;
+  border-radius: 7px; overflow: hidden; border: 1px solid #333; position: relative;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,1);
 }
-.energy-box { height: 8px; margin-top: 3px; width: 90%; margin-left: auto; margin-right: auto;}
+.energy-box { height: 10px; width: 90%; margin: 6px auto 0; }
 
-.bar-fill { height: 100%; transition: width 0.3s ease-out; position: relative; }
-/* Thêm hiệu ứng bóng sáng trên thanh máu */
+.bar-fill { height: 100%; transition: width 0.3s ease-out; position: relative; border-radius: 7px; }
 .bar-fill::after {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%;
-  background: rgba(255,255,255,0.2);
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 40%;
+  background: rgba(255,255,255,0.25); border-radius: 7px 7px 0 0;
 }
+.hp-fill { background: linear-gradient(to bottom, #ff5252, #c62828); box-shadow: 0 0 15px rgba(239, 83, 80, 0.6); }
+.energy-fill { background: linear-gradient(to bottom, #42a5f5, #1565c0); box-shadow: 0 0 15px rgba(66, 165, 245, 0.6); }
 
-.hp-fill { background: linear-gradient(to right, #ef5350, #c62828); box-shadow: 0 0 10px rgba(239, 83, 80, 0.5); }
-.energy-fill { background: linear-gradient(to right, #42a5f5, #1565c0); box-shadow: 0 0 10px rgba(66, 165, 245, 0.5); }
-
-/* === CONTROLS === */
 .combat-controls { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 .ongoing-actions, .qte-overlay, .result-overlay button { pointer-events: auto; }
 
@@ -2387,61 +2435,67 @@ onUnmounted(() => {
 .btn-skill {
   background: linear-gradient(to bottom, #FFD700, #FBC02D);
   color: #3e2723; font-weight: 900; font-size: 1.1em;
-  border: 2px solid #F57F17; padding: 12px 30px;
-  border-radius: 8px; cursor: pointer;
+  border: 2px solid #F57F17; padding: 12px 30px; border-radius: 8px; cursor: pointer;
   box-shadow: 0 5px 15px rgba(253, 216, 53, 0.4), inset 0 2px 0 rgba(255,255,255,0.5);
-  text-transform: uppercase; letter-spacing: 1px;
-  transition: transform 0.1s, filter 0.2s;
+  text-transform: uppercase; letter-spacing: 1px; transition: transform 0.1s, filter 0.2s;
 }
 .btn-skill:hover { filter: brightness(1.1); transform: translateY(-2px); }
 .btn-skill:active { transform: translateY(1px); box-shadow: 0 2px 5px rgba(253, 216, 53, 0.4); }
 .btn-skill:disabled { background: #555; border-color: #333; color: #888; box-shadow: none; transform: none; cursor: not-allowed; }
 
-/* QTE BUTTON */
 .qte-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; }
 .qte-button {
-  font-size: 2.5rem; padding: 20px 50px;
-  background: #d32f2f; color: white;
-  border: 6px solid #b71c1c; border-radius: 10px;
-  font-family: 'Bangers', sans-serif; letter-spacing: 2px;
-  animation: pulseQTE 0.6s infinite; cursor: pointer;
+  font-size: 2.5rem; padding: 20px 50px; background: #d32f2f; color: white;
+  border: 6px solid #b71c1c; border-radius: 10px; font-family: 'Bangers', sans-serif;
+  letter-spacing: 2px; animation: pulseQTE 0.6s infinite; cursor: pointer;
   box-shadow: 0 0 30px rgba(211, 47, 47, 0.8);
 }
 
-/* === RESULT OVERLAY === */
 .result-overlay {
-  position: absolute; inset: 0;
-  background: rgba(0, 0, 0, 0.85);
+  position: absolute; inset: 0; background: rgba(0, 0, 0, 0.85);
   display: flex; justify-content: center; align-items: center;
-  z-index: 50; animation: fadeIn 0.3s ease-out;
-  pointer-events: auto;
+  z-index: 50; animation: fadeIn 0.3s ease-out; pointer-events: auto;
 }
-.result-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.result-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px; }
 .result-title {
   font-family: 'Cinzel', serif; font-size: 4rem; font-weight: 900;
   letter-spacing: 4px; text-transform: uppercase; margin-bottom: 10px;
 }
 .result-title.VICTORY {
-  color: transparent;
-  background: linear-gradient(to bottom, #FFD700, #FFA000);
-  -webkit-background-clip: text;
-  text-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+  color: transparent; background: linear-gradient(to bottom, #FFD700, #FFA000);
+  -webkit-background-clip: text; text-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
   animation: zoomIn 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
-.result-title.DEFEAT {
-  color: #B0BEC5; text-shadow: 0 0 20px rgba(176, 190, 197, 0.5);
-}
+.result-title.DEFEAT { color: #B0BEC5; text-shadow: 0 0 20px rgba(176, 190, 197, 0.5); }
 
-.loot-display {
-  font-size: 1.4rem; color: #fff;
-  background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.15), rgba(255,255,255,0.05));
-  padding: 15px 30px; border-radius: 50px;
-  border: 1px solid rgba(255, 215, 0, 0.3);
-  display: flex; align-items: center; gap: 15px;
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+/* --- REWARDS STYLING --- */
+.rewards-row {
+  display: flex; gap: 20px; margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.05); padding: 10px 20px;
+  border-radius: 8px; border: 1px solid #444;
 }
-.loot-icon { font-size: 1.5em; animation: bounce 2s infinite; }
-.loot-name { color: #FFD700; font-weight: bold; text-shadow: 0 0 5px #FFD700; }
+.reward-item {
+  display: flex; align-items: center; gap: 8px; font-size: 1.2em; font-weight: bold; color: #fff;
+}
+.reward-item .icon { font-size: 1.4em; }
+.reward-item .val { color: #a5d6a7; text-shadow: 0 0 5px rgba(76, 175, 80, 0.5); }
+
+/* Loot Styling */
+.loot-display {
+  width: 100%; max-width: 300px;
+  background: linear-gradient(90deg, rgba(20,20,20,0.9), rgba(40,40,40,0.9));
+  padding: 10px; border-radius: 8px; border: 1px solid #555;
+  display: flex; align-items: center; gap: 15px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5); position: relative; overflow: hidden;
+}
+/* Hiệu ứng viền cho đồ hiếm */
+.loot-display.RARE, .loot-display.EPIC { border-color: #9c27b0; box-shadow: 0 0 15px rgba(156, 39, 176, 0.4); }
+.loot-display.LEGENDARY { border-color: #ffca28; box-shadow: 0 0 20px rgba(255, 202, 40, 0.6); }
+
+.loot-icon { font-size: 2em; animation: bounce 2s infinite; }
+.loot-info { text-align: left; }
+.loot-label { font-size: 0.7em; color: #aaa; letter-spacing: 1px; }
+.loot-name { font-size: 1.1em; font-weight: bold; color: #FFD700; text-shadow: 0 0 5px #FFD700; }
 
 .btn-group-large { display: flex; gap: 20px; margin-top: 15px; }
 .btn-big {
@@ -2462,32 +2516,15 @@ onUnmounted(() => {
   .battle-page { height: auto; overflow: auto; }
   .arena-wrapper { height: 500px; }
   
-  /* Giảm size 1 chút trên mobile nhưng vẫn to hơn cũ */
   .fighter-card { width: 160px; }
-  .fighter-circle { width: 110px; height: 110px; }
+  .fighter-circle { height: 110px; }
   .fighter-card.player { left: 5%; bottom: 100px; }
   .fighter-card.enemy { right: 5%; top: 50px; }
 }
 
-/* === ANIMATIONS === */
-@keyframes breathing {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-
-@keyframes popUp {
-  0% { opacity: 0; transform: translate(-50%, 20px) scale(0.5); }
-  50% { opacity: 1; transform: translate(-50%, -20px) scale(1.2); }
-  100% { opacity: 0; transform: translate(-50%, -60px) scale(1); }
-}
-
-@keyframes shake {
-  10%, 90% { transform: translate3d(-2px, 0, 0); }
-  20%, 80% { transform: translate3d(4px, 0, 0); }
-  30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
-  40%, 60% { transform: translate3d(6px, 0, 0); }
-}
-
+@keyframes breathing { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes popUp { 0% { opacity: 0; transform: translate(-50%, 20px) scale(0.5); } 50% { opacity: 1; transform: translate(-50%, -20px) scale(1.2); } 100% { opacity: 0; transform: translate(-50%, -60px) scale(1); } }
+@keyframes shake { 10%, 90% { transform: translate3d(-2px, 0, 0); } 20%, 80% { transform: translate3d(4px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-6px, 0, 0); } 40%, 60% { transform: translate3d(6px, 0, 0); } }
 @keyframes zoomIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes pulseQTE { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7); } 70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(211, 47, 47, 0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); } }
 @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }

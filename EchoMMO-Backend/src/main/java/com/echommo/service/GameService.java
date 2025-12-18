@@ -27,15 +27,13 @@ public class GameService {
 
     @Autowired private UserRepository userRepo;
     @Autowired private CharacterRepository charRepo;
-    @Autowired private WalletRepository walletRepo;
     @Autowired private UserItemRepository userItemRepo;
     @Autowired private ItemRepository itemRepo;
-    @Autowired private CharacterService characterService;
+    @Autowired private CharacterService characterService; // Đã có hàm createDefaultCharacter
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
     private final Random random = new Random();
 
-    // --- HELPER METHODS: CURRENT USER ---
+    // --- HELPER METHODS ---
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         if (username == null || username.equals("anonymousUser")) {
@@ -45,22 +43,17 @@ public class GameService {
                 .orElseThrow(() -> new RuntimeException("Lỗi CSDL: Không tìm thấy người dùng [" + username + "]"));
     }
 
-    // --- HELPER: GET CHARACTER (ĐÃ SỬA LỖI LONG/INTEGER) ---
     private Character getCharacter(Integer userId) {
-        // [FIX LỖI ẢNH 3] Truyền thẳng userId (Integer) vào, KHÔNG ép kiểu Long
         return charRepo.findByUser_UserId(userId)
                 .orElseGet(() -> {
-                    // Fallback: Nếu chưa có thì tạo mới
                     User user = userRepo.findById(userId)
                             .orElseThrow(() -> new EntityNotFoundException("User not found"));
+                    // Gọi hàm vừa thêm vào CharacterService
                     return characterService.createDefaultCharacter(user);
                 });
     }
 
-    // =========================================================
-    // 1. HỆ THỐNG MAP & FARM TÀI NGUYÊN (EXPLORE)
-    // =========================================================
-
+    // --- EXPLORATION LOGIC ---
     private List<String> getMapResources(int level) {
         if (level < 20) return List.of("Gỗ", "Đá", "Quặng Đồng", "Cá");
         if (level < 30) return List.of("Gỗ", "Đá", "Quặng Đồng", "Sắt", "Cá");
@@ -74,11 +67,9 @@ public class GameService {
         Map<String, Object> result = new HashMap<>();
         List<String> logs = new ArrayList<>();
 
-        // 1. Cộng EXP
         int expGain = 15;
         character.setCurrentExp(character.getCurrentExp() + expGain);
 
-        // Check Level Up
         if (character.getCurrentExp() >= character.getLevel() * 100L) {
             character.setCurrentExp(0L);
             character.setLevel(character.getLevel() + 1);
@@ -88,21 +79,18 @@ public class GameService {
         }
         logs.add("Bạn đi thám hiểm... (+ " + expGain + " EXP)");
 
-        // 2. Logic rớt nguyên liệu (70%)
         if (random.nextInt(100) < 70) {
             List<String> possibleDrops = getMapResources(character.getLevel());
             String dropName = possibleDrops.get(random.nextInt(possibleDrops.size()));
-
             Item matItem = itemRepo.findByName(dropName).orElse(null);
 
             if (matItem != null) {
-                // [FIX LOGIC] Tìm trong túi CHARACTER (theo CharId) thay vì User
                 UserItem ui = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), matItem.getItemId())
                         .orElse(null);
 
                 if (ui == null) {
                     ui = new UserItem();
-                    ui.setCharacter(character); // [FIX] Gán cho Character
+                    ui.setCharacter(character);
                     ui.setItem(matItem);
                     ui.setQuantity(0);
                     ui.setIsEquipped(false);
@@ -128,26 +116,8 @@ public class GameService {
         return result;
     }
 
-    // =========================================================
-    // 2. CÁC CHỨC NĂNG KHÁC
-    // =========================================================
-
     public List<UserItem> getInventory(Integer userId) {
-        // [FIX] Lấy đồ theo Character ID
         Character character = getCharacter(userId);
         return userItemRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(character.getCharId());
-    }
-
-    public Map<String, Object> equipItem(Integer userId, Long userItemId) {
-        return Map.of("message", "Vui lòng sử dụng API /api/inventory/equip");
-    }
-
-    public Map<String, Object> unequipItem(Integer userId, Long userItemId) {
-        return Map.of("message", "Vui lòng sử dụng API /api/inventory/unequip");
-    }
-
-    public User getPlayerOrCreate(Integer userId) {
-        return userRepo.findById(userId)
-                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
     }
 }

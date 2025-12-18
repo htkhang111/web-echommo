@@ -417,3 +417,26 @@ VALUES (
            200, 10,               -- Thực phẩm
            5, 1                   -- Đặc biệt
        );
+
+USE echommo_db;
+
+-- Cập nhật cân bằng dựa trên Level của quái vật
+UPDATE enemies
+SET
+    -- Công thức Gold: (Level * 10) + Random từ 5 đến 15
+    gold_reward = (level * 10) + FLOOR(5 + (RAND() * 11)),
+
+    -- Công thức EXP: (Level * 15) + Random từ 10 đến 20
+    exp_reward = (level * 15) + FLOOR(10 + (RAND() * 11))
+WHERE level > 0;
+
+-- Tinh chỉnh riêng cho các quái vật cụ thể để tạo đặc trưng (nếu muốn)
+-- Ví dụ: Yêu Tinh Lv1 sẽ yếu nhưng nhiều vàng hơn chút
+UPDATE enemies SET gold_reward = 15, exp_reward = 20 WHERE name = 'Yêu Tinh';
+-- Nấm Độc Lv2
+UPDATE enemies SET gold_reward = 28, exp_reward = 45 WHERE name = 'Nấm Độc';
+-- Bộ Xương Lv3
+UPDATE enemies SET gold_reward = 45, exp_reward = 75 WHERE name = 'Bộ Xương';
+
+-- Kiểm tra lại kết quả
+SELECT enemy_id, name, level, gold_reward, exp_reward FROM enemies;
