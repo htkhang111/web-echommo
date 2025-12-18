@@ -24,6 +24,12 @@ public class AdminService {
     @Autowired private NotificationRepository notiRepo;
     @Autowired private CharacterRepository charRepo;
 
+    // Các Repo phụ trợ
+    @Autowired private FriendshipRepository friendRepo;
+    @Autowired private MessageRepository msgRepo;
+    @Autowired private PrivateMessageRepository pmRepo;
+    @Autowired private BattleSessionRepository battleRepo;
+
     public Map<String, Object> getServerStats() {
         Map<String, Object> m = new HashMap<>();
         m.put("totalUsers", userRepo.count());
@@ -53,20 +59,52 @@ public class AdminService {
     public void deleteUser(Integer id) {
         User u = userRepo.findById(id).orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Xóa sạch ràng buộc trước khi xóa User
-        listingRepo.deleteAll(listingRepo.findAll().stream().filter(l -> l.getSeller().getUserId().equals(id)).collect(Collectors.toList()));
-        notiRepo.deleteAll(notiRepo.findAll().stream().filter(n -> n.getUser().getUserId().equals(id)).collect(Collectors.toList()));
+        // 1. Xóa Listing trên chợ
+        listingRepo.deleteAll(listingRepo.findAll().stream()
+                .filter(l -> l.getSeller().getUserId().equals(id))
+                .collect(Collectors.toList()));
 
+        // 2. Xóa Thông báo (Notification)
+        notiRepo.deleteAll(notiRepo.findAll().stream()
+                .filter(n -> n.getUser().getUserId().equals(id))
+                .collect(Collectors.toList()));
+
+        // 3. [SỬA LỖI] Xóa Bạn bè (Friendship) - Dùng getRequester() và getAddressee()
+        friendRepo.deleteAll(friendRepo.findAll().stream()
+                .filter(f -> f.getRequester().getUserId().equals(id) || f.getAddressee().getUserId().equals(id))
+                .collect(Collectors.toList()));
+
+        // 4. Xóa Tin nhắn riêng (PrivateMessage) - gửi và nhận
+        pmRepo.deleteAll(pmRepo.findAll().stream()
+                .filter(m -> m.getSender().getUserId().equals(id) || m.getReceiver().getUserId().equals(id))
+                .collect(Collectors.toList()));
+
+        // 5. Xóa Chat thế giới (Message)
+        msgRepo.deleteAll(msgRepo.findAll().stream()
+                .filter(m -> m.getSender().getUserId().equals(id))
+                .collect(Collectors.toList()));
+
+        // 6. Xóa Ví tiền (Wallet)
         if (u.getWallet() != null) {
             walletRepo.delete(u.getWallet());
         }
 
+        // 7. Xử lý Nhân vật (Character) & Battle Session
         Character character = charRepo.findByUser_UserId(id).orElse(null);
         if (character != null) {
+            // Xóa Battle Session nếu đang đánh quái
+            battleRepo.deleteAll(battleRepo.findAll().stream()
+                    .filter(b -> b.getCharacter().getCharId().equals(character.getCharId()))
+                    .collect(Collectors.toList()));
+
+            // Xóa Items của nhân vật
             uiRepo.deleteAll(uiRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(character.getCharId()));
+
+            // Xóa Nhân vật
             charRepo.delete(character);
         }
 
+        // 8. Cuối cùng xóa User
         userRepo.delete(u);
     }
 
