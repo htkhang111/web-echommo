@@ -2857,7 +2857,7 @@ p {
         <div class="header-left">
           <div class="server-tag">
             <span class="status-orb"></span> 
-            <span>MÁY CHỦ: HẮC LONG</span>
+            <span class="server-txt">MÁY CHỦ: HẮC LONG</span>
           </div>
           
           <div class="char-block">
@@ -2865,7 +2865,7 @@ p {
               <span class="greet-txt"><i class="fas fa-scroll"></i> {{ greetingTime }}</span>
               <h1 class="char-name">
                 <span class="title-prefix">ĐẠI HIỆP</span> 
-                {{ authStore.user?.fullName || authStore.user?.username || "Vô Danh" }}
+                <span class="real-name">{{ authStore.user?.fullName || authStore.user?.username || "Vô Danh" }}</span>
               </h1>
             </div>
           </div>
@@ -2907,7 +2907,8 @@ p {
               <p class="hero-sub">HÀNH TẨU GIANG HỒ</p>
             </div>
             <div class="action-btn">
-              KHỞI HÀNH NGAY <i class="fas fa-caret-right"></i>
+              <span>KHỞI HÀNH NGAY</span>
+              <i class="fas fa-caret-right"></i>
             </div>
           </div>
           <div class="sheen"></div>
@@ -2956,7 +2957,10 @@ p {
       </div>
 
       <div class="news-bar">
-        <div class="news-label"><i class="fas fa-bell"></i> CÁO THỊ</div>
+        <div class="news-label">
+            <i class="fas fa-bell"></i> 
+            <span>CÁO THỊ</span>
+        </div>
         <div class="news-track">
           <div class="news-content">
             <span>⚠️ Bảo trì định kỳ vào giờ Tý</span>
@@ -2994,30 +2998,28 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* FIX FONT: Sử dụng Playfair Display (Tiêu đề) và Noto Serif (Nội dung) hỗ trợ Tiếng Việt full */
 @import url("https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Playfair+Display:wght@700;900&display=swap");
 
 :root {
-  /* HỆ MÀU GỖ SÁNG & SANG TRỌNG */
-  --wood-base: #3e2723;       
-  --wood-card: #5d4037;       
-  --wood-hover: #6d4c41;      
-  
-  --gold: #ffecb3;            
-  --gold-accent: #ffd700;     
-  
-  --text-main: #fff8e1;       
+  --wood-base: #3e2723;        
+  --wood-card: #5d4037;        
+  --wood-hover: #6d4c41;       
+   
+  --gold: #ffecb3;             
+  --gold-accent: #ffd700;      
+   
+  --text-main: #fff8e1;        
   --text-dim: #d7ccc8;        
 }
 
 .wuxia-dashboard {
   min-height: 100vh;
   padding: 20px;
-  /* Sử dụng Noto Serif cho toàn bộ nội dung text thường */
   font-family: "Noto Serif", serif;
   color: var(--text-main);
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  box-sizing: border-box; /* Quan trọng để padding không làm lệch khung */
 }
 
 /* --- BACKGROUND --- */
@@ -3048,66 +3050,95 @@ onMounted(() => {
   display: flex; flex-direction: column; gap: 20px;
 }
 
-/* --- 1. HEADER --- */
+/* --- 1. HEADER (Cân chỉnh kỹ) --- */
 .wood-panel {
   display: flex; justify-content: space-between; align-items: center;
   background: linear-gradient(90deg, rgba(62, 39, 35, 0.95), rgba(93, 64, 55, 0.9));
   border: 2px solid #6d4c41;
   border-radius: 6px;
-  padding: 20px 30px;
+  padding: 15px 30px; /* Giảm padding một chút để gọn */
   box-shadow: 0 10px 25px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255, 236, 179, 0.1);
 }
 
-.header-left { display: flex; flex-direction: column; gap: 8px; }
+.header-left { display: flex; flex-direction: column; gap: 6px; }
 
 .server-tag {
-  display: inline-flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center; gap: 8px; /* Dùng Flex để chấm tròn và chữ thẳng hàng */
   font-size: 0.8rem; color: var(--text-dim); letter-spacing: 1px;
   background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 4px; width: fit-content;
   border: 1px solid rgba(255,255,255,0.1);
+  line-height: 1; /* Reset line-height để không bị cao thấp */
 }
+/* Chỉnh text server */
+.server-txt {
+  padding-top: 1px; /* Font Serif thường cần đẩy xuống 1px để giữa */
+}
+
 .status-orb { width: 8px; height: 8px; background: #66bb6a; border-radius: 50%; box-shadow: 0 0 8px #66bb6a; }
 
 .char-block { display: flex; align-items: center; }
-.greet-txt { font-size: 0.95rem; color: var(--gold); margin-bottom: 2px; display: block; }
-.greet-txt i { margin-right: 5px; opacity: 0.8; }
+.greet-txt { font-size: 0.9rem; color: var(--gold); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
 
-/* FIX FONT TÊN NHÂN VẬT */
 .char-name {
   margin: 0; 
-  /* Dùng Playfair Display: Font này hỗ trợ tiếng Việt, nét dày, rất sang */
   font-family: "Playfair Display", serif; 
   font-weight: 700;
   font-size: 2.2rem; color: #fff;
   text-shadow: 0 2px 5px rgba(0,0,0,0.6);
-  line-height: 1.2;
+  line-height: 1.1;
+  display: flex; align-items: center; /* Quan trọng: Flex để Badge và Tên thẳng hàng ngang */
+  gap: 12px;
 }
 .title-prefix {
-  font-family: "Noto Serif", serif; /* Quay về font thường cho chữ nhỏ */
-  font-size: 1rem; vertical-align: middle; 
+  font-family: "Noto Serif", serif;
+  font-size: 0.9rem; 
   background: var(--gold-accent); color: #261815;
-  padding: 2px 8px; border-radius: 4px; font-weight: bold; margin-right: 8px;
+  padding: 4px 8px; 
+  border-radius: 4px; 
+  font-weight: 800; 
   box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  /* Reset line-height để badge nằm giữa */
+  line-height: 1; 
+  display: flex; align-items: center; 
+  height: fit-content;
+}
+.real-name {
+  padding-bottom: 2px; /* Fix quang học cho font Playfair Display */
 }
 
-.header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 
 .wealth-bar {
   background: rgba(0,0,0,0.4); border: 1px solid #6d4c41;
   padding: 6px 15px; border-radius: 20px;
   box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  display: flex; align-items: center;
 }
-.wealth-item { display: flex; align-items: center; gap: 8px; font-weight: bold; color: var(--gold-accent); font-size: 1.1rem; }
-.gold-icon { color: #ffd700; filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5)); }
+.wealth-item { 
+  display: flex; align-items: center; gap: 8px; 
+  font-weight: bold; color: var(--gold-accent); font-size: 1.1rem; 
+  line-height: 1; /* Rất quan trọng cho số tiền */
+}
+.gold-icon { 
+    color: #ffd700; filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.5)); 
+    font-size: 1rem;
+}
+.amt {
+    font-variant-numeric: tabular-nums; /* Giúp các con số thẳng hàng nhau */
+    padding-top: 2px; /* Cân chỉnh quang học số với icon */
+}
 
 .weather-seal { display: flex; align-items: center; gap: 12px; }
-.w-icon { font-size: 2rem; color: var(--gold); filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); }
-.w-info { text-align: right; }
-.map { display: block; font-weight: bold; font-family: "Playfair Display", serif; letter-spacing: 0.5px; }
-.stt { font-size: 0.8rem; color: var(--text-dim); font-style: italic; }
+.w-icon { 
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; color: var(--gold); filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); 
+}
+.w-info { text-align: right; display: flex; flex-direction: column; justify-content: center;}
+.map { display: block; font-weight: bold; font-family: "Playfair Display", serif; letter-spacing: 0.5px; line-height: 1.2; }
+.stt { font-size: 0.8rem; color: var(--text-dim); font-style: italic; margin-top: 2px; }
 
 
-/* --- 2. GRID --- */
+/* --- 2. GRID (Cân chỉnh Card) --- */
 .command-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -3148,25 +3179,26 @@ onMounted(() => {
   background-size: cover; mix-blend-mode: overlay;
 }
 
-.card-content { position: relative; z-index: 2; text-align: center; display: flex; flex-direction: column; gap: 20px; align-items: center; }
+.card-content { position: relative; z-index: 2; text-align: center; display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: center; height: 100%;}
 
 .icon-stamp {
-  width: 100px; height: 100px; border-radius: 50%;
-  border: 4px double var(--gold-accent);
+  width: 90px; height: 90px; border-radius: 50%;
+  border: 3px double var(--gold-accent);
   display: flex; align-items: center; justify-content: center;
-  font-size: 3.5rem; color: var(--gold-accent);
+  font-size: 3rem; color: var(--gold-accent);
   background: rgba(0,0,0,0.3);
   box-shadow: 0 0 30px rgba(255, 215, 0, 0.15);
   text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
 }
 .hero-tile:hover .icon-stamp { transform: scale(1.1); transition: 0.4s; background: rgba(255, 215, 0, 0.1); }
 
-/* FIX FONT TIÊU ĐỀ THẺ */
+/* Chỉnh chữ tiêu đề lớn */
 .hero-title {
   font-family: "Playfair Display", serif; 
   font-weight: 900;
-  font-size: 3.2rem; margin: 0; color: #fff;
+  font-size: 3rem; margin: 0; color: #fff;
   text-shadow: 0 4px 10px rgba(0,0,0,0.8); letter-spacing: 2px;
+  line-height: 1; /* Reset line-height */
 }
 .ornament-line { 
   display: flex; align-items: center; gap: 10px; width: 100%; justify-content: center;
@@ -3178,25 +3210,32 @@ onMounted(() => {
 
 .action-btn {
   background: var(--gold-accent); color: #261815;
-  padding: 10px 30px; border-radius: 4px; font-weight: 900;
-  text-transform: uppercase; font-size: 1.1rem;
+  padding: 10px 25px; border-radius: 4px; font-weight: 900;
+  text-transform: uppercase; font-size: 1rem;
   box-shadow: 0 5px 15px rgba(0,0,0,0.4);
   transition: 0.3s;
+  /* Flexbox cho nút bấm */
+  display: flex; align-items: center; gap: 8px;
+  line-height: 1;
+}
+.action-btn span {
+    padding-top: 2px; /* Cân chỉnh text nút bấm */
 }
 .hero-tile:hover .action-btn { background: #fff; color: #b71c1c; box-shadow: 0 0 20px #fff; }
 
 /* SUB TILE */
-.tile-icon { font-size: 2.8rem; color: var(--text-dim); margin-bottom: 15px; transition: 0.3s; }
+.tile-icon { font-size: 2.5rem; color: var(--text-dim); margin-bottom: 15px; transition: 0.3s; display: flex; align-items: center; justify-content: center; }
 .wood-card:hover .tile-icon { color: var(--gold-accent); transform: scale(1.15) rotate(-5deg); filter: drop-shadow(0 0 8px rgba(255,215,0,0.6)); }
 
-.tile-info { text-align: center; z-index: 2; }
+.tile-info { text-align: center; z-index: 2; display: flex; flex-direction: column; align-items: center; }
 .tile-info h3 { 
-  margin: 0; 
-  font-family: "Playfair Display", serif; /* Fix font tiêu đề con */
+  margin: 0 0 5px 0; 
+  font-family: "Playfair Display", serif; 
   font-weight: 700;
   font-size: 1.3rem; color: #fff; 
+  line-height: 1.2;
 }
-.tile-info span { font-size: 0.9rem; color: var(--gold); }
+.tile-info span { font-size: 0.85rem; color: var(--gold); display: block; }
 
 /* Decor */
 .corner-decor {
@@ -3219,15 +3258,17 @@ onMounted(() => {
 .wood-card:hover .sheen { left: 150%; transition: 0.7s ease-in-out; }
 
 
-/* --- 3. NEWS BAR --- */
+/* --- 3. NEWS BAR (Căn chỉnh giữa tuyệt đối) --- */
 .news-bar {
   display: flex; height: 45px;
   background: linear-gradient(to bottom, #2d201c, #261815);
   border: 1px solid #5d4037; border-radius: 4px;
   overflow: hidden; margin-top: 10px;
   box-shadow: 0 5px 10px rgba(0,0,0,0.5);
+  align-items: center; /* Quan trọng */
 }
 .news-label {
+  height: 100%; /* Full chiều cao */
   background: #4e342e; color: var(--gold-accent);
   padding: 0 25px; font-weight: 900; 
   font-family: "Playfair Display", serif;
@@ -3235,10 +3276,12 @@ onMounted(() => {
   border-right: 2px solid #3e2723;
   box-shadow: 5px 0 10px rgba(0,0,0,0.3); z-index: 2;
 }
-.news-track { flex: 1; display: flex; align-items: center; overflow: hidden; padding-left: 20px; }
-.news-content { display: inline-block; white-space: nowrap; animation: scroll 30s linear infinite; font-size: 0.95rem; font-weight: 500; }
+.news-label span { padding-top: 2px; } /* Căn text với icon chuông */
+
+.news-track { flex: 1; display: flex; align-items: center; overflow: hidden; padding-left: 20px; height: 100%; }
+.news-content { display: flex; align-items: center; white-space: nowrap; animation: scroll 30s linear infinite; font-size: 0.95rem; font-weight: 500; }
 .highlight { color: #ffab00; text-shadow: 0 0 5px rgba(255, 171, 0, 0.4); }
-.sep { margin: 0 30px; color: #5d4037; }
+.sep { margin: 0 30px; color: #5d4037; font-size: 0.8em; display: flex; align-items: center; }
 
 @keyframes scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
 
