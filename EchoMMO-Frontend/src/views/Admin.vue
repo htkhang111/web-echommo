@@ -486,12 +486,12 @@
 import { ref, reactive, onMounted, computed } from "vue";
 import { useAdminStore } from "../stores/adminStore";
 import { useNotificationStore } from "../stores/notificationStore";
-import { useChatStore } from "../stores/chatStore"; // [MỚI]
+import { useChatStore } from "../stores/chatStore"; // Import Chat Store
 import axiosClient from "../api/axiosClient";
 
 const adminStore = useAdminStore();
 const notificationStore = useNotificationStore();
-const chatStore = useChatStore(); // [MỚI]
+const chatStore = useChatStore(); // Khởi tạo chat store
 
 const activeTab = ref("stats");
 const showCreateItem = ref(false);
@@ -674,14 +674,10 @@ const handleSendNotification = async () => {
   }
 };
 
-// [MỚI] Hàm xử lý chat Admin
+// [FIXED] Hàm xử lý chat Admin - Dùng openChatWith để set đúng user
 const openAdminChat = (user) => {
-  // Mở ChatWidget
-  chatStore.openChat();
+  chatStore.openChatWith(user); // Mở widget và set target user
   notificationStore.showToast(`Bắt đầu hội thoại với ${user.username}`, "info");
-  
-  // Lưu ý: Nếu muốn mở đúng đoạn chat với user này, cần backend và store hỗ trợ setConversation.
-  // Hiện tại chỉ mở widget lên để Admin tự tìm hoặc nhắn.
 };
 
 const openBanModal = (u) => {

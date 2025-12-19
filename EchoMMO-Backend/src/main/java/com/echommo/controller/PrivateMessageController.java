@@ -14,23 +14,19 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/messages")
+@RequestMapping("/api/messages") // [CHUẨN] Dùng đường dẫn này cho cả hệ thống
 public class PrivateMessageController {
 
-    @Autowired
-    private PrivateMessageService privateMessageService;
-
-    @Autowired
-    private UserService userService;
+    @Autowired private PrivateMessageService privateMessageService;
+    @Autowired private UserService userService;
 
     // Lấy lịch sử chat
     @GetMapping("/history/{otherUserId}")
     public ResponseEntity<List<ChatMessageDTO>> getChatHistory(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Integer otherUserId) { // [FIX] Long -> Integer
+            @PathVariable Integer otherUserId) {
 
         User currentUser = userService.findByUsername(userDetails.getUsername());
-        // [FIX] getId() -> getUserId()
         List<ChatMessageDTO> history = privateMessageService.getChatHistory(currentUser.getUserId(), otherUserId);
         return ResponseEntity.ok(history);
     }
@@ -43,11 +39,10 @@ public class PrivateMessageController {
 
         User currentUser = userService.findByUsername(userDetails.getUsername());
 
-        // [FIX] Parse Integer an toàn
+        // [QUAN TRỌNG] Backend mong đợi "receiverId", Frontend phải gửi đúng key này
         Integer receiverId = Integer.valueOf(payload.get("receiverId").toString());
         String content = (String) payload.get("content");
 
-        // [FIX] getId() -> getUserId()
         ChatMessageDTO message = privateMessageService.sendPrivateMessage(currentUser.getUserId(), receiverId, content);
         return ResponseEntity.ok(message);
     }
@@ -56,8 +51,6 @@ public class PrivateMessageController {
     @GetMapping("/conversations")
     public ResponseEntity<List<Map<String, Object>>> getConversations(@AuthenticationPrincipal UserDetails userDetails) {
         User currentUser = userService.findByUsername(userDetails.getUsername());
-
-        // [FIX] getId() -> getUserId()
         List<Map<String, Object>> conversations = privateMessageService.getRecentConversations(currentUser.getUserId());
         return ResponseEntity.ok(conversations);
     }
@@ -66,18 +59,14 @@ public class PrivateMessageController {
     @GetMapping("/unread-count")
     public ResponseEntity<Long> getUnreadCount(@AuthenticationPrincipal UserDetails userDetails) {
         User currentUser = userService.findByUsername(userDetails.getUsername());
-
-        // [FIX] getId() -> getUserId()
         long count = privateMessageService.countTotalUnread(currentUser.getUserId());
         return ResponseEntity.ok(count);
     }
 
     // Đánh dấu đã đọc
     @PostMapping("/read/{senderId}")
-    public ResponseEntity<?> markAsRead(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Integer senderId) { // [FIX] Long -> Integer
+    public ResponseEntity<?> markAsRead(@AuthenticationPrincipal UserDetails userDetails, @PathVariable Integer senderId) {
         User currentUser = userService.findByUsername(userDetails.getUsername());
-
-        // [FIX] getId() -> getUserId()
         privateMessageService.markAsRead(senderId, currentUser.getUserId());
         return ResponseEntity.ok().build();
     }

@@ -793,28 +793,58 @@ onUnmounted(() => {
 
     <transition name="fade-modal">
       <div v-if="showSpaMenu" class="modal-overlay" @click.self="showSpaMenu = false">
-        <div class="dark-scroll-modal">
+        <div class="dark-scroll-modal spa-modal-custom">
           <div class="modal-border-top"></div>
           <div class="modal-body spa-menu">
-            <h3 class="modal-title">CHỌN PHÒNG NGHỈ</h3>
-            <div class="spa-options">
-              <div class="spa-option" @click="confirmRest('STANDARD')">
-                <div class="opt-icon">🍵</div>
-                <div class="opt-info">
-                  <h4>Phòng Bình Dân</h4>
-                  <p>Thời gian: <strong>60 giây</strong></p>
-                  <p class="cost">Giá: 50 Vàng</p>
+            <h3 class="modal-title">
+              <span class="decor-line">~</span> CHỌN PHÒNG NGHỈ <span class="decor-line">~</span>
+            </h3>
+            
+            <div class="spa-options-grid">
+              <div class="spa-card standard" @click="confirmRest('STANDARD')">
+                <div class="card-inner">
+                  <div class="icon-box">
+                    <i class="fas fa-mug-hot"></i>
+                  </div>
+                  <div class="info-box">
+                    <h4>Phòng Bình Dân</h4>
+                    <p class="sub-desc">Trà nước đơn sơ</p>
+                    <div class="detail-divider"></div>
+                    <div class="detail-row">
+                      <span class="label"><i class="far fa-clock"></i> Thời gian:</span>
+                      <span class="value slow">60s</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="label"><i class="fas fa-coins"></i> Chi phí:</span>
+                      <span class="value gold">50 Vàng</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div class="spa-option vip" @click="confirmRest('VIP')">
-                <div class="opt-icon">🍶</div>
-                <div class="opt-info">
-                  <h4>Phòng Thượng Hạng</h4>
-                  <p>Thời gian: <strong>10 giây</strong></p>
-                  <p class="cost">Giá: 200 Vàng</p>
                 </div>
+
+              <div class="spa-card vip" @click="confirmRest('VIP')">
+                <div class="card-inner">
+                  <div class="icon-box">
+                    <i class="fas fa-wine-bottle"></i>
+                  </div>
+                  <div class="info-box">
+                    <h4>Phòng Thượng Hạng</h4>
+                    <p class="sub-desc">Rượu ngon kỹ nữ</p>
+                    <div class="detail-divider"></div>
+                    <div class="detail-row">
+                      <span class="label"><i class="far fa-clock"></i> Thời gian:</span>
+                      <span class="value highlight">10s</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="label"><i class="fas fa-coins"></i> Chi phí:</span>
+                      <span class="value gold">200 Vàng</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="vip-ribbon">THƯỢNG HẠNG</div>
               </div>
             </div>
+
             <button class="btn-close" @click="showSpaMenu = false">Đóng</button>
           </div>
           <div class="modal-border-bot"></div>
@@ -883,22 +913,19 @@ const isFull = computed(
   () => hpPercent.value >= 100 && energyPercent.value >= 100
 );
 
-// --- Logic Mythic (Thần Điện) ---
+// --- Logic Mythic ---
 const canEnterMythic = computed(() => {
   if (!inventoryStore.items || inventoryStore.items.length === 0) return false;
-  // Kiểm tra enhancementLevel >= 30
   return inventoryStore.items.some(item => (item.enhancementLevel || 0) >= 30);
 });
 
 const handleEnterMythic = () => {
   if (canEnterMythic.value) {
     router.push('/evolve-mythic');
-  } else {
-    // Logic khi click vào lúc bị khóa (nếu cần)
   }
 };
 
-// --- Logic Spa/Rest ---
+// --- Logic Spa ---
 const openSpaMenu = () => {
   showSpaMenu.value = true;
 };
@@ -1009,10 +1036,11 @@ onUnmounted(() => {
   --gold: #ffecb3;
   --text-light: #f3f4f6;
   --red-seal: #b71c1c;
-  --hover-red: #ff1744;
-  /* Màu đỏ cho Thần Điện */
+
+  /* Màu Hover cho 3 thẻ chính */
+  --hover-green: #00e676;
   --hover-gold: #ffd700;
-  /* Màu vàng đậm cho Thần Binh */
+  --hover-red: #ff1744;
 }
 
 .wuxia-dark-theme {
@@ -1093,18 +1121,31 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-/* Hover chung (mặc định là Gold nhẹ) */
+/* Hover chung (fallback) */
 .location-card:hover:not(.resting-mode):not(.locked) {
   transform: translateY(-5px);
-  border-color: var(--gold);
 }
 
-/* --- Style THẦN BINH (Forge) - Vị trí 2 --- */
-/* Hover VÀNG rực rỡ */
+/* --- 1. KHÁCH ĐIẾM (Inn) --- */
+.inn-card:hover:not(.resting-mode) {
+  border-color: var(--hover-green);
+  box-shadow: 0 0 15px rgba(0, 230, 118, 0.4);
+}
+
+.inn-card:hover:not(.resting-mode) .icon-circle {
+  border-color: var(--hover-green);
+  color: var(--hover-green);
+  box-shadow: 0 0 10px rgba(0, 230, 118, 0.3);
+}
+
+.inn-card:hover:not(.resting-mode) .card-name {
+  color: var(--hover-green);
+}
+
+/* --- 2. THẦN BINH (Forge) --- */
 .forge-card:hover:not(.locked) {
   border-color: var(--hover-gold);
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
-  /* Glow vàng */
 }
 
 .forge-card:hover:not(.locked) .icon-circle {
@@ -1117,12 +1158,10 @@ onUnmounted(() => {
   color: var(--hover-gold);
 }
 
-/* --- Style THẦN ĐIỆN (Mythic) - Vị trí 3 --- */
-/* Hover ĐỎ rực rỡ */
+/* --- 3. THẦN ĐIỆN (Mythic) --- */
 .mythic-card:hover:not(.locked) {
   border-color: var(--hover-red);
   box-shadow: 0 0 20px rgba(255, 23, 68, 0.5);
-  /* Glow đỏ */
 }
 
 .mythic-card:hover:not(.locked) .icon-circle {
@@ -1136,11 +1175,10 @@ onUnmounted(() => {
   text-shadow: 0 0 5px #b71c1c;
 }
 
-/* Style cho trạng thái KHÓA (Locked) */
+/* LOCKED STATE */
 .mythic-card.locked {
   cursor: not-allowed;
   filter: grayscale(0.9);
-  /* Xám hơn chút nữa cho rõ */
   opacity: 0.8;
   border-color: #2c1e1b;
 }
@@ -1151,7 +1189,6 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   color: #ef9a9a;
-  /* Đỏ nhạt cho text warning */
   font-weight: bold;
 }
 
@@ -1334,6 +1371,7 @@ onUnmounted(() => {
   margin-top: 4px;
 }
 
+/* --- MODAL STYLES --- */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1342,65 +1380,230 @@ onUnmounted(() => {
   justify-content: center;
   align-items: center;
   z-index: 2000;
+  backdrop-filter: blur(5px);
 }
 
 .dark-scroll-modal {
-  width: 90%;
-  max-width: 450px;
+  width: 95%;
+  max-width: 600px;
   background: var(--wood-dark);
-  border-left: 12px solid #2d1e1b;
-  border-right: 12px solid #2d1e1b;
+  border: 1px solid var(--wood-light);
+  box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+  transform: scale(1);
+  animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalPop {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .modal-body {
-  padding: 30px 20px;
+  padding: 30px;
   text-align: center;
   color: var(--text-light);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background-color: #261a18;
 }
 
-.spa-options {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  margin-bottom: 20px;
-}
-
-.spa-option {
-  background: #4e342e;
-  border: 2px solid #5d4037;
-  padding: 15px;
-  cursor: pointer;
+/* Header Modal */
+.modal-title {
+  color: var(--gold);
+  border-bottom: 1px solid rgba(255, 236, 179, 0.2);
+  padding-bottom: 15px;
+  margin-bottom: 25px;
+  font-size: 1.5rem;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 15px;
-  border-radius: 8px;
-  transition: 0.2s;
 }
 
-.spa-option:hover {
-  border-color: var(--gold);
+.decor-line {
+  color: var(--wood-light);
+  font-weight: normal;
+}
+
+/* Grid Layout cho SPA Options */
+.spa-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+/* Style cho từng Card trong Modal */
+.spa-card {
   background: #3e2723;
+  border: 2px solid var(--wood-light);
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  transition: 0.3s;
+  overflow: hidden;
 }
 
-.spa-option.vip {
-  border-color: #ffd700;
-  background: #261815;
+.spa-card:hover {
+  transform: translateY(-5px);
 }
 
-.opt-icon {
-  font-size: 2rem;
+.card-inner {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  z-index: 1;
+  position: relative;
 }
 
-.opt-info h4 {
+/* Icon trong Modal */
+.icon-box {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  margin-bottom: 5px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 2px solid var(--wood-light);
+  transition: 0.3s;
+  /* Thêm color white cho icon thường */
+  color: #fff; 
+}
+
+/* Info Box - SET TẤT CẢ LÀ TRẮNG MẶC ĐỊNH */
+.info-box h4 {
   margin: 0;
-  color: var(--gold);
+  color: #ffffff; /* Trắng */
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  transition: color 0.3s;
 }
 
-.opt-info p {
-  margin: 2px 0 0;
+.sub-desc {
+  font-size: 0.8rem;
+  color: #ffffff; /* Trắng */
+  margin: 5px 0 10px;
+  font-style: italic;
+}
+
+.detail-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  width: 100%;
+  margin: 10px 0;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
   font-size: 0.9rem;
-  color: #ccc;
+  margin-bottom: 5px;
+}
+
+.detail-row .label {
+  color: #ffffff; /* Trắng */
+}
+
+.detail-row .value {
+  font-weight: bold;
+  color: #ffffff; /* Trắng */
+}
+
+.value.gold {
+  color: #ffd700;
+}
+
+/* 10s là XANH */
+.value.highlight {
+  color: #00e676 !important;
+}
+
+/* 60s là CAM ĐỎ (Slow) */
+.value.slow {
+  color: #ff5722 !important; /* Cam đỏ đậm */
+}
+
+/* --- STYLE RIÊNG TỪNG LOẠI PHÒNG --- */
+
+/* 1. STANDARD - Hover TRẮNG XÁM (#eeeeee) */
+.spa-card.standard:hover {
+  border-color: #eeeeee; /* Đổi thành trắng xám như yêu cầu */
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.1); /* Glow nhẹ trắng */
+}
+
+.spa-card.standard:hover h4,
+.spa-card.standard:hover .sub-desc,
+.spa-card.standard:hover .label {
+  color: #ffffff; /* Giữ chữ màu trắng sạch */
+}
+
+/* 2. VIP */
+.spa-card.vip {
+  background: linear-gradient(135deg, #3e2723 0%, #261815 100%);
+  border-color: #ffb300;
+  box-shadow: 0 0 15px rgba(255, 179, 0, 0.1);
+}
+
+/* VIP HOVER - ĐỔI MÀU CHỮ THÀNH VÀNG */
+.spa-card.vip:hover {
+  box-shadow: 0 0 25px rgba(255, 179, 0, 0.4);
+  transform: translateY(-5px) scale(1.02);
+}
+
+/* Icon box VIP hover */
+.spa-card.vip:hover .icon-box {
+  border-color: #ffb300;
+  color: #ffb300; /* Vàng */
+  box-shadow: 0 0 10px rgba(255, 179, 0, 0.3);
+}
+
+/* Title & Text VIP hover */
+.spa-card.vip:hover h4 {
+  color: #ffb300; /* Vàng */
+  text-shadow: 0 0 5px rgba(255, 179, 0, 0.5);
+}
+
+.spa-card.vip:hover .sub-desc,
+.spa-card.vip:hover .detail-row .label,
+.spa-card.vip:hover .detail-row .value {
+  color: #ffb300;
+}
+
+/* Override lại màu riêng cho value trong VIP hover để giữ đúng tính chất */
+.spa-card.vip:hover .value.highlight {
+  color: #00e676 !important; /* Vẫn giữ xanh cho 10s */
+}
+.spa-card.vip:hover .value.gold {
+  color: #ffd700; /* Vẫn giữ vàng cho giá */
+}
+
+/* Dải băng THƯỢNG HẠNG (CĂN LẠI CHUẨN) */
+.spa-card.vip .vip-ribbon {
+  position: absolute;
+  top: 18px;        /* Đẩy xuống một xíu */
+  right: -45px;     /* Kéo sang phải để cân đối */
+  width: 150px;     /* Set width cố định để text-align center hoạt động chuẩn */
+  text-align: center;
+  background: #d50000;
+  color: #fff;
+  font-weight: bold;
+  font-size: 0.6rem; /* Font nhỏ lại tí cho vừa */
+  padding: 5px 0;   /* Padding top/bot thôi, left/right tự lo do width */
+  transform: rotate(45deg);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+  pointer-events: none; /* Tránh click nhầm */
 }
 
 .btn-confirm,
@@ -1419,5 +1622,16 @@ onUnmounted(() => {
   background: #b71c1c;
   border-color: #d32f2f;
   color: #fff;
+}
+
+.btn-close:hover {
+  background: rgba(229, 115, 115, 0.1);
+}
+
+/* Responsive cho Mobile */
+@media (max-width: 600px) {
+  .spa-options-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

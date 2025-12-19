@@ -1,6 +1,15 @@
 /* --- IMPORTS --- */
 @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap");
 
+@font-face {
+  font-family: 'UTM Thu Phap Thien An';
+  src: url('@/assets/fonts/UTM-Thu-Phap-Thien-An.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'MTD Dartangnon ITC';
+  src: url('@/assets/fonts/MTD-Dartangnon-ITC.otf') format('opentype');
+}
 /* --- ROOT VARIABLES (CYBER SYSTEM) --- */
 :root {
   /* Core Colors */

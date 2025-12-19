@@ -3,13 +3,13 @@ import axiosClient from '../api/axiosClient';
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
-    messages: [], // Chat thế giới
+    messages: [], 
     isConnected: false,
     isLoading: false,
     
-    // [MỚI] State quản lý Chat Widget (Chat riêng)
+    // State quản lý Chat Widget (Chat riêng)
     isWidgetOpen: false,
-    privateChatTarget: null // User đang chat cùng (Object: {id, username, avatar...})
+    privateChatTarget: null 
   }),
   
   actions: {
@@ -46,20 +46,21 @@ export const useChatStore = defineStore('chat', {
 
     // --- CHAT RIÊNG (WIDGET) ---
     
-    // Mở chat widget (nếu có user thì chọn luôn user đó)
+    // [FIX] Hàm này đã được sửa logic
     openChatWith(user) {
-      this.isWidgetOpen = true;
+      // B1: Gán thông tin người cần chat trước
       if (user) {
-        // Map field cho chuẩn format
         this.privateChatTarget = {
           id: user.id || user.userId,
           username: user.username || user.senderName,
           avatarUrl: user.avatarUrl
         };
       }
+      
+      // B2: Mới mở Widget lên -> Lúc này Watcher bên ChatWidget mới chạy và thấy có privateChatTarget
+      this.isWidgetOpen = true;
     },
 
-    // Mở widget nhưng không chọn ai cụ thể (mở danh sách)
     openChat() {
       this.isWidgetOpen = true;
     },

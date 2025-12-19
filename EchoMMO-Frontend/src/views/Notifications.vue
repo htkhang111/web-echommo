@@ -30,7 +30,7 @@
       <div v-else class="noti-feed custom-scroll">
         <transition-group name="list">
           <div
-            v-for="noti in notiStore.notifications"
+            v-for="noti in (notiStore.notifications || [])"
             :key="noti.id"
             class="noti-card"
             :class="[getTypeClass(noti.type), { unread: !noti.isRead }]"
@@ -58,7 +58,7 @@
           </div>
         </transition-group>
 
-        <div v-if="notiStore.notifications.length === 0" class="empty-state">
+        <div v-if="notiStore.notifications?.length === 0" class="empty-state">
           <i class="fas fa-wind"></i>
           <p>Gió lặng mây ngừng, không có tin mới.</p>
         </div>
@@ -170,6 +170,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Copy CSS cũ của bạn vào đây (không thay đổi gì) */
 @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
 @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
 

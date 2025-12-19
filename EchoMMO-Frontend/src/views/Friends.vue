@@ -131,10 +131,10 @@
               <span class="divider">-- Khởi tạo truyền âm --</span>
             </div>
             <div
-              v-for="msg in messages"
-              :key="msg.id"
+              v-for="(msg, index) in messages"
+              :key="msg.id || index"
               class="msg-row"
-              :class="{ me: msg.sender.username === authStore.user.username }"
+              :class="{ me: msg.senderName === authStore.user.username }"
             >
               <div class="msg-bubble">
                 {{ msg.content }}
@@ -232,11 +232,11 @@ const stopChatPolling = () => {
 const fetchMessages = async () => {
   if (!chatTargetId.value) return;
   try {
-    const res = await axiosClient.get(`/dm/${chatTargetId.value}`);
-    if (
-      res.data.length !== messages.value.length ||
-      messages.value.length === 0
-    ) {
+    // [FIX] Đúng endpoint Backend
+    const res = await axiosClient.get(`/messages/history/${chatTargetId.value}`);
+    
+    // Logic đơn giản để update tin nhắn
+    if (res.data.length !== messages.value.length || messages.value.length === 0) {
       messages.value = res.data;
       scrollToBottom();
     }
@@ -252,14 +252,15 @@ const sendDM = async () => {
   chatInput.value = "";
 
   try {
-    const res = await axiosClient.post("/dm/send", {
-      friendId: chatTargetId.value,
+    // [FIX] Gửi đúng payload receiverId cho Backend
+    const res = await axiosClient.post("/messages/send", {
+      receiverId: chatTargetId.value,
       content: content,
     });
     messages.value.push(res.data);
     scrollToBottom();
   } catch (e) {
-    // Error handling
+    console.error("Lỗi gửi tin nhắn", e);
   }
 };
 

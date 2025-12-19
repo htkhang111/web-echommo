@@ -1,6 +1,7 @@
 <template>
   <div id="app-root">
     <GameToast />
+    <ChatWidget />
     
     <router-view v-if="isAuthPage" />
 
@@ -15,12 +16,12 @@ import { computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from './stores/authStore';
 import GameToast from './components/GameToast.vue'; 
-import MainLayout from './layouts/MainLayout.vue'; // [QUAN TRỌNG] Import Layout chính
+import ChatWidget from './components/ChatWidget.vue'; // [FIX] Import ChatWidget
+import MainLayout from './layouts/MainLayout.vue';
 
 const authStore = useAuthStore();
 const route = useRoute();
 
-// Kiểm tra xem trang hiện tại có phải là trang Auth (Login/Register) không
 const isAuthPage = computed(() => {
   return ['Login', 'Register', 'ForgotPassword'].includes(route.name);
 });

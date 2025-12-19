@@ -23,13 +23,15 @@ public class PrivateMessageService {
 
     // --- GỬI TIN NHẮN ---
     public ChatMessageDTO sendPrivateMessage(Integer senderId, Integer receiverId, String content) {
-        User me = userRepository.findById(senderId).orElseThrow();
+        User me = userRepository.findById(senderId).orElseThrow(() -> new RuntimeException("Sender not found"));
         User friend = userRepository.findById(receiverId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new RuntimeException("Receiver not found"));
 
         // Admin được chat với tất cả, User thường phải là bạn bè
         boolean isAdmin = me.getRole() == Role.ADMIN;
-        boolean isFriend = !friendshipRepository.findExistingFriendship(me.getUserId(), receiverId).isEmpty();
+        // Kiểm tra null safe cho list bạn bè
+        boolean isFriend = friendshipRepository.findExistingFriendship(me.getUserId(), receiverId) != null
+                && !friendshipRepository.findExistingFriendship(me.getUserId(), receiverId).isEmpty();
 
         if (!isAdmin && !isFriend) {
             throw new RuntimeException("Phải là bạn bè mới được nhắn tin!");
@@ -56,8 +58,6 @@ public class PrivateMessageService {
     // --- LẤY DANH SÁCH HỘI THOẠI ---
     public List<Map<String, Object>> getRecentConversations(Integer userId) {
         List<PrivateMessage> allMsgs = pmRepository.findAllByUserId(userId);
-
-        // Map để lưu tin nhắn mới nhất của từng người
         Map<Integer, PrivateMessage> latestMsgMap = new LinkedHashMap<>();
 
         for (PrivateMessage msg : allMsgs) {
@@ -101,7 +101,6 @@ public class PrivateMessageService {
         pmRepository.markAsRead(senderId, currentUserId);
     }
 
-    // [FIXED] Hàm này giờ truyền đúng 6 tham số khớp với ChatMessageDTO mới
     private ChatMessageDTO convertToDTO(PrivateMessage pm) {
         return new ChatMessageDTO(
                 pm.getSender().getUserId(),
@@ -109,7 +108,7 @@ public class PrivateMessageService {
                 pm.getSender().getAvatarUrl(),
                 pm.getContent(),
                 pm.getSentAt().toString(),
-                pm.getSender().getRole().name() // Role
+                pm.getSender().getRole().name()
         );
     }
 }

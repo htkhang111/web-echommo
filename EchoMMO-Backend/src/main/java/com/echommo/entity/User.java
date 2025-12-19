@@ -2,6 +2,7 @@ package com.echommo.entity;
 
 import com.echommo.enums.Role;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties; // [QUAN TRỌNG] Nhớ import cái này
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -41,9 +42,10 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role = Role.USER;
 
-    // --- QUAN HỆ VÍ TIỀN (QUAN TRỌNG) ---
-    // Đổi LAZY -> EAGER để luôn load được tiền khi lấy User
+    // --- QUAN HỆ VÍ TIỀN (NGUYÊN NHÂN GÂY LỖI 500) ---
+    // [FIX] Thêm dòng này để khi lấy User thì lấy Wallet, nhưng trong Wallet KHÔNG lấy ngược lại User nữa
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @JsonIgnoreProperties("user")
     private Wallet wallet;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -58,14 +60,11 @@ public class User {
     private Boolean isActive = true;
     private String banReason;
     private LocalDateTime bannedAt;
-
     private Boolean isCaptchaLocked = false;
     private Integer captchaFailCount = 0;
     private LocalDateTime captchaLockedUntil;
-
     private String otpCode;
     private LocalDateTime otpExpiry;
-
     private String avatarUrl = "🐲";
     private LocalDateTime lastLogin;
     private LocalDateTime createdAt;

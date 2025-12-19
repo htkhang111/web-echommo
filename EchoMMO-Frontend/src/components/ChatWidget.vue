@@ -17,7 +17,7 @@
                 v-for="conv in conversations" 
                 :key="conv.userId"
                 class="conv-item"
-                :class="{ active: currentChatUser?.id === conv.userId }"
+                :class="{ active: currentChatUser?.id == conv.userId }"
                 @click="selectUser(conv)"
              >
                 <div class="conv-avatar">
@@ -66,11 +66,11 @@
 import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import axiosClient from '@/api/axiosClient';
 import { useAuthStore } from '@/stores/authStore';
-import { useChatStore } from '@/stores/chatStore'; // [MỚI]
+import { useChatStore } from '@/stores/chatStore';
 import { getCurrentSkin } from "@/utils/assetHelper";
 
 const authStore = useAuthStore();
-const chatStore = useChatStore(); // [MỚI]
+const chatStore = useChatStore();
 
 const conversations = ref([]);
 const messages = ref([]);
@@ -115,7 +115,8 @@ const fetchHistory = async (userId) => {
     messages.value = res.data.map(m => ({
       content: m.content,
       timestamp: m.timestamp,
-      isMine: m.senderId === authStore.user.id
+      // [FIX] Dùng authStore.userId (Getter an toàn) để check tin chính chủ
+      isMine: m.senderId === authStore.userId 
     }));
   } catch (e) { console.error(e); }
 };
@@ -139,16 +140,17 @@ const scrollToBottom = () => {
   nextTick(() => { if (msgContainer.value) msgContainer.value.scrollTop = msgContainer.value.scrollHeight; });
 };
 
-// [QUAN TRỌNG] Watch store state để mở đúng user khi Admin/Header gọi
+// [FIX] Watcher xử lý logic khi mở từ Admin hoặc Header
 watch(() => chatStore.isWidgetOpen, (isOpen) => {
   if (isOpen) {
     fetchConversations().then(() => {
-        // Nếu có targetUser từ store (vd bấm từ Admin)
+        // Nếu có targetUser từ store (được set trước khi mở)
         if (chatStore.privateChatTarget) {
-            // Check xem đã có trong list chưa
-            let target = conversations.value.find(c => c.userId === chatStore.privateChatTarget.id);
+            // [FIX] Dùng == để so sánh lỏng (number vs string) tránh lỗi
+            let target = conversations.value.find(c => c.userId == chatStore.privateChatTarget.id);
+            
             if (!target) {
-                // Tạo fake conversation nếu chưa có
+                // Tạo conversation ảo nếu chưa có lịch sử chat
                 target = {
                     userId: chatStore.privateChatTarget.id,
                     username: chatStore.privateChatTarget.username,
@@ -158,6 +160,7 @@ watch(() => chatStore.isWidgetOpen, (isOpen) => {
                 };
                 conversations.value.unshift(target);
             }
+            // Tự động chọn user này
             selectUser(target);
         }
     });
@@ -171,9 +174,8 @@ const formatTime = (iso) => iso ? new Date(iso).toLocaleTimeString([], {hour:'2-
 let pollingInterval;
 onMounted(() => {
     pollingInterval = setInterval(() => {
-        if (chatStore.isWidgetOpen) {
-            // Polling đơn giản để update tin mới (nên dùng socket nếu có thời gian)
-            if (currentChatUser.value) fetchHistory(currentChatUser.value.id);
+        if (chatStore.isWidgetOpen && currentChatUser.value) {
+             fetchHistory(currentChatUser.value.id);
         }
     }, 5000);
 });
@@ -181,7 +183,7 @@ onUnmounted(() => clearInterval(pollingInterval));
 </script>
 
 <style scoped>
-/* Copy CSS cũ của ChatWidget.vue ở các câu trả lời trước, không thay đổi */
+/* Copy CSS cũ của bạn vào đây (không thay đổi gì) */
 .chat-widget-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
 .chat-widget-window { width: 800px; height: 600px; background: #2b1d1a; border: 2px solid #5d4037; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
 .chat-header { background: #3e2723; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: #fbc02d; font-family: "Cinzel", serif; border-bottom: 1px solid #5d4037; }
