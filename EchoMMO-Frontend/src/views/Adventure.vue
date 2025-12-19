@@ -2,139 +2,184 @@
   <div class="adventure-page">
     <div class="status-bar">
       <div class="stat-item">
-        ❤️ {{ playerStore.stats.hp }}/{{ playerStore.stats.maxHp }}
+        ❤️ {{ characterStore.character?.currentHp || 0 }}/{{ characterStore.character?.maxHp || 100 }}
       </div>
       <div class="stat-item">
-        ⚡ {{ playerStore.stats.energy }}/{{ playerStore.stats.maxEnergy }}
+        ⚡ {{ characterStore.character?.currentEnergy || 0 }}/{{ characterStore.character?.maxEnergy || 100 }}
       </div>
-      <div class="stat-item">💰 {{ playerStore.stats.gold }}</div>
+      <div class="stat-item">💰 {{ characterStore.gold }}</div>
     </div>
 
     <div class="explore-wrapper">
       <div class="location-header">
-        <h2>🌲 Rừng Chạng Vạng</h2>
-        <p>Tự do khám phá. Không giới hạn thể lực!</p>
+        <h2>🌲 {{ characterStore.character?.currentLocation || 'Rừng Chạng Vạng' }}</h2>
+        <p>Tự do khám phá. Cẩn thận quái vật!</p>
       </div>
 
       <div class="event-log" ref="logContainer">
-        <div v-for="(log, index) in logs" :key="index" class="log-item">
-          <span class="time">[{{ log.time }}]</span>
-          <span class="content" v-html="log.msg"></span>
+        <div v-for="(log, index) in characterStore.logs" :key="index" class="log-item">
+          <span class="content" :class="log.type" v-html="formatLog(log)"></span>
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn-step" @click="takeStep">👣 Bước tiếp</button>
+        <button class="btn-step" @click="handleExplore" :disabled="characterStore.isLoading">
+          {{ characterStore.isLoading ? '...' : '👣 Bước tiếp' }}
+        </button>
 
         <button class="btn-village" @click="$router.push('/village')">
           🏘️ Về làng
         </button>
       </div>
     </div>
-
-    <div v-if="isFighting" class="combat-overlay">
-      <div class="combat-modal">
-        <CombatView @combat-end="finishFight" />
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from "vue";
-import { usePlayerStore } from "@/stores/player";
-import { useAuthStore } from "@/stores/authStore";
-import axiosClient from "@/api/axiosClient";
-import CombatView from "./Combat.vue";
+import { onMounted, ref, watch, nextTick } from "vue";
+// [FIX] Xóa playerStore, nhập characterStore
+import { useCharacterStore } from "@/stores/characterStore";
+import { useRouter } from "vue-router";
 
-const playerStore = usePlayerStore();
-const authStore = useAuthStore();
-const isFighting = ref(false);
+const characterStore = useCharacterStore();
+const router = useRouter();
 const logContainer = ref(null);
-const logs = ref([{ time: getCurrentTime(), msg: "Bắt đầu hành trình..." }]);
 
-function getCurrentTime() {
-  const now = new Date();
-  return `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
-}
-
-const addLog = async (msg) => {
-  logs.value.push({ time: getCurrentTime(), msg });
-  if (logs.value.length > 50) logs.value.shift();
-  await nextTick();
-  if (logContainer.value)
-    logContainer.value.scrollTop = logContainer.value.scrollHeight;
+const formatLog = (log) => {
+  const time = new Date(log.id).toLocaleTimeString();
+  return `<span class="time">[${time}]</span> ${log.message}`;
 };
 
-// [TÍNH NĂNG MỚI] Gửi thông báo hành tẩu
-const broadcastJoinMessage = async () => {
-  // Không cần lấy username ở frontend để gửi, backend sẽ tự lấy từ token để bảo mật
-  // Nhưng ta dùng username để format câu text cho đẹp
-  const username = authStore.user?.username || "Đạo hữu";
-  
-  const phrases = [
-    `<b>${username}</b> Vừa xuất quan.`,
-    `<b>${username}</b> Đã khởi hành.`,
-    `<b>${username}</b> Đã dấn thân vào hồng trần.`,
-    `<b>${username}</b> đã đạp gió lên đường.`,
-    `<b>${username}</b> vừa tế lên phi chu.`
-  ];
-  
-  const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
-  
+const handleExplore = async () => {
   try {
-    // Gọi API REST mới tạo ở ChatController
-    await axiosClient.post('/chat/send', {
-        content: randomPhrase
-        // senderName sẽ được backend tự điền từ token
-    });
+    // Gọi API explore từ store
+    const result = await characterStore.explore({ mapId: "MAP_01" });
+
+    // Nếu gặp quái -> Chuyển sang màn hình Battle
+    if (result.type === "ENEMY") {
+      router.push("/battle");
+    }
   } catch (e) {
-    console.warn("Không thể gửi thông báo:", e);
+    // Lỗi đã được store xử lý và push vào logs
   }
 };
 
-const takeStep = () => {
-  const roll = Math.random() * 100;
-  if (roll < 60) {
-    const texts = [
-      "Bạn nghe thấy tiếng gió thổi vi vu...",
-      "Một con sóc chạy qua chân bạn.",
-      "Không khí ở đây thật trong lành.",
-      "Bạn phát hiện một dấu chân lạ.",
-      "Khu rừng thật yên tĩnh.",
-    ];
-    addLog(texts[Math.floor(Math.random() * texts.length)]);
-  } else if (roll < 80) {
-    const gold = Math.floor(Math.random() * 10) + 5;
-    playerStore.stats.gold += gold;
-    addLog(`<span style="color:#ffd166">✨ May mắn! Bạn nhặt được <b>${gold} Gold</b>!</span>`);
-  } else {
-    addLog('<span style="color:#ef476f; font-weight:bold;">⚔️ QUÁI VẬT XUẤT HIỆN! Chiến thôi!</span>');
-    setTimeout(() => { isFighting.value = true; }, 500);
+// Tự động cuộn log
+watch(
+  () => characterStore.logs.length,
+  async () => {
+    await nextTick();
+    if (logContainer.value) {
+      logContainer.value.scrollTop = logContainer.value.scrollHeight;
+    }
   }
-};
-
-const finishFight = () => {
-  isFighting.value = false;
-  addLog('<span style="color:#06d6a0">Đã xử lý xong quái vật. Tiếp tục nào!</span>');
-};
+);
 
 onMounted(() => {
-    broadcastJoinMessage();
+  characterStore.fetchCharacter();
 });
 </script>
 
 <style scoped>
-/* Giữ nguyên CSS cũ */
-.adventure-page { padding: 20px; color: #eee; max-width: 600px; margin: 0 auto; }
-.status-bar { display: flex; gap: 20px; background: #222; padding: 10px; border: 1px solid #444; justify-content: center; border-radius: 8px; margin-bottom: 20px; }
-.event-log { background: #111; height: 300px; overflow-y: auto; padding: 10px; border: 1px solid #444; margin-bottom: 15px; font-family: monospace; }
-.log-item { border-bottom: 1px solid #222; margin-bottom: 5px; }
-.time { color: gray; font-size: 0.8em; margin-right: 5px; }
-.actions { display: flex; flex-direction: column; gap: 10px; }
-.btn-step { padding: 20px; background: #06d6a0; color: #000; border: none; font-weight: 900; text-transform: uppercase; border-radius: 8px; cursor: pointer; font-size: 18px; transition: all 0.1s; box-shadow: 0 4px 0 #04c68e; }
-.btn-step:active { transform: translateY(4px); box-shadow: none; }
-.btn-village { padding: 12px; background: #118ab2; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
-.combat-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.9); z-index: 999; display: flex; align-items: center; justify-content: center; }
-.combat-modal { width: 95%; max-width: 600px; }
+.adventure-page {
+  padding: 20px;
+  color: #eee;
+  max-width: 600px;
+  margin: 0 auto;
+  font-family: "Noto Serif TC", serif;
+}
+
+.status-bar {
+  display: flex;
+  gap: 20px;
+  background: #222;
+  padding: 10px;
+  border: 1px solid #444;
+  justify-content: center;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.event-log {
+  background: #111;
+  height: 300px;
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid #444;
+  margin-bottom: 15px;
+  font-family: monospace;
+}
+
+.log-item {
+  border-bottom: 1px solid #222;
+  margin-bottom: 5px;
+  padding: 5px 0;
+}
+
+.time {
+  color: gray;
+  font-size: 0.8em;
+  margin-right: 5px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.btn-step {
+  padding: 20px;
+  background: #06d6a0;
+  color: #000;
+  border: none;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.1s;
+  box-shadow: 0 4px 0 #04c68e;
+}
+
+.btn-step:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.btn-step:disabled {
+  background: #555;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.btn-village {
+  padding: 12px;
+  background: #118ab2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* Màu sắc log */
+.INFO {
+  color: #ccc;
+}
+
+.ENEMY {
+  color: #ff5252;
+  font-weight: bold;
+}
+
+.LEVEL_UP {
+  color: #ffd700;
+  font-weight: bold;
+  text-shadow: 0 0 5px orange;
+}
+
+.ERROR {
+  color: #f44336;
+}
 </style>
