@@ -1892,7 +1892,7 @@ onMounted(async () => {
                 class="item-icon"
                 alt="item"
                 @error="
-                  $event.target.src = resolveItemImage('r_gold_coin.png')
+                  $event.target.src = resolveItemImage('r_stone_3.png')
                 "
               />
 
@@ -1953,7 +1953,7 @@ onMounted(async () => {
                       )
                     "
                     @error="
-                      $event.target.src = resolveItemImage('r_gold_coin.png')
+                      $event.target.src = resolveItemImage('r_stone_3.png')
                     "
                   />
                 </div>
@@ -2275,31 +2275,31 @@ const filteredItems = computed(() => {
   let items = inventoryStore.items ? [...inventoryStore.items] : [];
 
   if (authStore.wallet) {
-    const { wood, stone, iron_ore, platinum } = authStore.wallet;
+    // [FIX] Lấy tất cả các loại tài nguyên từ wallet
+    const { wood, stone, ironOre, iron_ore, platinum, fish, gold } = authStore.wallet;
+    
+    // Support cả 2 kiểu đặt tên biến (camelCase và snake_case)
+    const ironVal = ironOre || iron_ore || 0;
 
-    // [FIX] Cập nhật tên file hình ảnh chính xác
     if (wood > 0)
       items.push(createVirtualItem("v_wood", "Gỗ", "r_wood.png", wood));
     
     if (stone > 0)
       items.push(createVirtualItem("v_stone", "Đá", "stone_1.png", stone));
     
-    // [FIX] Iron dùng icon node bạc/sắt
-    if (iron_ore > 0)
-      items.push(
-        createVirtualItem("v_iron", "Quặng Sắt", "r_silver_node.png", iron_ore)
-      );
+    if (ironVal > 0)
+      items.push(createVirtualItem("v_iron", "Quặng Sắt", "r_iron_ore.png", ironVal));
     
-    // [FIX] Platinum dùng icon node mystrile
     if (platinum > 0)
-      items.push(
-        createVirtualItem(
-          "v_plat",
-          "Bạch Kim",
-          "r_mystrile_node.png",
-          platinum
-        )
-      );
+      items.push(createVirtualItem("v_plat", "Bạch Kim", "r_platinum.png", platinum));
+
+    // [MỚI] Thêm Cá
+    if (fish > 0)
+       items.push(createVirtualItem("v_fish", "Cá", "r_fish.png", fish));
+       
+    // [OPTIONAL] Thêm Vàng nếu muốn hiện trong túi
+    // if (gold > 0)
+    //   items.push(createVirtualItem("v_gold", "Ngân Lượng", "r_coin.png", gold));
   }
 
   if (filter.value === "EQUIP")
@@ -2321,8 +2321,8 @@ const createVirtualItem = (id, name, img, qty) => ({
     name,
     type: "MATERIAL",
     rarity: "COMMON",
-    imageUrl: img,
-    description: "Tài nguyên.",
+    imageUrl: img, // assetHelper sẽ tự map sang link GitHub
+    description: "Tài nguyên khai thác được.",
     basePrice: 0,
   },
 });

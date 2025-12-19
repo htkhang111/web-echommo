@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 
 // --- Public Views ---
-import Home from '../views/Home.vue'
+import Home from '../views/Home.vue' // Bạn có thể muốn đổi cái này thành LandingPage nếu Home.vue là trang game nội bộ
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import ForgotPassword from '../views/ForgotPassword.vue'
@@ -19,7 +19,6 @@ import Gathering from '../views/Gathering.vue'
 import Inventory from '../views/Inventory.vue'
 import Marketplace from '../views/Marketplace.vue'
 import Forge from '../views/Forge.vue'
-// [MỚI] Import trang tiến hóa
 import EvolveMythic from '../views/EvolveMythic.vue'
 
 // --- Social & Info ---
@@ -40,65 +39,31 @@ import UpdatesView from '../views/UpdatesView.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    // --- Public Routes ---
-    { path: '/', name: 'Home', component: Home },
+    { path: '/', name: 'Home', component: Home, meta: { requiresAuth: true } }, // [FIX] Đổi thành requiresAuth để không vào thẳng
     { path: '/login', name: 'Login', component: Login },
     { path: '/register', name: 'Register', component: Register },
     { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPassword },
 
     // --- Game Routes (Yêu cầu đăng nhập) ---
-    { 
-      path: '/character', 
-      name: 'Character', 
-      component: Character,
-      meta: { requiresAuth: true }
-    },
-    { 
-      path: '/create-character', 
-      name: 'CreateCharacter', 
-      component: CreateCharacter,
-      meta: { requiresAuth: true }
-    },
-    { 
-      path: '/village', 
-      name: 'Village', 
-      component: Village,
-      meta: { requiresAuth: true }
-    },
+    { path: '/character', name: 'Character', component: Character, meta: { requiresAuth: true } },
+    { path: '/create-character', name: 'CreateCharacter', component: CreateCharacter, meta: { requiresAuth: true } },
+    { path: '/village', name: 'Village', component: Village, meta: { requiresAuth: true } },
     { path: '/adventure', name: 'Adventure', component: Adventure, meta: { requiresAuth: true } },
     { path: '/battle', name: 'Battle', component: Battle, meta: { requiresAuth: true } },
     { path: '/combat', name: 'Combat', component: Combat, meta: { requiresAuth: true } },
     { path: '/explore', name: 'Explore', component: Explore, meta: { requiresAuth: true } },
     { path: '/gathering', name: 'Gathering', component: Gathering, meta: { requiresAuth: true } },
-    
-    // Inventory & Market
     { path: '/inventory', name: 'Inventory', component: Inventory, meta: { requiresAuth: true } },
     { path: '/marketplace', name: 'Marketplace', component: Marketplace, meta: { requiresAuth: true } },
-    
-    // Forge & Mythic
     { path: '/forge', name: 'Forge', component: Forge, meta: { requiresAuth: true } },
-    { 
-      path: '/evolve-mythic', 
-      name: 'EvolveMythic', 
-      component: EvolveMythic, 
-      meta: { requiresAuth: true } 
-    },
-
-    // Social
+    { path: '/evolve-mythic', name: 'EvolveMythic', component: EvolveMythic, meta: { requiresAuth: true } },
     { path: '/leaderboard', name: 'Leaderboard', component: Leaderboard, meta: { requiresAuth: true } },
     { path: '/friends', name: 'Friends', component: Friends, meta: { requiresAuth: true } },
     { path: '/notifications', name: 'Notifications', component: Notifications, meta: { requiresAuth: true } },
     { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } },
+    { path: '/admin', name: 'Admin', component: Admin, meta: { requiresAuth: true, requiresAdmin: true } },
 
-    // Admin
-    { 
-      path: '/admin', 
-      name: 'Admin', 
-      component: Admin, 
-      meta: { requiresAuth: true, requiresAdmin: true } 
-    },
-
-    // Static Pages
+    // Static Pages (Vẫn public)
     { path: '/about', name: 'About', component: AboutView },
     { path: '/help', name: 'Help', component: HelpView },
     { path: '/privacy', name: 'Privacy', component: PrivacyView },
@@ -108,16 +73,18 @@ const router = createRouter({
   ]
 })
 
-// Navigation Guard
 router.beforeEach(async (to, from, next) => {
-  const publicPages = ['/', '/login', '/register', '/forgot-password', '/about', '/help', '/privacy', '/rules', '/updates'];
+  // [FIX] Xóa '/' khỏi danh sách publicPages
+  const publicPages = ['/login', '/register', '/forgot-password', '/about', '/help', '/privacy', '/rules', '/updates'];
   const authRequired = !publicPages.includes(to.path);
   const authStore = useAuthStore();
 
+  // Nếu cần Auth mà không có token -> Về Login
   if (authRequired && !authStore.token) {
     return next('/login');
   }
 
+  // Nếu đã Login mà cố vào trang Login/Register -> Vào Village (hoặc Home)
   if (authStore.token && (to.path === '/login' || to.path === '/register')) {
     return next('/village');
   }

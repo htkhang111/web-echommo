@@ -149,6 +149,15 @@
                 </td>
                 <td class="action-cell">
                   <button
+                    @click="openAdminChat(u)"
+                    class="btn-icon blue"
+                    title="Nhắn tin riêng"
+                    style="color: #4fc3f7;" 
+                  >
+                    <i class="fas fa-comments"></i>
+                  </button>
+
+                  <button
                     v-if="u.isActive"
                     @click="openBanModal(u)"
                     class="btn-icon red"
@@ -477,10 +486,12 @@
 import { ref, reactive, onMounted, computed } from "vue";
 import { useAdminStore } from "../stores/adminStore";
 import { useNotificationStore } from "../stores/notificationStore";
+import { useChatStore } from "../stores/chatStore"; // [MỚI]
 import axiosClient from "../api/axiosClient";
 
 const adminStore = useAdminStore();
 const notificationStore = useNotificationStore();
+const chatStore = useChatStore(); // [MỚI]
 
 const activeTab = ref("stats");
 const showCreateItem = ref(false);
@@ -661,6 +672,16 @@ const handleSendNotification = async () => {
   } catch (e) {
     notificationStore.showToast("Lỗi khi gửi thông báo", "error");
   }
+};
+
+// [MỚI] Hàm xử lý chat Admin
+const openAdminChat = (user) => {
+  // Mở ChatWidget
+  chatStore.openChat();
+  notificationStore.showToast(`Bắt đầu hội thoại với ${user.username}`, "info");
+  
+  // Lưu ý: Nếu muốn mở đúng đoạn chat với user này, cần backend và store hỗ trợ setConversation.
+  // Hiện tại chỉ mở widget lên để Admin tự tìm hoặc nhắn.
 };
 
 const openBanModal = (u) => {

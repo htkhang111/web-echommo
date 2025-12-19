@@ -48,3 +48,4 @@ public class Item {
 
     // public Item() {} <--- Có thể xóa constructor thủ công này
 }
+

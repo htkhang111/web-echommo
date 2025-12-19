@@ -1,15 +1,11 @@
 package com.echommo.service;
 
-import com.echommo.config.GameConstants;
 import com.echommo.dto.BattleResult;
-import com.echommo.dto.SubStatDTO;
 import com.echommo.entity.*;
 import com.echommo.entity.Character;
 import com.echommo.enums.CharacterStatus;
 import com.echommo.enums.Rarity;
-import com.echommo.enums.SlotType;
 import com.echommo.repository.*;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -32,10 +28,6 @@ public class BattleService {
     private final UserRepository userRepo;
     private final BattleSessionRepository sessionRepo;
 
-    // [TẠM KHÓA] Để code chạy được ngay cả khi chưa có file này.
-    // Khi nào làm chức năng rèn đồ thì bỏ comment dòng dưới và Import vào.
-    // private final ItemGenerationService itemGenService;
-
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Random random = new Random();
 
@@ -54,14 +46,27 @@ public class BattleService {
                 .orElseThrow(() -> new RuntimeException("Bạn chưa tạo nhân vật!"));
     }
 
-    // --- 1. START BATTLE (ĐÃ SỬA LỖI) ---
-    // Logic đúng: Tìm session cũ từ ExplorationService gửi sang. KHÔNG tạo mới.
+    // --- 1. START BATTLE (ĐÃ FIX LỖI LIST) ---
     @Transactional
     public BattleResult startBattle() {
         Character character = getMyCharacter();
 
-        BattleSession session = sessionRepo.findByCharacter_CharId(character.getCharId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy đối thủ! Hãy vào Hành Trang đi dạo trước."));
+        // [FIX] Vì Repository trả về List, ta phải xử lý theo kiểu List
+        List<BattleSession> sessions = sessionRepo.findByCharacter_CharId(character.getCharId());
+
+        if (sessions.isEmpty()) {
+            throw new RuntimeException("Không tìm thấy đối thủ! Hãy vào Hành Trang đi dạo trước.");
+        }
+
+        // Lấy session đầu tiên
+        BattleSession session = sessions.get(0);
+
+        // (An toàn) Nếu lỡ có nhiều session rác, xóa bớt đi
+        if (sessions.size() > 1) {
+            for (int i = 1; i < sessions.size(); i++) {
+                sessionRepo.delete(sessions.get(i));
+            }
+        }
 
         // Cập nhật trạng thái nhân vật
         character.setStatus(CharacterStatus.IN_COMBAT);
@@ -70,12 +75,20 @@ public class BattleService {
         return buildResult(session, "Tiếp tục chiến đấu với " + session.getEnemyName() + "!", "ONGOING");
     }
 
-    // --- 2. PROCESS TURN (XỬ LÝ LƯỢT ĐÁNH) ---
+    // --- 2. PROCESS TURN (ĐÃ FIX LỖI LIST) ---
     @Transactional
     public BattleResult processTurn(String actionType) {
         Character character = getMyCharacter();
-        BattleSession session = sessionRepo.findByCharacter_CharId(character.getCharId())
-                .orElseThrow(() -> new RuntimeException("Trận đấu đã kết thúc!"));
+
+        // [FIX] Tương tự, sửa Optional thành List
+        List<BattleSession> sessions = sessionRepo.findByCharacter_CharId(character.getCharId());
+
+        if (sessions.isEmpty()) {
+            throw new RuntimeException("Trận đấu đã kết thúc hoặc không tồn tại!");
+        }
+
+        // Lấy trận đấu đang diễn ra
+        BattleSession session = sessions.get(0);
 
         List<String> logs = new ArrayList<>();
 
@@ -150,7 +163,6 @@ public class BattleService {
     private BattleResult handleWin(BattleSession session, Character character) {
         BattleResult res = buildResult(session, "🏆 Chiến thắng!", "VICTORY");
 
-        // [QUAN TRỌNG] Lấy ID quái thật từ session để tra cứu phần thưởng
         Enemy enemyRef = enemyRepo.findById(session.getEnemyId()).orElse(createDummyEnemy());
 
         int expReward = enemyRef.getExpReward();
@@ -184,14 +196,14 @@ public class BattleService {
 
         // 5. Xóa trận đấu
         sessionRepo.delete(session);
-        res.setEnemyHp(0); // Để hiển thị thanh máu về 0
+        res.setEnemyHp(0);
 
         return res;
     }
 
     // --- 4. LOGIC THUA ---
     private BattleResult handleLoss(BattleSession session, Character character) {
-        character.setCurrentHp(1); // Về làng dưỡng thương (còn 1 máu)
+        character.setCurrentHp(1); // Về làng dưỡng thương
         character.setStatus(CharacterStatus.IDLE);
         charRepo.save(character);
         sessionRepo.delete(session); // Xóa trận đấu
@@ -219,21 +231,12 @@ public class BattleService {
         newItem.setAcquiredAt(LocalDateTime.now());
         newItem.setRarity(Rarity.COMMON);
 
-        // Random chỉ số cơ bản
         newItem.setMainStatType("ATK_FLAT");
         newItem.setMainStatValue(BigDecimal.valueOf(10 + random.nextInt(10)));
-        newItem.setSubStats("[]"); // Mặc định rỗng để tránh lỗi JSON
-
-        // [LOGIC SINH DÒNG PHỤ - ĐANG TẠM KHÓA ĐỂ TRÁNH LỖI NẾU THIẾU SERVICE]
-        /*
-        if (itemGenService != null && baseItem.getSlotType() != SlotType.NONE) {
-             // ... Code sinh dòng phụ của bạn ...
-        }
-        */
+        newItem.setSubStats("[]");
 
         userItemRepo.save(newItem);
 
-        // Trả về thông tin để hiển thị popup
         result.setDroppedItemName(baseItem.getName());
         result.setDroppedItemImage(baseItem.getImageUrl());
         result.getCombatLog().add("🎁 Nhặt được: " + baseItem.getName());
@@ -245,7 +248,6 @@ public class BattleService {
         totals.put("HP", (double) c.getMaxHp());
         totals.put("ATK", (double) c.getBaseAtk());
         totals.put("DEF", (double) c.getBaseDef());
-        // Có thể mở rộng cộng chỉ số từ trang bị ở đây
         return totals;
     }
 

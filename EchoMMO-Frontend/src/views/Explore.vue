@@ -1444,6 +1444,7 @@ onUnmounted(() => clearInterval(moveInterval));
   <div class="page-container explore-page">
     <div class="explore-layout">
       <div class="center-zone">
+        
         <div class="game-board">
           <div class="status-header">
             <div class="level-badge">
@@ -1508,6 +1509,7 @@ onUnmounted(() => clearInterval(moveInterval));
                 </div>
                 <div class="actor-label">Bạn</div>
               </div>
+
               <div
                 class="actor target"
                 v-if="showTarget"
@@ -1554,9 +1556,9 @@ onUnmounted(() => clearInterval(moveInterval));
                 :disabled="isMoving"
               >
                 <div class="btn-content">
-                  <i class="fas fa-walking"></i
-                  ><span v-if="!isMoving">HÀNH TẨU</span
-                  ><span v-else>... ({{ countdown }}s)</span>
+                  <i class="fas fa-walking"></i>
+                  <span v-if="!isMoving">HÀNH TẨU</span>
+                  <span v-else>... ({{ countdown }}s)</span>
                 </div>
               </button>
               <button
@@ -1634,41 +1636,51 @@ onUnmounted(() => clearInterval(moveInterval));
           </p>
         </div>
         <div class="modal-footer">
-          <button class="modal-btn flee" @click="flee">Bỏ Chạy</button
-          ><button class="modal-btn fight" @click="goToBattle">
+          <button class="modal-btn flee" @click="flee">Bỏ Chạy</button>
+          <button class="modal-btn fight" @click="goToBattle">
             CHIẾN ĐẤU
           </button>
         </div>
       </div>
     </div>
+    
     <CaptchaModal ref="captchaModal" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { useRouter } from "vue-router";
+// Stores
 import { useCharacterStore } from "@/stores/characterStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useBattleStore } from "@/stores/battleStore";
-import { useRouter } from "vue-router";
+import { useQuestStore } from "@/stores/questStore"; // <--- Store Nhiệm Vụ
+
+// Components
 import CaptchaModal from "@/components/CaptchaModal.vue";
 import ChatPanel from "@/components/ChatPanel.vue";
 import QuestPanel from "@/components/QuestPanel.vue";
+
+// Utils
 import { getItemImage, getCurrentSkin } from "@/utils/assetHelper";
 
-// --- IMPORT ẢNH NỀN CŨ ---
+// Assets Background
 import bgPlains from "@/assets/Background/b_1.jpg";
 import bgForest from "@/assets/Background/b_forest.jpg";
 import bgDesert from "@/assets/Background/b_desert.jpg";
 import bgMountain from "@/assets/Background/b_mountain.jpg";
 import bgIceland from "@/assets/Background/b_iceland.jpg";
 
+// --- INIT STORES ---
 const charStore = useCharacterStore();
 const authStore = useAuthStore();
 const battleStore = useBattleStore();
+const questStore = useQuestStore(); // Khởi tạo
 const router = useRouter();
 const captchaModal = ref(null);
 
+// --- STATE ---
 const isMoving = ref(false);
 const isEncounter = ref(false);
 const showTarget = ref(false);
@@ -1678,9 +1690,10 @@ const targetImage = ref("");
 const targetName = ref("");
 
 const showMapModal = ref(false);
-const currentMapId = ref("MAP_01"); // Mặc định
+const currentMapId = ref("MAP_01");
 const userLv = computed(() => charStore.character?.level || 1);
 
+// Map Config
 const maps = [
   { id: "MAP_01", name: "Đồng Bằng", minLv: 1, maxLv: 19 },
   { id: "MAP_02", name: "Rừng Rậm", minLv: 20, maxLv: 30 },
@@ -1689,20 +1702,21 @@ const maps = [
   { id: "MAP_05", name: "Băng Đảo", minLv: 50, maxLv: 60 },
   { id: "MAP_06", name: "Đầm Lầy", minLv: 60, maxLv: 70 },
 ];
-
 const currentMapName = computed(
-  () => maps.find((m) => m.id === currentMapId.value)?.name || "Đồng Bằng",
+  () => maps.find((m) => m.id === currentMapId.value)?.name || "Đồng Bằng"
 );
 
-// [FIX] Theo dõi thay đổi của nhân vật để đồng bộ Map ID từ DB
-watch(() => charStore.character, (newChar) => {
-  if (newChar && newChar.currentMapId) {
-    const savedMap = maps.find(m => m.id === newChar.currentMapId);
-    if (savedMap) {
-      currentMapId.value = newChar.currentMapId;
+// Đồng bộ Map khi load game
+watch(
+  () => charStore.character,
+  (newChar) => {
+    if (newChar && newChar.currentMapId) {
+      const savedMap = maps.find((m) => m.id === newChar.currentMapId);
+      if (savedMap) currentMapId.value = newChar.currentMapId;
     }
-  }
-}, { immediate: true });
+  },
+  { immediate: true }
+);
 
 const selectMap = (map) => {
   if (userLv.value < map.minLv) {
@@ -1714,15 +1728,14 @@ const selectMap = (map) => {
   addLog(`Đã chọn: <b>${map.name}</b>`);
 };
 
-// [SỬ DỤNG ẢNH CŨ] Map các ID sang file ảnh có sẵn
 const getMapBg = () => {
   switch (currentMapId.value) {
     case "MAP_02": return bgForest;
     case "MAP_03": return bgDesert;
     case "MAP_04": return bgMountain;
     case "MAP_05": return bgIceland;
-    case "MAP_06": return bgForest; // Tạm dùng Rừng cho Đầm Lầy
-    default: return bgPlains; // MAP_01 dùng b_1.jpg
+    case "MAP_06": return bgForest;
+    default: return bgPlains;
   }
 };
 
@@ -1731,20 +1744,18 @@ const imgPlayer = computed(() => {
   return isMoving.value ? skin.sprites.run : skin.sprites.idle;
 });
 
+// Logic Nhật ký
 let moveInterval = null;
 const getTime = () =>
-  new Date().toLocaleTimeString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 const addLog = (msg) => logs.value.unshift({ time: getTime(), msg });
 
+// Animation chạy
 const startMovingJS = () => {
   if (moveInterval) clearInterval(moveInterval);
   moveInterval = setInterval(() => {
     charStore.explorationState.playerPos +=
       0.5 * charStore.explorationState.moveDir;
-    // Map bé lại (từ 30-70)
     if (charStore.explorationState.playerPos >= 70)
       charStore.explorationState.moveDir = -1;
     else if (charStore.explorationState.playerPos <= 30)
@@ -1752,6 +1763,7 @@ const startMovingJS = () => {
   }, 16);
 };
 
+// BẮT ĐẦU HÀNH TẨU
 const startExploration = () => {
   if (isMoving.value) return;
   isMoving.value = true;
@@ -1759,6 +1771,7 @@ const startExploration = () => {
   isEncounter.value = false;
   countdown.value = 2;
   startMovingJS();
+
   const timer = setInterval(async () => {
     countdown.value--;
     if (countdown.value <= 0) {
@@ -1768,40 +1781,53 @@ const startExploration = () => {
   }, 1000);
 };
 
+// XỬ LÝ KẾT QUẢ
 const handleResult = async () => {
   clearInterval(moveInterval);
   isMoving.value = false;
 
   try {
-    // Gọi API từ Server (kèm mapId hiện tại)
     const res = await charStore.explore({ mapId: currentMapId.value });
+    await charStore.fetchCharacter(); // Đồng bộ lại stat
 
-    // 1. Trường hợp tìm thấy TÀI NGUYÊN -> Chuyển trang
+    // 1. Gặp tài nguyên (Gathering)
     if (res.type === "GATHERING") {
-      addLog(
-        `<span style="color:#00e676; font-weight:bold;">🌿 ${res.message}</span>`,
-      );
-      setTimeout(() => {
-        router.push("/gathering");
-      }, 500);
+      addLog(`<span style="color:#00e676; font-weight:bold;">🌿 ${res.message}</span>`);
+      setTimeout(() => { router.push("/gathering"); }, 500);
       return;
     }
 
-    // 2. Trường hợp nhặt được ITEM
+    // 2. Nhặt được Vật phẩm (Item)
     if (res.type === "ITEM" && res.rewardName) {
       showTarget.value = true;
       targetName.value = res.rewardName;
       targetImage.value = getItemImage(res.rewardName) || getItemImage("GOLD");
-      addLog(`<span style="color:#00e676;">${res.message}</span>`);
+      
+      // LOGIC MỚI: KIỂM TRA NHIỆM VỤ (QUEST)
+      // Hàm checkQuestCompletion cần trả về số vàng thưởng (nếu có)
+      // Nếu questStore chưa có hàm này, bạn xem phần chú thích bên dưới
+      if (questStore.checkQuestCompletion) {
+        const rewardGold = questStore.checkQuestCompletion(res.rewardName);
+        if (rewardGold > 0) {
+            addLog(`<span style="color:#00e676;">${res.message}</span>`);
+            addLog(`<span style="color:#ffd700; font-weight:bold;">💰 Xong nhiệm vụ: +${rewardGold} Vàng!</span>`);
+            // Cộng vàng hiển thị luôn
+            if(charStore.character) charStore.character.gold += rewardGold;
+        } else {
+            addLog(`<span style="color:#00e676;">${res.message}</span>`);
+        }
+      } else {
+        // Fallback nếu chưa config store
+        addLog(`<span style="color:#00e676;">${res.message}</span>`);
+      }
+
     } 
-    // 3. Trường hợp gặp QUÁI
+    // 3. Gặp Quái (Enemy)
     else if (res.type === "ENEMY") {
       isEncounter.value = true;
       showTarget.value = true;
       targetName.value = res.rewardName;
       
-      // Load ảnh quái (dựa theo tên hoặc mặc định)
-      // Lưu ý: Tên quái từ server trả về cần map với tên file
       let enemyImgName = "idle_goblin.png";
       if (res.rewardName.includes("Nấm")) enemyImgName = "idle_mushroom.png";
       if (res.rewardName.includes("Xương")) enemyImgName = "idle_skeleton.png";
@@ -1814,13 +1840,18 @@ const handleResult = async () => {
       });
       addLog(`<span style="color:#ef5350;">⚠️ ${res.message}</span>`);
     } 
-    // 4. Trường hợp Text thường
+    // 4. Khác
     else {
       addLog(`<span style="color:#aaa;">${res.message}</span>`);
     }
+
   } catch (e) {
-    if (e.message === "CAPTCHA") captchaModal.value.open();
-    else addLog(`<span style="color:red">Lỗi: ${e.message || e}</span>`);
+    if (e.message === "CAPTCHA") {
+      captchaModal.value.open();
+    } else {
+      const errorMsg = e.response?.data?.message || e.message;
+      addLog(`<span style="color:red">Lỗi: ${errorMsg}</span>`);
+    }
   }
 };
 
@@ -1831,14 +1862,20 @@ const flee = () => {
   addLog("Đã chạy thoát.");
 };
 
-onMounted(() => charStore.fetchCharacter());
+onMounted(() => {
+  charStore.fetchCharacter();
+  // Nếu có hàm load quest thì gọi luôn
+  if(questStore.fetchQuests) questStore.fetchQuests();
+});
 onUnmounted(() => clearInterval(moveInterval));
 </script>
 
 <style scoped>
+/* PAGE CONTAINER: Full màn hình, không scroll */
 .explore-page {
   padding: 10px;
-  height: 100vh;
+  height: 100vh; 
+  box-sizing: border-box;
   overflow: hidden;
   color: #eee;
   font-family: "Noto Serif TC", serif;
@@ -1854,6 +1891,7 @@ onUnmounted(() => clearInterval(moveInterval));
   margin: 0 auto;
 }
 
+/* --- CỘT GIỮA --- */
 .center-zone {
   display: flex;
   flex-direction: column;
@@ -1862,8 +1900,10 @@ onUnmounted(() => clearInterval(moveInterval));
   overflow: hidden;
 }
 
+/* Game Board: Flex 1 để chiếm hết chỗ trống */
 .game-board {
-  flex: 0 0 320px;
+  flex: 1; 
+  min-height: 0; /* Fix flexbox scroll issue */
   background: #261815;
   border: 2px solid #5d4037;
   border-radius: 8px;
@@ -1872,14 +1912,17 @@ onUnmounted(() => clearInterval(moveInterval));
   position: relative;
 }
 
+/* Chat Board: Cố định chiều cao (ngắn lại) */
 .chat-board {
-  flex: 1;
-  min-height: 0;
+  height: 180px; /* Cố định chiều cao */
+  flex: none;    /* Không co giãn */
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid #444;
   border-radius: 8px;
+  overflow: hidden;
 }
 
+/* Các thành phần bên trong Game Board */
 .status-header {
   padding: 8px 12px;
   background: rgba(0, 0, 0, 0.4);
@@ -1887,6 +1930,16 @@ onUnmounted(() => clearInterval(moveInterval));
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
+}
+
+.level-badge span {
+  font-weight: bold;
+  color: #ffd700;
+  border: 1px solid #ffd700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
 }
 
 .bars-container {
@@ -1922,23 +1975,27 @@ onUnmounted(() => clearInterval(moveInterval));
   height: 100%;
   transition: width 0.3s ease;
 }
-
-.progress-fill.hp {
-  background: linear-gradient(to right, #c62828, #e53935);
+.progress-fill.hp { background: linear-gradient(to right, #c62828, #e53935); }
+.progress-fill.energy { background: linear-gradient(to right, #1565c0, #42a5f5); }
+.exp-row .exp-bg {
+  height: 4px;
+  background: #333;
+  margin-top: 2px;
 }
-
-.progress-fill.energy {
-  background: linear-gradient(to right, #8a1c1c, #b71c1c);
+.exp-fill {
+  height: 100%;
+  background: #00e676;
+  width: 0%;
 }
 
 .stat-text {
   position: absolute;
-  top: 50%;
-  left: 50%;
+  top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   font-size: 0.65em;
   font-weight: bold;
   text-shadow: 1px 1px 0 #000;
+  white-space: nowrap;
 }
 
 .stage-viewport {
@@ -1951,8 +2008,7 @@ onUnmounted(() => clearInterval(moveInterval));
 }
 
 .stage-background {
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   background-size: cover;
   background-position: center bottom;
   position: relative;
@@ -1969,22 +2025,28 @@ onUnmounted(() => clearInterval(moveInterval));
   z-index: 10;
 }
 
-.avatar-circle,
-.avatar-target {
-  width: 96px;
-  height: 96px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.avatar-circle, .avatar-target {
+  width: 96px; height: 96px;
+  display: flex; justify-content: center; align-items: center;
   filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.5));
 }
 
 .avatar-img {
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   object-fit: contain;
   transform: scale(1.2);
 }
+
+.actor-label {
+  margin-top: 5px;
+  background: rgba(0,0,0,0.6);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.target-name { color: #ffd700; }
 
 .action-panel {
   height: 60px;
@@ -1995,199 +2057,107 @@ onUnmounted(() => clearInterval(moveInterval));
   justify-content: center;
   gap: 10px;
   padding: 0 15px;
+  flex-shrink: 0;
 }
 
 .btn-action {
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  color: #fff;
+  border: none; border-radius: 6px;
+  cursor: pointer; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: bold; color: #fff;
 }
+.map-btn { flex: 1; background: #2c3e50; border: 1px solid #34495e; }
+.main-btn { flex: 2; background: linear-gradient(to bottom, #4e342e, #3e2723); border: 1px solid #c5a059; color: #c5a059; }
+.sub-btn { flex: 0.5; background: #3e2723; border: 1px solid #5d4037; }
 
-.map-btn {
-  flex: 1;
-  background: #2c3e50;
-  border: 1px solid #34495e;
-}
-
-.main-btn {
-  flex: 2;
-  background: linear-gradient(to bottom, #4e342e, #3e2723);
-  border: 1px solid #c5a059;
-  color: #c5a059;
-}
-
-.sub-btn {
-  flex: 0.5;
-  background: #3e2723;
-  border: 1px solid #5d4037;
-}
-
+/* --- CỘT PHẢI --- */
 .right-zone {
   display: flex;
   flex-direction: column;
   gap: 15px;
   height: 100%;
+  overflow: hidden;
 }
 
 .log-panel {
-  flex: 0 0 40%;
+  height: 35%; /* Cố định tỷ lệ */
+  flex: none;
   background: #1e1e1e;
   border: 2px solid #5d4037;
   border-radius: 8px;
-  display: flex;
-  flex-direction: column;
+  display: flex; flex-direction: column;
+}
+
+.log-header {
+  background: #3e2723; padding: 5px 10px;
+  font-weight: bold; font-size: 0.9em; text-align: center;
+  border-bottom: 1px solid #5d4037;
 }
 
 .log-content {
-  flex: 1;
-  padding: 8px;
-  overflow-y: auto;
-  background: #111;
-  font-size: 0.85em;
+  flex: 1; padding: 8px; overflow-y: auto;
+  background: #111; font-size: 0.85em;
 }
 
 .quest-panel-wrapper {
-  flex: 1;
+  flex: 1; /* Chiếm hết phần dưới */
+  min-height: 0;
   background: #1e1e1e;
   border: 2px solid #5d4037;
   border-radius: 8px;
   overflow: hidden;
+  display: flex; flex-direction: column;
 }
+.quest-panel-wrapper :deep(> div) { height: 100%; overflow-y: auto; }
 
+/* Modal Styles */
 .modal-overlay {
-  position: fixed;
-  inset: 0;
+  position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.8);
   z-index: 3000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
 }
-
 .map-modal-card {
-  width: 90%;
-  max-width: 500px;
+  width: 90%; max-width: 500px;
   background: #1a1a1a;
   border: 2px solid #d4af37;
   border-radius: 8px;
-  padding: 15px;
-  color: #fff;
+  padding: 15px; color: #fff;
 }
-
-.map-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
+.map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
 .map-item {
-  background: #333;
-  padding: 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  border: 1px solid #444;
-  position: relative;
+  background: #333; padding: 10px;
+  border-radius: 6px; cursor: pointer;
+  border: 1px solid #444; position: relative;
 }
-
-.map-item.active {
-  border-color: #00e676;
-  background: #1b5e20;
-}
-
-.map-item.locked {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.lock-icon {
-  position: absolute;
-  right: 10px;
-  top: 10px;
-}
-
-.close-btn {
-  width: 100%;
-  padding: 10px;
-  background: #b71c1c;
-  border: none;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-}
+.map-item.active { border-color: #00e676; background: #1b5e20; }
+.map-item.locked { opacity: 0.6; cursor: not-allowed; }
+.lock-icon { position: absolute; right: 10px; top: 10px; }
+.close-btn { width: 100%; padding: 10px; background: #b71c1c; border: none; color: white; font-weight: bold; cursor: pointer; }
 
 .encounter-modal {
-  position: fixed;
-  inset: 0;
+  position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.85);
   z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
 }
-
 .modal-card {
-  width: 350px;
-  background: #261815;
-  border: 2px solid #b71c1c;
-  border-radius: 12px;
+  width: 350px; background: #261815;
+  border: 2px solid #b71c1c; border-radius: 12px;
 }
+.modal-header { background: #b71c1c; color: #fff; padding: 10px; text-align: center; font-weight: bold; }
+.modal-body { padding: 20px; text-align: center; }
+.enemy-preview-img { width: 100px; height: 100px; object-fit: contain; }
+.modal-footer { padding: 15px; display: flex; gap: 15px; }
+.modal-btn { flex: 1; padding: 10px; cursor: pointer; font-weight: bold; }
+.modal-btn.flee { background: #555; color: #ccc; }
+.modal-btn.fight { background: #d32f2f; color: #fff; }
 
-.modal-header {
-  background: #b71c1c;
-  color: #fff;
-  padding: 10px;
-  text-align: center;
-  font-weight: bold;
-}
-
-.modal-body {
-  padding: 20px;
-  text-align: center;
-}
-
-.enemy-preview-img {
-  width: 100px;
-  height: 100px;
-  object-fit: contain;
-}
-
-.modal-footer {
-  padding: 15px;
-  display: flex;
-  gap: 15px;
-}
-
-.modal-btn {
-  flex: 1;
-  padding: 10px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.modal-btn.flee {
-  background: #555;
-  color: #ccc;
-}
-
-.modal-btn.fight {
-  background: #d32f2f;
-  color: #fff;
-}
+.custom-scroll::-webkit-scrollbar { width: 4px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #5d4037; }
 
 @media (max-width: 900px) {
-  .explore-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .right-zone {
-    height: 400px;
-  }
+  .explore-layout { grid-template-columns: 1fr; }
+  .right-zone { height: 400px; flex: none; }
 }
 </style>

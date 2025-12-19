@@ -51,10 +51,10 @@ public class Character {
     @Builder.Default private Integer luck = 5;
 
     // --- COMPUTED STATS ---
-    @Builder.Default private Integer currentHp = 100;
-    @Builder.Default private Integer maxHp = 100;
-    @Builder.Default private Integer currentEnergy = 50;
-    @Builder.Default private Integer maxEnergy = 50;
+    @Builder.Default private Integer currentHp = 200;
+    @Builder.Default private Integer maxHp = 200;
+    @Builder.Default private Integer currentEnergy = 100;
+    @Builder.Default private Integer maxEnergy = 100;
     @Builder.Default private Integer baseAtk = 10;
     @Builder.Default private Integer baseDef = 5;
     @Builder.Default private Integer baseSpeed = 10;
@@ -89,3 +89,4 @@ public class Character {
         lastActive = LocalDateTime.now();
     }
 }
+

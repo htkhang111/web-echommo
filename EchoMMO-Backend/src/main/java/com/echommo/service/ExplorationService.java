@@ -85,7 +85,8 @@ public class ExplorationService {
 
         captchaService.checkLockStatus(c.getUser());
 
-        if (c.getCurrentEnergy() < 1) throw new RuntimeException("Bạn đã kiệt sức! Hãy nghỉ ngơi.");
+        // --- [MIỄN PHÍ THỂ LỰC] ---
+        // if (c.getCurrentEnergy() < 1) throw new RuntimeException("Bạn đã kiệt sức! Hãy nghỉ ngơi.");
 
         GameMap map = GameMap.findById(mapId);
         if (c.getLevel() < map.minLv) throw new RuntimeException("Cấp độ không đủ! Cần Lv." + map.minLv);
@@ -96,7 +97,9 @@ public class ExplorationService {
         Random r = new Random();
         Wallet w = c.getUser().getWallet();
 
-        c.setCurrentEnergy(c.getCurrentEnergy() - 1);
+        // --- [MIỄN PHÍ THỂ LỰC] ---
+        // c.setCurrentEnergy(c.getCurrentEnergy() - 1);
+
         long expGain = 10L + c.getLevel();
         c.setCurrentExp(c.getCurrentExp() + expGain);
         BigDecimal coinGain = BigDecimal.valueOf(1 + r.nextInt(5));
@@ -132,19 +135,16 @@ public class ExplorationService {
         } else if (roll < 91) { // 11% ENEMY
             type = "ENEMY";
 
-            // [FIXED LOGIC] Lấy đúng quái theo Map
-            // 1. Lấy ngẫu nhiên 1 tên quái trong danh sách map.enemies
+            // [LOGIC] Lấy quái theo Map
             String targetEnemyName = map.enemies.get(r.nextInt(map.enemies.size()));
 
-            // 2. Tìm quái đó trong DB (Filter để đảm bảo lấy đúng con tên đó)
-            // Nếu bạn có hàm enemyRepo.findByName(name) thì dùng, còn không thì dùng stream như dưới đây cho tiện
             Enemy enemy = enemyRepo.findAll().stream()
                     .filter(e -> e.getName().equalsIgnoreCase(targetEnemyName))
                     .findFirst()
                     .orElse(null);
 
-            // 3. Fallback: Nếu trong DB quên chưa nhập con quái này thì tạo dummy để không lỗi
             if (enemy == null) {
+                // Tạo quái ảo nếu chưa có trong DB
                 enemy = new Enemy();
                 enemy.setEnemyId(0);
                 enemy.setName(targetEnemyName);
@@ -156,7 +156,6 @@ public class ExplorationService {
                 enemy.setGoldReward(5);
             }
 
-            // Tạo session
             BattleSession session = createBattleSession(c, enemy);
 
             msg = "Nguy hiểm! Gặp " + session.getEnemyName() + "!";
@@ -198,9 +197,18 @@ public class ExplorationService {
     }
 
     private BattleSession createBattleSession(Character player, Enemy enemy) {
-        BattleSession session = battleSessionRepo.findByCharacter_CharId(player.getCharId())
-                .orElse(new BattleSession());
+        // [FIX LỖI 3 RESULTS RETURNED]
+        // Vì DB đang bị lỗi lưu trùng 3 dòng, ta dùng List để lấy hết chúng lên
+        List<BattleSession> oldSessions = battleSessionRepo.findByCharacter_CharId(player.getCharId());
 
+        // Sau đó xóa sạch sẽ
+        if (!oldSessions.isEmpty()) {
+            battleSessionRepo.deleteAll(oldSessions);
+            battleSessionRepo.flush(); // Bắt buộc xóa ngay lập tức
+        }
+
+        // Tạo Session mới tinh
+        BattleSession session = new BattleSession();
         session.setCharacter(player);
 
         session.setEnemyId(enemy.getEnemyId());
@@ -211,7 +219,6 @@ public class ExplorationService {
         session.setEnemyDef(enemy.getDef());
         session.setEnemySpeed(enemy.getSpeed());
 
-        // Lưu snapshot Player
         session.setPlayerMaxHp(player.getMaxHp());
         session.setPlayerCurrentHp(player.getCurrentHp());
         session.setPlayerCurrentEnergy(player.getCurrentEnergy());
@@ -230,8 +237,11 @@ public class ExplorationService {
             clearGatheringState(c); characterRepository.save(c); throw new RuntimeException("Mỏ tài nguyên đã cạn kiệt!");
         }
         if (c.getGatheringRemainingAmount() < amount) amount = c.getGatheringRemainingAmount();
-        if (c.getCurrentEnergy() < amount) throw new RuntimeException("Không đủ năng lượng!");
-        c.setCurrentEnergy(c.getCurrentEnergy() - amount);
+
+        // [KHAI THÁC CŨNG MIỄN PHÍ]
+        // if (c.getCurrentEnergy() < amount) throw new RuntimeException("Không đủ năng lượng!");
+        // c.setCurrentEnergy(c.getCurrentEnergy() - amount);
+
         c.setGatheringRemainingAmount(c.getGatheringRemainingAmount() - amount);
         Wallet wallet = c.getUser().getWallet();
         addItemToWallet(wallet, itemId, amount);

@@ -2,7 +2,8 @@ package com.echommo.service;
 
 import com.echommo.entity.Friendship;
 import com.echommo.entity.User;
-import com.echommo.entity.PrivateMessage; // M nhớ tạo Entity này theo SQL đã chạy
+import com.echommo.entity.PrivateMessage;
+import com.echommo.enums.Role; // [FIX] Import Role
 import com.echommo.repository.FriendshipRepository;
 import com.echommo.repository.PrivateMessageRepository;
 import com.echommo.repository.UserRepository;
@@ -24,16 +25,19 @@ public class PrivateMessageService {
 
     public List<PrivateMessage> getConversation(Integer friendId) {
         User me = getCurrentUser();
-        // Lấy tin nhắn 2 chiều
         return pmRepository.findConversation(me.getUserId(), friendId);
     }
 
     public PrivateMessage sendPrivateMessage(Integer friendId, String content) {
         User me = getCurrentUser();
-        User friend = userRepository.findById(friendId).orElseThrow(() -> new RuntimeException("User not found"));
+        User friend = userRepository.findById(friendId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Check xem có phải bạn bè không
-        if (friendshipRepository.findExistingFriendship(me.getUserId(), friendId).isEmpty()) {
+        // [FIX] Cải tiến: Nếu là ADMIN thì không cần check bạn bè
+        boolean isAdmin = me.getRole() == Role.ADMIN;
+        boolean isFriend = !friendshipRepository.findExistingFriendship(me.getUserId(), friendId).isEmpty();
+
+        if (!isAdmin && !isFriend) {
             throw new RuntimeException("Phải là bạn bè mới được nhắn tin!");
         }
 
