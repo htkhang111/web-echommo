@@ -24,11 +24,9 @@ public class ExplorationService {
     @Autowired private UserItemRepository userItemRepo;
     @Autowired private FlavorTextRepository flavorTextRepo;
     @Autowired private BattleSessionRepository battleSessionRepo;
-
-    // [THÊM MỚI] Inject EnemyRepository để lấy quái thật
     @Autowired private EnemyRepository enemyRepo;
 
-    // [GIỮ NGUYÊN] Cấu hình Map của bạn
+    // Cấu hình Map (Giữ nguyên)
     public enum GameMap {
         MAP_01("MAP_01", "Đồng Bằng", 1, 19,
                 List.of(1, 1, 1, 1, 5, 5, 5, 6, 6, 9),
@@ -134,22 +132,38 @@ public class ExplorationService {
         } else if (roll < 91) { // 11% ENEMY
             type = "ENEMY";
 
-            // [SỬA] Lấy quái từ DB thay vì String tên
-            List<Enemy> allEnemies = enemyRepo.findAll();
-            Enemy enemy;
-            if (!allEnemies.isEmpty()) {
-                enemy = allEnemies.get(r.nextInt(allEnemies.size()));
-            } else {
-                enemy = new Enemy(); enemy.setEnemyId(0); enemy.setName("Quái Lạ"); enemy.setHp(100); enemy.setAtk(10); enemy.setDef(0); enemy.setSpeed(10);
+            // [FIXED LOGIC] Lấy đúng quái theo Map
+            // 1. Lấy ngẫu nhiên 1 tên quái trong danh sách map.enemies
+            String targetEnemyName = map.enemies.get(r.nextInt(map.enemies.size()));
+
+            // 2. Tìm quái đó trong DB (Filter để đảm bảo lấy đúng con tên đó)
+            // Nếu bạn có hàm enemyRepo.findByName(name) thì dùng, còn không thì dùng stream như dưới đây cho tiện
+            Enemy enemy = enemyRepo.findAll().stream()
+                    .filter(e -> e.getName().equalsIgnoreCase(targetEnemyName))
+                    .findFirst()
+                    .orElse(null);
+
+            // 3. Fallback: Nếu trong DB quên chưa nhập con quái này thì tạo dummy để không lỗi
+            if (enemy == null) {
+                enemy = new Enemy();
+                enemy.setEnemyId(0);
+                enemy.setName(targetEnemyName);
+                enemy.setHp(100 + map.minLv * 10);
+                enemy.setAtk(10 + map.minLv);
+                enemy.setDef(map.minLv);
+                enemy.setSpeed(10);
+                enemy.setExpReward(10);
+                enemy.setGoldReward(5);
             }
 
-            // Tạo session với Entity quái (có ID) và Player snapshot
+            // Tạo session
             BattleSession session = createBattleSession(c, enemy);
 
             msg = "Nguy hiểm! Gặp " + session.getEnemyName() + "!";
             c.setStatus(CharacterStatus.IN_COMBAT);
             rewardName = session.getEnemyName();
             clearGatheringState(c);
+
         } else { // 9% ITEM
             type = "ITEM";
             List<Item> items = itemRepo.findAll().stream().filter(i -> i.getItemId() >= 13).toList();
@@ -183,14 +197,12 @@ public class ExplorationService {
                 .build();
     }
 
-    // [QUAN TRỌNG] Hàm tạo session mới, lưu đầy đủ thông tin để tránh NullPointer
     private BattleSession createBattleSession(Character player, Enemy enemy) {
         BattleSession session = battleSessionRepo.findByCharacter_CharId(player.getCharId())
                 .orElse(new BattleSession());
 
         session.setCharacter(player);
 
-        // Lưu thông tin Quái
         session.setEnemyId(enemy.getEnemyId());
         session.setEnemyName(enemy.getName());
         session.setEnemyMaxHp(enemy.getHp());
@@ -199,7 +211,7 @@ public class ExplorationService {
         session.setEnemyDef(enemy.getDef());
         session.setEnemySpeed(enemy.getSpeed());
 
-        // Lưu thông tin Người chơi (Snapshot) -> Sửa lỗi NullPointer
+        // Lưu snapshot Player
         session.setPlayerMaxHp(player.getMaxHp());
         session.setPlayerCurrentHp(player.getCurrentHp());
         session.setPlayerCurrentEnergy(player.getCurrentEnergy());
@@ -209,45 +221,30 @@ public class ExplorationService {
         return battleSessionRepo.save(session);
     }
 
-    // --- Các hàm phụ trợ giữ nguyên ---
+    // --- Helpers (Giữ nguyên) ---
     @Transactional
     public Map<String, Object> gatherResource(Integer itemId, int amount) {
         Character c = characterService.getMyCharacter();
-        if (c.getGatheringItemId() == null || !c.getGatheringItemId().equals(itemId)) {
-            throw new RuntimeException("Tài nguyên không còn ở đây hoặc ID không khớp!");
-        }
+        if (c.getGatheringItemId() == null || !c.getGatheringItemId().equals(itemId)) throw new RuntimeException("Lỗi tài nguyên!");
         if (c.getGatheringExpiry() != null && LocalDateTime.now().isAfter(c.getGatheringExpiry())) {
-            clearGatheringState(c);
-            characterRepository.save(c);
-            throw new RuntimeException("Mỏ tài nguyên đã cạn kiệt (hết thời gian)!");
+            clearGatheringState(c); characterRepository.save(c); throw new RuntimeException("Mỏ tài nguyên đã cạn kiệt!");
         }
         if (c.getGatheringRemainingAmount() < amount) amount = c.getGatheringRemainingAmount();
         if (c.getCurrentEnergy() < amount) throw new RuntimeException("Không đủ năng lượng!");
-
         c.setCurrentEnergy(c.getCurrentEnergy() - amount);
         c.setGatheringRemainingAmount(c.getGatheringRemainingAmount() - amount);
-
         Wallet wallet = c.getUser().getWallet();
         addItemToWallet(wallet, itemId, amount);
         walletRepository.save(wallet);
-
         if (c.getGatheringRemainingAmount() <= 0) clearGatheringState(c);
         characterRepository.save(c);
-
-        Item item = itemRepo.findById(itemId).orElse(null);
-        String itemName = (item != null) ? item.getName() : "Vật phẩm";
-
         Map<String, Object> res = new HashMap<>();
-        res.put("message", "Thu hoạch thành công " + amount + " " + itemName);
+        res.put("message", "Thu hoạch thành công");
         res.put("currentEnergy", c.getCurrentEnergy());
         res.put("remainingAmount", c.getGatheringRemainingAmount());
         return res;
     }
-
-    private int safeGet(Integer value) {
-        return value == null ? 0 : value;
-    }
-
+    private int safeGet(Integer value) { return value == null ? 0 : value; }
     private void addItemToWallet(Wallet w, int itemId, int amount) {
         switch (itemId) {
             case 1: w.setWood(safeGet(w.getWood()) + amount); break;
@@ -262,47 +259,28 @@ public class ExplorationService {
             case 10: w.setShark(safeGet(w.getShark()) + amount); break;
             case 11: w.setEchoCoin(safeGet(w.getEchoCoin()) + amount); break;
             case 12: w.setUnknownMaterial(safeGet(w.getUnknownMaterial()) + amount); break;
-            default: System.out.println("Warning: Item ID " + itemId + " không được hỗ trợ trong Wallet.");
         }
     }
-
-    private void clearGatheringState(Character c) {
-        c.setGatheringItemId(null);
-        c.setGatheringRemainingAmount(0);
-        c.setGatheringExpiry(null);
-    }
-
+    private void clearGatheringState(Character c) { c.setGatheringItemId(null); c.setGatheringRemainingAmount(0); c.setGatheringExpiry(null); }
     private Integer checkLevelUp(Character c) {
         Integer leveledUpTo = null;
         while (c.getCurrentExp() >= (long) c.getLevel() * 100L) {
             c.setCurrentExp(c.getCurrentExp() - (long) c.getLevel() * 100L);
             c.setLevel(c.getLevel() + 1);
-            c.setMaxHp(c.getMaxHp() + 20);
-            c.setCurrentHp(c.getMaxHp());
+            c.setMaxHp(c.getMaxHp() + 20); c.setCurrentHp(c.getMaxHp());
             c.setCurrentEnergy(c.getMaxEnergy());
             leveledUpTo = c.getLevel();
         }
         return leveledUpTo;
     }
-
     private void addItemToInventory(Character character, Item item, int amount) {
         Optional<UserItem> existing = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), item.getItemId())
-                .stream()
-                .filter(ui -> !Boolean.TRUE.equals(ui.getIsEquipped()))
-                .findFirst();
-
+                .stream().filter(ui -> !Boolean.TRUE.equals(ui.getIsEquipped())).findFirst();
         if (existing.isPresent()) {
-            UserItem ui = existing.get();
-            ui.setQuantity(ui.getQuantity() + amount);
-            userItemRepo.save(ui);
+            UserItem ui = existing.get(); ui.setQuantity(ui.getQuantity() + amount); userItemRepo.save(ui);
         } else {
-            UserItem ui = new UserItem();
-            ui.setCharacter(character);
-            ui.setItem(item);
-            ui.setQuantity(amount);
-            ui.setIsEquipped(false);
-            ui.setEnhanceLevel(0);
-            userItemRepo.save(ui);
+            UserItem ui = new UserItem(); ui.setCharacter(character); ui.setItem(item); ui.setQuantity(amount);
+            ui.setIsEquipped(false); ui.setEnhanceLevel(0); userItemRepo.save(ui);
         }
     }
 }

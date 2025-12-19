@@ -54,7 +54,7 @@
 
         <router-link to="/leaderboard" class="nav-item">
           <div class="nav-icon"><i class="fas fa-crown"></i></div>
-          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">BẢNG VÀNG</span></transition>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">THIÊN THƯ</span></transition>
           <div class="active-glow"></div>
         </router-link>
 

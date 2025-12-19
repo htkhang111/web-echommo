@@ -71,7 +71,7 @@ public class LeaderboardService {
             if ("LEVEL".equals(type)) {
                 displayValue = "Lv " + c.getLevel();
             } else if ("MONSTER".equals(type)) {
-                displayValue = String.format("%,d Quái", c.getMonsterKills());
+                displayValue = String.format("%,d Trảm", c.getMonsterKills());
             }
             result.add(new LeaderboardEntry(username, displayValue, rank, avatar));
         }

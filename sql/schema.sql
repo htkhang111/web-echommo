@@ -444,3 +444,41 @@ SELECT enemy_id, name, level, gold_reward, exp_reward FROM enemies;
 USE echommo_db;
 TRUNCATE TABLE battle_sessions;
 UPDATE characters SET current_hp = max_hp, current_energy = max_energy;
+
+USE echommo_db;
+
+-- MAP 1: ĐỒNG BẰNG (Lv 1-19)
+INSERT INTO enemies (name, hp, atk, def, speed, exp_reward, gold_reward) VALUES
+                                                                             ('Slime Đồng Cỏ', 100, 15, 2, 5, 20, 10),
+                                                                             ('Sói Non', 150, 25, 5, 12, 35, 15),
+                                                                             ('Chuột Đồng', 80, 20, 0, 15, 15, 5);
+
+-- MAP 2: RỪNG RẬM (Lv 20-30)
+INSERT INTO enemies (name, hp, atk, def, speed, exp_reward, gold_reward) VALUES
+                                                                             ('Người Rừng', 300, 40, 10, 8, 60, 30),
+                                                                             ('Gấu Hoang', 500, 50, 20, 5, 100, 50),
+                                                                             ('Nhện Rừng', 250, 45, 5, 20, 55, 25);
+
+-- MAP 3: SA MẠC (Lv 30-40)
+INSERT INTO enemies (name, hp, atk, def, speed, exp_reward, gold_reward) VALUES
+                                                                             ('Bọ Cát', 400, 60, 30, 10, 120, 60),
+                                                                             ('Xác Ướp Lang Thang', 600, 70, 25, 5, 150, 80),
+                                                                             ('Bọ Hung Khổng Lồ', 800, 80, 50, 2, 200, 100);
+
+-- MAP 4: NÚI CAO (Lv 40-50)
+INSERT INTO enemies (name, hp, atk, def, speed, exp_reward, gold_reward) VALUES
+                                                                             ('Golem Đá', 1500, 100, 100, 1, 300, 150),
+                                                                             ('Đại Bàng Núi', 700, 120, 20, 30, 250, 120),
+                                                                             ('Người Lùn Đào Mỏ', 900, 90, 40, 10, 280, 140);
+
+-- MAP 5: BĂNG ĐẢO (Lv 50-60)
+INSERT INTO enemies (name, hp, atk, def, speed, exp_reward, gold_reward) VALUES
+                                                                             ('Gấu Băng', 2000, 150, 80, 5, 400, 200),
+                                                                             ('Người Tuyết', 1800, 130, 60, 10, 380, 180),
+                                                                             ('Tinh Linh Băng', 1200, 180, 30, 25, 450, 220);
+
+-- MAP 6: ĐẦM LẦY (Lv 60-70)
+INSERT INTO enemies (name, hp, atk, def, speed, exp_reward, gold_reward) VALUES
+                                                                             ('Quái Đầm Lầy', 3000, 200, 100, 5, 600, 300),
+                                                                             ('Rắn Độc Khổng Lồ', 2500, 250, 50, 35, 700, 350),
+                                                                             ('Linh Hồn Sa Lầy', 2000, 300, 10, 40, 800, 400);
