@@ -1,7 +1,7 @@
 <template>
   <div class="app-layout wuxia-theme" :style="{ '--sidebar-width': isCollapsed ? '80px' : '260px' }">
     <div class="ink-bg-layer">
-      <div class="mountain-bg"></div>
+      <div class="mountain-bg" :style="{ backgroundImage: `url(${bgImage})` }"></div>
       <div class="fog-overlay"></div>
     </div>
 
@@ -98,11 +98,14 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
 import GameHeader from "../components/GameHeader.vue";
 import GameFooter from "../components/GameFooter.vue";
-import appLogo from "@/assets/logo/Logo.png";
+import { getAppLogo, getAssetUrl } from "@/utils/assetHelper"; // [FIX]
 
 const authStore = useAuthStore();
 const router = useRouter();
 const isCollapsed = ref(false);
+
+const appLogo = getAppLogo();
+const bgImage = getAssetUrl("b_doanhtrai.png"); // Dùng ảnh từ github
 
 const toggleSidebar = () => { isCollapsed.value = !isCollapsed.value; };
 
@@ -115,7 +118,6 @@ const handleLogout = () => {
 </script>
 
 <style scoped>
-/* CSS Giao diện cũ (Dark Wuxia Theme) */
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Serif+TC:wght@500;700;900&family=Orbitron:wght@400;700&display=swap");
 
 .wuxia-theme { 
@@ -124,7 +126,8 @@ const handleLogout = () => {
 }
 
 .ink-bg-layer { position: fixed; inset: 0; z-index: 0; background-color: var(--bg-deep); }
-.mountain-bg { position: absolute; inset: 0; background-image: url("@/assets/Background/b_doanhtrai.png"); background-size: cover; filter: sepia(30%) grayscale(20%) brightness(0.3); opacity: 0.5; }
+/* Xóa background-image cứng trong CSS, dùng inline-style ở template */
+.mountain-bg { position: absolute; inset: 0; background-size: cover; filter: sepia(30%) grayscale(20%) brightness(0.3); opacity: 0.5; }
 .fog-overlay { position: absolute; inset: 0; background: linear-gradient( to right, rgba(10, 7, 6, 0.95), rgba(10, 7, 6, 0.5) ); pointer-events: none; }
 
 .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-width); z-index: 1000; display: flex; flex-direction: column; transition: width 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); background: var(--sidebar-bg); border-right: 2px solid var(--sidebar-border); box-shadow: 5px 0 20px rgba(0, 0, 0, 0.6); }

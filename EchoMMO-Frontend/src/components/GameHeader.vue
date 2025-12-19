@@ -5,6 +5,7 @@
     <div class="spacer"></div>
 
     <div class="hud-container" v-if="authStore.token">
+      
       <div class="resource-bank">
         <div class="res-module gold" title="Ngân Lượng">
           <div class="res-icon"><i class="fas fa-coins"></i></div>
@@ -26,6 +27,10 @@
           </div>
         </div>
       </div>
+
+      <div class="hud-icon-node chat-node" @click="chatStore.openChat()" title="Truyền Thư">
+         <div class="node-icon"><i class="fas fa-envelope"></i></div>
+         </div>
 
       <router-link to="/friends" class="hud-icon-node friend-node" :class="{ 'has-signal': friendRequestCount > 0 }">
         <div class="node-icon"><i class="fas fa-user-friends"></i></div>
@@ -53,57 +58,48 @@
             <img :src="userSkinAvatar" class="pixel-focus" @error="handleAvatarError"/>
           </div>
         </router-link>
-        
-        </div>
+      </div>
 
     </div>
   </header>
+
+  <ChatWidget />
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router"; // [THÊM]
 import { useAuthStore } from "../stores/authStore";
 import { useCharacterStore } from "../stores/characterStore";
 import { useNotificationStore } from "../stores/notificationStore";
+import { useChatStore } from "../stores/chatStore"; // [MỚI]
 import { getCurrentSkin } from "@/utils/assetHelper";
+import ChatWidget from "./ChatWidget.vue"; // [MỚI]
 
-const router = useRouter(); // [THÊM]
 const authStore = useAuthStore();
 const charStore = useCharacterStore();
 const notiStore = useNotificationStore();
+const chatStore = useChatStore(); // [MỚI]
 
 const friendRequestCount = ref(0);
 
 // Xử lý Avatar an toàn
 const userSkinAvatar = computed(() => {
   const skin = getCurrentSkin(authStore.user?.avatarUrl);
-  return skin ? skin.sprites.idle : '/default-avatar.png'; // Fallback nếu lỗi
+  return skin ? skin.sprites.idle : 'https://placehold.co/50?text=U';
 });
 
-// [FIXED] Xử lý lỗi ảnh avatar để tránh lặp vô tận
+// Xử lý lỗi ảnh avatar
 const handleAvatarError = (e) => {
-  const fallbackUrl = "https://placehold.co/50?text=U"; // Dùng service ổn định hơn
-  
-  // Nếu ảnh hiện tại đã là ảnh fallback mà vẫn lỗi, thì dừng lại (return) để không lặp
+  const fallbackUrl = "https://placehold.co/50?text=U";
   if (e.target.src === fallbackUrl || e.target.src.includes('placehold.co')) {
     return;
   }
-  
   e.target.src = fallbackUrl;
 }
 
-// Lấy Vàng từ Wallet (đảm bảo không crash nếu null)
+// Lấy Vàng/Kim Cương từ Wallet
 const currentGold = computed(() => authStore.user?.wallet?.gold || 0);
 const currentDiamonds = computed(() => authStore.user?.wallet?.diamonds || 0);
-
-// [FIX] HÀM LOGOUT CHUẨN
-// const handleLogout = () => {
-//   if (confirm("Đại hiệp muốn quy ẩn giang hồ?")) {
-//     authStore.logout(); // Xóa token
-//     router.push({ name: "Login" }); // Chuyển trang (đảm bảo route tên 'Login')
-//   }
-// };
 
 const formatNumber = (val) => {
   const num = Number(val);
@@ -117,7 +113,6 @@ const formatNumber = (val) => {
 onMounted(() => {
   if (authStore.token) {
     notiStore.fetchUnreadCount();
-    // Nếu App.vue chưa gọi thì gọi ở đây cho chắc
     if (!charStore.character) charStore.fetchCharacter(); 
   }
 });
@@ -205,6 +200,8 @@ onMounted(() => {
   min-width: 18px; text-align: center; box-shadow: 0 2px 2px rgba(0, 0, 0, 0.3);
 }
 
+.chat-node { margin-right: 5px; }
+
 /* Profile Group */
 .profile-group {
   display: flex; align-items: center; gap: 10px;
@@ -222,18 +219,6 @@ onMounted(() => {
   overflow: hidden; display: flex; justify-content: center; align-items: center;
 }
 .pixel-focus { width: 130%; height: 130%; object-fit: contain; object-position: center; image-rendering: pixelated; }
-
-/* Logout Button */
-/* .btn-logout {
-  background: #2b1d1a; color: #ef5350; border: 1px solid #5d4037;
-  width: 36px; height: 36px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; transition: all 0.2s;
-}
-.btn-logout:hover {
-  background: #b71c1c; color: #fff; transform: scale(1.1);
-  box-shadow: 0 0 10px #b71c1c;
-} */
 
 @media (max-width: 600px) {
   .mobile-hide { display: none; }

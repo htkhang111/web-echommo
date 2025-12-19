@@ -1,382 +1,226 @@
 <template>
-  <div
-    class="chat-trigger"
-    @click="chatStore.toggleChat"
-    v-if="!chatStore.isChatOpen"
-  >
-    <div class="trigger-icon"><i class="fas fa-comment-dots"></i></div>
-    <div class="trigger-glow"></div>
-  </div>
-
-  <transition name="pop-up">
-    <div v-if="chatStore.isChatOpen" class="dark-chat-window">
+  <div v-if="chatStore.isWidgetOpen" class="chat-widget-overlay" @click.self="closeChat">
+    <div class="chat-widget-window">
       <div class="chat-header">
-        <div class="chat-title">
-          <span class="decor">❖</span> Quan Phủ (Admin)
-          <span class="decor">❖</span>
-        </div>
-        <button @click="chatStore.closeChat" class="btn-close">
-          <i class="fas fa-times"></i>
-        </button>
+        <div class="header-title"><i class="fas fa-envelope"></i> Truyền Thư</div>
+        <button class="close-btn" @click="closeChat"><i class="fas fa-times"></i></button>
       </div>
 
-      <div class="chat-stream custom-scroll" ref="msgBox">
-        <div v-if="messages.length === 0" class="chat-init">
-          <span class="divider">-- Kết nối thành công --</span>
-          <p style="margin-top: 10px; font-size: 0.9em; color: #888">
-            Đại hiệp có việc gì cần bẩm báo?
-          </p>
+      <div class="chat-body">
+        <div class="chat-sidebar">
+          <div class="sidebar-header">Tin Nhắn</div>
+          <div class="conversation-list custom-scroll">
+             <div v-if="loadingList" class="loading-text">Đang tải...</div>
+             <div v-else-if="conversations.length === 0" class="empty-conv">Chưa có tin nhắn.</div>
+             
+             <div 
+                v-for="conv in conversations" 
+                :key="conv.userId"
+                class="conv-item"
+                :class="{ active: currentChatUser?.id === conv.userId }"
+                @click="selectUser(conv)"
+             >
+                <div class="conv-avatar">
+                  <img :src="getAvatar(conv.avatarUrl)" @error="handleAvatarError" />
+                  <span v-if="conv.unreadCount > 0" class="conv-badge">{{ conv.unreadCount }}</span>
+                </div>
+                <div class="conv-info">
+                   <div class="conv-name">{{ conv.username }}</div>
+                   <div class="conv-preview" :class="{ unread: conv.unreadCount > 0 }">
+                     {{ conv.lastMessage || '...' }}
+                   </div>
+                </div>
+             </div>
+          </div>
         </div>
 
-        <div
-          v-for="msg in messages"
-          :key="msg.id"
-          class="msg-row"
-          :class="{ me: msg.sender === 'me' }"
-        >
-          <div v-if="msg.sender !== 'me'" class="sender-icon">
-            <i class="fas fa-user-shield"></i>
-          </div>
+        <div class="chat-main" v-if="currentChatUser">
+           <div class="chat-main-header">
+              <span class="user-status-dot online"></span> 
+              <span class="partner-name">{{ currentChatUser.username }}</span>
+           </div>
+           
+           <div class="messages-area custom-scroll" ref="msgContainer">
+              <div v-for="(msg, index) in messages" :key="index" class="message-row" :class="{ 'my-msg': msg.isMine }">
+                 <div class="msg-bubble">{{ msg.content }}</div>
+                 <div class="msg-time">{{ formatTime(msg.timestamp) }}</div>
+              </div>
+           </div>
 
-          <div class="msg-bubble">
-            {{ msg.text }}
-            <div class="msg-time">{{ formatTime(msg.timestamp) }}</div>
-          </div>
+           <div class="chat-input-area">
+              <input v-model="newMessage" @keyup.enter="sendMessage" placeholder="Nhập tin nhắn..." ref="inputRef" />
+              <button @click="sendMessage" :disabled="!newMessage.trim()"><i class="fas fa-paper-plane"></i></button>
+           </div>
         </div>
-      </div>
 
-      <div class="chat-input-area">
-        <input
-          v-model="inputMsg"
-          @keyup.enter="sendMessage"
-          placeholder="Nhập mật thư..."
-          class="dark-chat-input"
-          ref="inputFocus"
-        />
-        <button @click="sendMessage" class="btn-send">
-          <i class="fas fa-paper-plane"></i>
-        </button>
+        <div class="chat-main empty-main" v-else>
+           <i class="fas fa-paper-plane big-icon"></i>
+           <p>Chọn bằng hữu để đàm đạo</p>
+        </div>
       </div>
     </div>
-  </transition>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from "vue";
-import { useChatStore } from "@/stores/chatStore";
+import { ref, onMounted, nextTick, watch, onUnmounted } from 'vue';
+import axiosClient from '@/api/axiosClient';
+import { useAuthStore } from '@/stores/authStore';
+import { useChatStore } from '@/stores/chatStore'; // [MỚI]
+import { getCurrentSkin } from "@/utils/assetHelper";
 
-const chatStore = useChatStore();
-const inputMsg = ref("");
+const authStore = useAuthStore();
+const chatStore = useChatStore(); // [MỚI]
+
+const conversations = ref([]);
 const messages = ref([]);
-const msgBox = ref(null);
-const inputFocus = ref(null);
-const chatKey = "chat_history_admin";
+const currentChatUser = ref(null);
+const newMessage = ref("");
+const msgContainer = ref(null);
+const inputRef = ref(null);
+const loadingList = ref(false);
 
-// --- LOGIC GIỐNG CŨ ---
-const loadMessages = () => {
-  messages.value = JSON.parse(localStorage.getItem(chatKey) || "[]");
-  scrollToBottom();
+const closeChat = () => {
+  chatStore.closeChat();
 };
 
-const scrollToBottom = async () => {
-  await nextTick();
-  if (msgBox.value) {
-    msgBox.value.scrollTop = msgBox.value.scrollHeight;
+const fetchConversations = async () => {
+  loadingList.value = true;
+  try {
+    const res = await axiosClient.get('/messages/conversations');
+    conversations.value = res.data;
+  } catch (e) {
+    console.error("Lỗi load hội thoại", e);
+  } finally {
+    loadingList.value = false;
   }
 };
 
-const formatTime = (isoString) => {
-  if (!isoString) return "";
-  return new Date(isoString).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const selectUser = async (conv) => {
+  currentChatUser.value = { id: conv.userId, username: conv.username };
+  messages.value = [];
+  
+  if (conv.unreadCount > 0) {
+     try { await axiosClient.post(`/messages/read/${conv.userId}`); conv.unreadCount = 0; } catch(e){}
+  }
+  
+  await fetchHistory(conv.userId);
+  scrollToBottom();
+  nextTick(() => inputRef.value?.focus());
 };
 
-const sendMessage = () => {
-  if (!inputMsg.value.trim()) return;
+const fetchHistory = async (userId) => {
+  try {
+    const res = await axiosClient.get(`/messages/history/${userId}`);
+    messages.value = res.data.map(m => ({
+      content: m.content,
+      timestamp: m.timestamp,
+      isMine: m.senderId === authStore.user.id
+    }));
+  } catch (e) { console.error(e); }
+};
 
-  const newMsg = {
-    id: Date.now(),
-    text: inputMsg.value,
-    sender: "me",
-    timestamp: new Date().toISOString(),
-  };
-
-  messages.value.push(newMsg);
-  localStorage.setItem(chatKey, JSON.stringify(messages.value));
-  inputMsg.value = "";
+const sendMessage = async () => {
+  if (!newMessage.value.trim() || !currentChatUser.value) return;
+  const content = newMessage.value;
+  newMessage.value = "";
+  
+  messages.value.push({ content, timestamp: new Date().toISOString(), isMine: true });
   scrollToBottom();
 
-  // Giả lập Admin trả lời sau 2s (Cho sinh động)
-  setTimeout(() => {
-    const replyMsg = {
-      id: Date.now(),
-      text: "Bổn phủ đã nhận được tin. Sẽ xử lý ngay!",
-      sender: "admin",
-      timestamp: new Date().toISOString(),
-    };
-    messages.value.push(replyMsg);
-    localStorage.setItem(chatKey, JSON.stringify(messages.value));
-    scrollToBottom();
-  }, 2000);
+  try {
+    await axiosClient.post('/messages/send', { receiverId: currentChatUser.value.id, content });
+    const conv = conversations.value.find(c => c.userId === currentChatUser.value.id);
+    if (conv) conv.lastMessage = "Bạn: " + content;
+  } catch (e) { console.error(e); }
 };
 
-// Auto scroll & focus khi mở chat
-watch(
-  () => chatStore.isChatOpen,
-  (newVal) => {
-    if (newVal) {
-      loadMessages();
-      nextTick(() => inputFocus.value?.focus());
-    }
-  },
-);
+const scrollToBottom = () => {
+  nextTick(() => { if (msgContainer.value) msgContainer.value.scrollTop = msgContainer.value.scrollHeight; });
+};
 
-// Lắng nghe sự kiện từ HelpView gửi sang
-window.addEventListener("storage", () => {
-  loadMessages();
+// [QUAN TRỌNG] Watch store state để mở đúng user khi Admin/Header gọi
+watch(() => chatStore.isWidgetOpen, (isOpen) => {
+  if (isOpen) {
+    fetchConversations().then(() => {
+        // Nếu có targetUser từ store (vd bấm từ Admin)
+        if (chatStore.privateChatTarget) {
+            // Check xem đã có trong list chưa
+            let target = conversations.value.find(c => c.userId === chatStore.privateChatTarget.id);
+            if (!target) {
+                // Tạo fake conversation nếu chưa có
+                target = {
+                    userId: chatStore.privateChatTarget.id,
+                    username: chatStore.privateChatTarget.username,
+                    avatarUrl: chatStore.privateChatTarget.avatarUrl,
+                    lastMessage: '',
+                    unreadCount: 0
+                };
+                conversations.value.unshift(target);
+            }
+            selectUser(target);
+        }
+    });
+  }
 });
 
+const getAvatar = (url) => getCurrentSkin(url)?.sprites?.idle || 'https://placehold.co/50?text=U';
+const handleAvatarError = (e) => { if(!e.target.src.includes('placehold')) e.target.src = 'https://placehold.co/50?text=U'; };
+const formatTime = (iso) => iso ? new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+
+let pollingInterval;
 onMounted(() => {
-  loadMessages();
+    pollingInterval = setInterval(() => {
+        if (chatStore.isWidgetOpen) {
+            // Polling đơn giản để update tin mới (nên dùng socket nếu có thời gian)
+            if (currentChatUser.value) fetchHistory(currentChatUser.value.id);
+        }
+    }, 5000);
 });
+onUnmounted(() => clearInterval(pollingInterval));
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
-@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
-
-/* --- COPY STYLE TỪ FRIENDS PAGE --- */
-.dark-chat-window {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 340px;
-  height: 480px;
-  background: #1a1a1a;
-  border: 2px solid #ffecb3; /* Gold border */
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  z-index: 9999;
-  box-shadow: 0 5px 30px rgba(0, 0, 0, 0.9);
-  font-family: "Noto Serif TC", serif;
-}
-
-/* HEADER */
-.chat-header {
-  background: #5d4037; /* Wood light */
-  padding: 10px 15px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #ffecb3;
-}
-.chat-title {
-  color: #ffecb3;
-  font-weight: bold;
-  font-size: 1rem;
-}
-.decor {
-  color: #b71c1c;
-  margin: 0 5px;
-} /* Red accent */
-
-.btn-close {
-  background: none;
-  border: none;
-  color: #ccc;
-  cursor: pointer;
-  font-size: 1.1em;
-}
-.btn-close:hover {
-  color: #fff;
-}
-
-/* BODY STREAM */
-.chat-stream {
-  flex: 1;
-  padding: 15px;
-  overflow-y: auto;
-  background: #261815; /* Darker wood */
-  /* Thêm background pattern gỗ nhẹ nếu muốn */
-  background-image: url("https://www.transparenttextures.com/patterns/wood-pattern.png");
-}
-
-.chat-init {
-  text-align: center;
-  color: #555;
-  font-size: 0.8rem;
-  margin-bottom: 20px;
-}
-.divider {
-  border-bottom: 1px dashed #444;
-  padding-bottom: 5px;
-}
-
-/* MESSAGES */
-.msg-row {
-  display: flex;
-  margin-bottom: 15px;
-  align-items: flex-end;
-}
-.msg-row.me {
-  justify-content: flex-end;
-}
-
-/* Bong bóng chat */
-.msg-bubble {
-  padding: 10px 14px;
-  border-radius: 8px;
-  max-width: 75%;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  position: relative;
-  word-wrap: break-word;
-}
-
-/* Tin nhắn của ADMIN (Bên trái) */
-.msg-row:not(.me) .msg-bubble {
-  background: #3e2723; /* Wood dark */
-  color: #ddd;
-  border: 1px solid #5d4037;
-  border-bottom-left-radius: 0;
-  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
-}
-
-/* Tin nhắn của MÌNH (Bên phải) */
-.msg-row.me .msg-bubble {
-  background: #5d4037; /* Wood light */
-  color: #ffecb3; /* Gold text */
-  border: 1px solid #8d6e63;
-  border-bottom-right-radius: 0;
-  box-shadow: -2px 2px 5px rgba(0, 0, 0, 0.3);
-}
-
-.msg-time {
-  font-size: 0.65em;
-  opacity: 0.6;
-  text-align: right;
-  margin-top: 4px;
-}
-
-.sender-icon {
-  width: 24px;
-  height: 24px;
-  background: #b71c1c;
-  color: #fff;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.7em;
-  margin-right: 8px;
-  margin-bottom: 2px;
-}
-
-/* FOOTER INPUT */
-.chat-input-area {
-  padding: 12px;
-  background: #1a1a1a;
-  border-top: 1px solid #5d4037;
-  display: flex;
-  gap: 10px;
-}
-
-.dark-chat-input {
-  flex: 1;
-  background: #000;
-  border: 1px solid #444;
-  color: #fff;
-  padding: 8px 12px;
-  font-family: inherit;
-  border-radius: 4px;
-}
-.dark-chat-input:focus {
-  border-color: #ffecb3;
-  outline: none;
-}
-
-.btn-send {
-  background: #ffecb3; /* Gold */
-  color: #261815;
-  border: none;
-  padding: 0 15px;
-  cursor: pointer;
-  font-weight: bold;
-  border-radius: 4px;
-  transition: 0.2s;
-}
-.btn-send:hover {
-  background: #ffca28;
-}
-
-/* NÚT TRÒN NỔI (TRIGGER) */
-.chat-trigger {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 60px;
-  height: 60px;
-  background: #b71c1c; /* Red seal */
-  border-radius: 50%;
-  z-index: 9998;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
-  border: 2px solid #ffecb3;
-  transition: transform 0.3s;
-}
-.chat-trigger:hover {
-  transform: scale(1.1);
-}
-.trigger-icon {
-  color: #ffecb3;
-  font-size: 1.8em;
-  z-index: 2;
-}
-.trigger-glow {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  animation: pulse 2s infinite;
-  border: 1px solid #ffecb3;
-}
-
-/* ANIMATIONS */
-.pop-up-enter-active,
-.pop-up-leave-active {
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-.pop-up-enter-from,
-.pop-up-leave-to {
-  transform: translateY(120%);
-  opacity: 0;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-  100% {
-    transform: scale(1.5);
-    opacity: 0;
-  }
-}
-
-/* SCROLLBAR */
-.custom-scroll::-webkit-scrollbar {
-  width: 5px;
-}
-.custom-scroll::-webkit-scrollbar-thumb {
-  background: #5d4037;
-  border-radius: 3px;
-}
-.custom-scroll::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-}
+/* Copy CSS cũ của ChatWidget.vue ở các câu trả lời trước, không thay đổi */
+.chat-widget-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.chat-widget-window { width: 800px; height: 600px; background: #2b1d1a; border: 2px solid #5d4037; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+.chat-header { background: #3e2723; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: #fbc02d; font-family: "Cinzel", serif; border-bottom: 1px solid #5d4037; }
+.close-btn { background: none; border: none; color: #ef5350; font-size: 1.2em; cursor: pointer; }
+.chat-body { display: flex; flex: 1; overflow: hidden; }
+.chat-sidebar { width: 260px; background: #1a1510; border-right: 1px solid #5d4037; display: flex; flex-direction: column; }
+.sidebar-header { padding: 10px; color: #a1887f; font-weight: bold; border-bottom: 1px solid #3e2723; }
+.conversation-list { flex: 1; overflow-y: auto; }
+.loading-text, .empty-conv { text-align: center; color: #777; padding: 20px; }
+.conv-item { display: flex; gap: 10px; padding: 12px 10px; cursor: pointer; border-bottom: 1px solid #2b1d1a; transition: 0.2s; }
+.conv-item:hover { background: #3e2723; }
+.conv-item.active { background: #4e342e; border-left: 3px solid #fbc02d; }
+.conv-avatar { position: relative; width: 42px; height: 42px; border-radius: 50%; overflow: hidden; border: 1px solid #8d6e63; background: #000; }
+.conv-avatar img { width: 100%; height: 100%; object-fit: contain; }
+.conv-badge { position: absolute; top: -2px; right: -2px; background: #d32f2f; color: white; font-size: 10px; padding: 2px 5px; border-radius: 10px; font-weight: bold; border: 1px solid #fff; }
+.conv-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
+.conv-name { font-weight: bold; color: #eecfa1; font-size: 0.95em; }
+.conv-preview { font-size: 0.85em; color: #8d6e63; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-preview.unread { color: #fbc02d; font-weight: bold; }
+.chat-main { flex: 1; display: flex; flex-direction: column; background: #261815; position: relative; }
+.chat-main-header { padding: 10px 15px; background: #3e2723; color: #fff; font-weight: bold; border-bottom: 1px solid #5d4037; display: flex; align-items: center; gap: 10px; }
+.user-status-dot { width: 8px; height: 8px; background: #00e676; border-radius: 50%; box-shadow: 0 0 5px #00e676; }
+.partner-name { color: #fbc02d; font-family: "Cinzel", serif; }
+.messages-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; background-color: rgba(0,0,0,0.2); }
+.message-row { display: flex; flex-direction: column; align-items: flex-start; max-width: 75%; }
+.message-row.my-msg { align-self: flex-end; align-items: flex-end; }
+.msg-bubble { background: #424242; color: #fff; padding: 10px 14px; border-radius: 12px; border: 1px solid #616161; word-wrap: break-word; font-size: 0.95em; line-height: 1.4; border-top-left-radius: 2px; }
+.my-msg .msg-bubble { background: #1b5e20; border-color: #2e7d32; border-top-left-radius: 12px; border-top-right-radius: 2px; }
+.msg-time { font-size: 0.7em; color: #757575; margin-top: 4px; padding: 0 2px; }
+.chat-input-area { padding: 15px; background: #2b1d1a; display: flex; gap: 10px; border-top: 1px solid #5d4037; }
+.chat-input-area input { flex: 1; padding: 10px 12px; background: #1a1510; border: 1px solid #5d4037; color: #fff; border-radius: 4px; outline: none; transition: 0.3s; }
+.chat-input-area input:focus { border-color: #fbc02d; box-shadow: 0 0 5px rgba(251, 192, 45, 0.3); }
+.chat-input-area button { background: #fbc02d; border: none; padding: 0 20px; cursor: pointer; border-radius: 4px; font-weight: bold; color: #3e2723; transition: 0.2s; }
+.chat-input-area button:hover { background: #ffca28; transform: translateY(-1px); }
+.chat-input-area button:disabled { background: #5d4037; color: #8d6e63; cursor: not-allowed; }
+.empty-main { align-items: center; justify-content: center; color: #5d4037; display: flex; flex-direction: column; }
+.big-icon { font-size: 4em; margin-bottom: 10px; opacity: 0.5; }
+.custom-scroll::-webkit-scrollbar { width: 6px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #5d4037; border-radius: 3px; }
+.custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+@media (max-width: 768px) { .chat-widget-window { width: 100%; height: 100%; border-radius: 0; } .chat-sidebar { width: 70px; } .sidebar-header, .conv-info { display: none; } .conv-item { justify-content: center; padding: 10px 0; } .conv-avatar { width: 36px; height: 36px; } }
 </style>

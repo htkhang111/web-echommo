@@ -1,60 +1,72 @@
-import { defineStore } from "pinia";
-import axiosClient from "../api/axiosClient";
+import { defineStore } from 'pinia';
+import axiosClient from '../api/axiosClient';
 
-export const useChatStore = defineStore("chat", {
+export const useChatStore = defineStore('chat', {
   state: () => ({
-    // Dữ liệu tin nhắn
-    messages: [],
+    messages: [], // Chat thế giới
+    isConnected: false,
     isLoading: false,
-
-    // Trạng thái hiển thị của Widget Chat (Mới thêm)
-    isChatOpen: false,
+    
+    // [MỚI] State quản lý Chat Widget (Chat riêng)
+    isWidgetOpen: false,
+    privateChatTarget: null // User đang chat cùng (Object: {id, username, avatar...})
   }),
-
+  
   actions: {
-    // --- PHẦN 1: GỌI API (Backend) ---
+    // --- CHAT THẾ GIỚI ---
     async fetchMessages() {
       this.isLoading = true;
       try {
-        // Gọi API lấy tin nhắn gần đây
-        const res = await axiosClient.get("/chat/recent");
-        this.messages = res.data;
+        const res = await axiosClient.get('/chat/recent');
+        if (res.data) {
+          this.messages = res.data;
+        }
       } catch (error) {
-        console.error("Lỗi tải chat:", error);
+        console.warn("Lỗi tải chat:", error);
       } finally {
         this.isLoading = false;
       }
     },
 
-    async sendMessage(content) {
-      if (!content.trim()) return;
-      try {
-        // Gọi API gửi tin nhắn
-        await axiosClient.post("/chat/send", { content });
-        // Gửi xong thì tải lại danh sách luôn
-        await this.fetchMessages();
-      } catch (error) {
-        console.error("Gửi thất bại:", error);
-        alert("Gửi thất bại: " + (error.response?.data || "Lỗi mạng"));
+    addMessage(message) {
+      const exists = this.messages.some(m => 
+        m.timestamp === message.timestamp && 
+        m.senderName === message.senderName && 
+        m.content === message.content
+      );
+      if (!exists) {
+        this.messages.push(message);
+        if (this.messages.length > 50) this.messages.shift();
       }
     },
 
-    // --- PHẦN 2: ĐIỀU KHIỂN GIAO DIỆN (Frontend) ---
+    setConnected(status) {
+      this.isConnected = status;
+    },
+
+    // --- CHAT RIÊNG (WIDGET) ---
+    
+    // Mở chat widget (nếu có user thì chọn luôn user đó)
+    openChatWith(user) {
+      this.isWidgetOpen = true;
+      if (user) {
+        // Map field cho chuẩn format
+        this.privateChatTarget = {
+          id: user.id || user.userId,
+          username: user.username || user.senderName,
+          avatarUrl: user.avatarUrl
+        };
+      }
+    },
+
+    // Mở widget nhưng không chọn ai cụ thể (mở danh sách)
     openChat() {
-      this.isChatOpen = true;
-      // Khi mở chat lên thì tiện tay tải tin nhắn luôn
-      this.fetchMessages();
+      this.isWidgetOpen = true;
     },
 
     closeChat() {
-      this.isChatOpen = false;
-    },
-
-    toggleChat() {
-      this.isChatOpen = !this.isChatOpen;
-      if (this.isChatOpen) {
-        this.fetchMessages();
-      }
-    },
-  },
+      this.isWidgetOpen = false;
+      this.privateChatTarget = null;
+    }
+  }
 });
