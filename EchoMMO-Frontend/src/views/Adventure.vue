@@ -66,11 +66,12 @@ const addLog = async (msg) => {
     logContainer.value.scrollTop = logContainer.value.scrollHeight;
 };
 
-// --- [NEW] LOGIC GỬI CÁO THỊ XUẤT QUAN (CHAT THẾ GIỚI) ---
+// [TÍNH NĂNG MỚI] Gửi thông báo hành tẩu
 const broadcastJoinMessage = async () => {
-  const username = authStore.user?.username || "Vô Danh";
+  // Không cần lấy username ở frontend để gửi, backend sẽ tự lấy từ token để bảo mật
+  // Nhưng ta dùng username để format câu text cho đẹp
+  const username = authStore.user?.username || "Đạo hữu";
   
-  // Danh sách 5 câu thoại ngẫu nhiên theo yêu cầu
   const phrases = [
     `<b>${username}</b> Vừa xuất quan.`,
     `<b>${username}</b> Đã khởi hành.`,
@@ -82,14 +83,13 @@ const broadcastJoinMessage = async () => {
   const randomPhrase = phrases[Math.floor(Math.random() * phrases.length)];
   
   try {
-    // Gửi tin nhắn vào kênh chat chung
-    // Giả định API là /chat/send (API này phải khớp với Backend của bạn)
+    // Gọi API REST mới tạo ở ChatController
     await axiosClient.post('/chat/send', {
         content: randomPhrase
+        // senderName sẽ được backend tự điền từ token
     });
-    console.log("Đã gửi thông báo xuất quan:", randomPhrase);
   } catch (e) {
-    console.warn("Không thể gửi thông báo hành tẩu:", e);
+    console.warn("Không thể gửi thông báo:", e);
   }
 };
 
@@ -120,13 +120,12 @@ const finishFight = () => {
 };
 
 onMounted(() => {
-    // Kích hoạt thông báo ngay khi vào trang
     broadcastJoinMessage();
 });
 </script>
 
 <style scoped>
-/* Giữ nguyên Style cũ của Adventure */
+/* Giữ nguyên CSS cũ */
 .adventure-page { padding: 20px; color: #eee; max-width: 600px; margin: 0 auto; }
 .status-bar { display: flex; gap: 20px; background: #222; padding: 10px; border: 1px solid #444; justify-content: center; border-radius: 8px; margin-bottom: 20px; }
 .event-log { background: #111; height: 300px; overflow-y: auto; padding: 10px; border: 1px solid #444; margin-bottom: 15px; font-family: monospace; }

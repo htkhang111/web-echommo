@@ -282,3 +282,39 @@ CREATE TABLE skills
     required_level INT,
     image_url      VARCHAR(255)
 );
+
+USE echommo_db;
+
+-- 1. Chữa trị các dòng dữ liệu đang bị NULL (Nguyên nhân chính gây lỗi 500)
+UPDATE wallet SET wood = 0 WHERE wood IS NULL;
+UPDATE wallet SET dried_wood = 0 WHERE dried_wood IS NULL;
+UPDATE wallet SET cold_wood = 0 WHERE cold_wood IS NULL;
+UPDATE wallet SET strange_wood = 0 WHERE strange_wood IS NULL;
+UPDATE wallet SET stone = 0 WHERE stone IS NULL;
+UPDATE wallet SET copper_ore = 0 WHERE copper_ore IS NULL;
+UPDATE wallet SET iron_ore = 0 WHERE iron_ore IS NULL;
+UPDATE wallet SET platinum = 0 WHERE platinum IS NULL;
+UPDATE wallet SET fish = 0 WHERE fish IS NULL;
+UPDATE wallet SET shark = 0 WHERE shark IS NULL;
+UPDATE wallet SET echo_coin = 0 WHERE echo_coin IS NULL;
+UPDATE wallet SET unknown_material = 0 WHERE unknown_material IS NULL;
+
+-- 2. Ép kiểu dữ liệu mặc định cho bảng (Phòng ngừa hậu họa)
+ALTER TABLE wallet
+    MODIFY COLUMN wood INT DEFAULT 0,
+    MODIFY COLUMN dried_wood INT DEFAULT 0,
+    MODIFY COLUMN cold_wood INT DEFAULT 0,
+    MODIFY COLUMN strange_wood INT DEFAULT 0,
+    MODIFY COLUMN stone INT DEFAULT 0,
+    MODIFY COLUMN copper_ore INT DEFAULT 0,
+    MODIFY COLUMN iron_ore INT DEFAULT 0,
+    MODIFY COLUMN platinum INT DEFAULT 0,
+    MODIFY COLUMN fish INT DEFAULT 0,
+    MODIFY COLUMN shark INT DEFAULT 0,
+    MODIFY COLUMN echo_coin INT DEFAULT 0,
+    MODIFY COLUMN unknown_material INT DEFAULT 0;
+
+USE echommo_db;
+
+-- Đổi tên cột 'stone' thành 'coal' trong bảng ví tiền
+ALTER TABLE wallet CHANGE COLUMN stone coal INT DEFAULT 0;

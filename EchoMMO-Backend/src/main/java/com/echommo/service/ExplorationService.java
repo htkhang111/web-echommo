@@ -263,7 +263,7 @@ public class ExplorationService {
             case 2: w.setDriedWood(safeGet(w.getDriedWood()) + amount); break;
             case 3: w.setColdWood(safeGet(w.getColdWood()) + amount); break;
             case 4: w.setStrangeWood(safeGet(w.getStrangeWood()) + amount); break;
-            case 5: w.setStone(safeGet(w.getStone()) + amount); break;
+            case 5: w.setCoal(safeGet(w.getCoal()) + amount); break;
             case 6: w.setCopperOre(safeGet(w.getCopperOre()) + amount); break;
             case 7: w.setIronOre(safeGet(w.getIronOre()) + amount); break;
             case 8: w.setPlatinum(safeGet(w.getPlatinum()) + amount); break;
@@ -282,6 +282,7 @@ public class ExplorationService {
             c.setMaxHp(c.getMaxHp() + 20); c.setCurrentHp(c.getMaxHp());
             c.setCurrentEnergy(c.getMaxEnergy());
             leveledUpTo = c.getLevel();
+
         }
         return leveledUpTo;
     }

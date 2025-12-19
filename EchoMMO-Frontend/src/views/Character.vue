@@ -2036,18 +2036,21 @@ onMounted(() => {
 
     <div class="char-wrapper">
       <div class="char-grid">
+        
         <div class="panel stats-panel">
           <div class="panel-header">
             <div class="decor-line"></div>
             <h3>BẢN SẮC</h3>
             <div class="decor-line"></div>
           </div>
+
           <div class="stats-body">
             <div class="stat-row level-row">
               <span class="label">CẢNH GIỚI</span>
               <span class="value highlight">Luyện Khí Tầng {{ charStore.character?.lv || 1 }}</span>
             </div>
             <div class="divider"></div>
+            
             <div class="stat-row">
               <span class="label"><i class="fas fa-fist-raised"></i> Công Lực</span>
               <span class="value atk">
@@ -2057,6 +2060,7 @@ onMounted(() => {
                 </span>
               </span>
             </div>
+
             <div class="stat-row">
               <span class="label"><i class="fas fa-shield-alt"></i> Hộ Thể</span>
               <span class="value def">
@@ -2066,6 +2070,7 @@ onMounted(() => {
                 </span>
               </span>
             </div>
+
             <div class="stat-row">
               <span class="label"><i class="fas fa-wind"></i> Thân Pháp</span>
               <span class="value speed">
@@ -2075,13 +2080,11 @@ onMounted(() => {
                 </span>
               </span>
             </div>
+
             <div class="stat-row">
               <span class="label"><i class="fas fa-bolt"></i> Bạo Kích</span>
               <span class="value crit">
                 {{ totalStats.crit }}%
-                <span v-if="totalStats.crit > (charStore.character?.baseCritRate || 0)" class="stat-bonus">
-                  (+{{ (totalStats.crit - (charStore.character?.baseCritRate || 0)).toFixed(1) }}%)
-                </span>
               </span>
             </div>
           </div>
@@ -2102,7 +2105,7 @@ onMounted(() => {
                 slot.className, 
                 { 
                     'filled': equipment[slotName],
-                    'target-glow': hoveredType === slotName  // [NEW] Hiệu ứng sáng khi hover đồ trong túi
+                    'target-glow': hoveredType === slotName
                 }
             ]"
             @mousedown.left="unequipSlow(slotName)"
@@ -2123,6 +2126,8 @@ onMounted(() => {
                 +{{ equipment[slotName].enhanceLevel || equipment[slotName].level }}
               </div>
             </div>
+            
+            <div class="slot-label-debug" v-if="!equipment[slotName]">{{ slot.label }}</div>
           </div>
         </div>
 
@@ -2133,7 +2138,7 @@ onMounted(() => {
             <div class="decor-line"></div>
           </div>
           <div class="bag-info">
-            Trang bị: {{ bagItems.length }} / 50
+            Sức chứa: {{ bagItems.length }} / 50
           </div>
 
           <div class="mini-grid custom-scroll">
@@ -2146,7 +2151,7 @@ onMounted(() => {
                 { 'is-equipped': item.isEquipped }
               ]"
               @click="equip(item)"
-              @mouseenter="hoveredType = item.item.type" 
+              @mouseenter="hoveredType = normalizeSlot(item.item.type)" 
               @mouseleave="hoveredType = null"
               :title="item.item.name"
             >
@@ -2161,7 +2166,6 @@ onMounted(() => {
               </div>
 
               <span class="qty" v-if="item.quantity > 1">{{ item.quantity }}</span>
-              <div class="equipped-dot" v-if="item.isEquipped"></div>
             </div>
 
             <div
@@ -2171,13 +2175,13 @@ onMounted(() => {
             ></div>
           </div>
         </div>
+
       </div>
     </div>
 
     <transition name="fade">
       <div v-if="showUnequipModal" class="modal-overlay" @click.self="closeModal">
         <div class="dark-modal">
-          <div class="modal-border-top"></div>
           <div class="modal-content">
             <h3 class="modal-title">GỠ BỎ TRANG BỊ</h3>
             <div class="item-preview-box">
@@ -2189,9 +2193,6 @@ onMounted(() => {
               <div class="preview-info" v-if="itemToUnequip">
                 <span class="p-name">
                   {{ itemToUnequip.item.name }}
-                  <span class="level-text" :class="getLevelClass(itemToUnequip.enhanceLevel || itemToUnequip.level)">
-                    (+{{ itemToUnequip.enhanceLevel || itemToUnequip.level || 0 }})
-                  </span>
                 </span>
                 <span class="p-type">Sẽ trở về hành trang</span>
               </div>
@@ -2201,7 +2202,6 @@ onMounted(() => {
               <button class="btn-wood confirm" @click="confirmUnequip">XÁC NHẬN</button>
             </div>
           </div>
-          <div class="modal-border-bot"></div>
         </div>
       </div>
     </transition>
@@ -2219,24 +2219,88 @@ const charStore = useCharacterStore();
 const inventoryStore = useInventoryStore();
 const authStore = useAuthStore();
 
-// Map trang bị đang mặc (Store trả về object dạng { WEAPON: item, HELMET: item })
-const equipment = computed(() => inventoryStore.equippedItems);
-const userSkinImg = computed(() => getCurrentSkin(authStore.user?.avatarUrl).sprites.idle);
+// --- 1. CONFIG SLOT CHUẨN ---
+const SLOT_CONFIG = {
+  NECKLACE: { label: "Dây Chuyền", icon: "fa-gem", className: "necklace-slot" },
+  WEAPON:   { label: "Vũ Khí",     icon: "fa-gavel", className: "weapon-slot" },
+  RING:     { label: "Nhẫn",       icon: "fa-ring",  className: "ring-slot" },
+  
+  HELMET:   { label: "Mũ",         icon: "fa-hat-cowboy-side", className: "head-slot" },
+  ARMOR:    { label: "Y Phục",     icon: "fa-tshirt",          className: "body-slot" },
+  BOOTS:    { label: "Giày",       icon: "fa-socks",           className: "boots-slot" },
+};
 
-// Danh sách loại Item được coi là trang bị
-const EQUIPMENT_TYPES = ["WEAPON", "ARMOR", "HELMET", "BOOTS", "RING", "NECKLACE"];
+// --- 2. HÀM CHUẨN HÓA TYPE (HỖ TRỢ CẢ TIẾNG VIỆT/ANH) ---
+// Hàm này sẽ gom mọi loại tên về 6 loại chuẩn
+const normalizeSlot = (itemType) => {
+  if (!itemType) return null;
+  const t = itemType.toUpperCase().trim();
 
-// Lọc Item trong túi (chỉ lấy trang bị)
+  // 1. VŨ KHÍ
+  if (["WEAPON", "SWORD", "BLADE", "BOW", "SPEAR", "STAFF", "DAGGER", "AXE", "VU_KHI", "KIEM", "DAO", "CUNG"].includes(t)) return "WEAPON";
+  
+  // 2. MŨ (NÓN)
+  if (["HELMET", "HEAD", "HAT", "CAP", "VISOR", "MASK", "MU", "NON", "MAO"].includes(t)) return "HELMET";
+  
+  // 3. ÁO (GIÁP)
+  if (["ARMOR", "BODY", "CLOTH", "ROBE", "CHEST", "TUNIC", "PLATE", "AO", "GIAP", "Y_PHUC"].includes(t)) return "ARMOR";
+  
+  // 4. GIÀY
+  if (["BOOTS", "SHOE", "FEET", "GREAVES", "LEG", "GIAY", "HAI", "UNG"].includes(t)) return "BOOTS";
+  
+  // 5. NHẪN
+  if (["RING", "ACCESSORY", "TRINKET", "FINGER", "NHAN", "GIOI_CHI"].includes(t)) return "RING"; 
+  
+  // 6. DÂY CHUYỀN
+  if (["NECKLACE", "AMULET", "PENDANT", "NECK", "DAY_CHUYEN", "NGOC_BOI"].includes(t)) return "NECKLACE";
+
+  return null;
+};
+
+// --- 3. XỬ LÝ DỮ LIỆU HIỂN THỊ ---
+const equipment = computed(() => {
+  let raw = { ...(inventoryStore.equippedItems || {}) };
+  const allItems = inventoryStore.items || [];
+  
+  // Fallback: Tìm trong túi những món có isEquipped = true
+  if (Object.keys(raw).length === 0 && allItems.length > 0) {
+     allItems.forEach(item => {
+        if (item && item.isEquipped && item.item) {
+           raw[item.item.type] = item; 
+        }
+     });
+  }
+
+  const mapped = {};
+  for (const [key, item] of Object.entries(raw)) {
+    if (!item) continue;
+    // Kiểm tra Type từ Item trước, nếu ko có thì dùng Key
+    const typeToCheck = (item.item && item.item.type) ? item.item.type : key;
+    const slot = normalizeSlot(typeToCheck);
+    
+    if (slot) {
+        mapped[slot] = item;
+    } else {
+        console.warn(`[Equip Debug] Không tìm thấy slot cho loại: ${typeToCheck}`);
+    }
+  }
+  return mapped;
+});
+
+// Lọc đồ trong túi
 const bagItems = computed(() => {
-  return inventoryStore.items.filter((i) => 
-    i.item && EQUIPMENT_TYPES.includes(i.item.type)
+  const items = inventoryStore.items || [];
+  return items.filter(i => 
+    i && i.item && 
+    normalizeSlot(i.item.type) !== null && 
+    !i.isEquipped 
   );
 });
 
-// [MỚI] Biến để highlight slot khi hover đồ trong túi
+const userSkinImg = computed(() => getCurrentSkin(authStore.user?.avatarUrl).sprites.idle);
 const hoveredType = ref(null);
 
-// Tính tổng chỉ số
+// Tính chỉ số
 const totalStats = computed(() => {
   const char = charStore.character || {};
   let stats = {
@@ -2246,14 +2310,14 @@ const totalStats = computed(() => {
     crit: char.baseCritRate || 0,
   };
 
-  Object.values(equipment.value).forEach((slotItem) => {
+  const equipObj = equipment.value || {};
+  Object.values(equipObj).forEach((slotItem) => {
     if (slotItem && slotItem.item) {
       stats.atk += (slotItem.item.atk || 0);
       stats.def += (slotItem.item.def || 0);
       stats.speed += (slotItem.item.speed || 0);
       stats.crit += (slotItem.item.critRate || 0);
       
-      // Bonus level cường hóa (Giả sử)
       const lv = slotItem.enhanceLevel || slotItem.level || 0;
       if (lv > 0) {
         stats.atk += lv * 2; 
@@ -2270,16 +2334,6 @@ const totalStats = computed(() => {
   };
 });
 
-// Config vị trí và icon cho từng slot
-const SLOT_CONFIG = {
-  NECKLACE: { label: "Dây Chuyền", icon: "fa-gem", className: "necklace-slot" },
-  WEAPON: { label: "Vũ Khí", icon: "fa-gavel", className: "weapon-slot" },
-  RING: { label: "Nhẫn", icon: "fa-ring", className: "ring-slot" },
-  HELMET: { label: "Mũ", icon: "fa-hat-cowboy-side", className: "head-slot" },
-  ARMOR: { label: "Y Phục", icon: "fa-tshirt", className: "body-slot" },
-  BOOTS: { label: "Giày", icon: "fa-socks", className: "boots-slot" },
-};
-
 const getLevelClass = (lv) => {
   if (!lv) return "";
   if (lv >= 15) return "lvl-red";
@@ -2288,12 +2342,35 @@ const getLevelClass = (lv) => {
   return "lvl-white";
 };
 
-// --- LOGIC EQUIP / UNEQUIP ---
+// --- ACTION EQUIP ---
+const equip = async (item) => {
+  if (!item || !item.item) return;
+
+  const type = item.item.type;
+  const targetSlot = normalizeSlot(type);
+  
+  // LOG DEBUG: Bật console lên xem dòng này nếu mặc không được
+  console.log(`Mặc đồ: ${item.item.name} | Loại gốc: ${type} -> Slot chuẩn: ${targetSlot}`);
+
+  if (targetSlot) {
+    if (!item.isEquipped) {
+        await inventoryStore.equipItem(item.userItemId);
+        await Promise.all([
+            inventoryStore.fetchInventory(), 
+            charStore.fetchCharacter()
+        ]);
+    }
+  } else {
+    alert(`Chưa hỗ trợ mặc loại trang bị này: ${type}`);
+  }
+};
+
 const showUnequipModal = ref(false);
 const itemToUnequip = ref(null);
 
-const unequipSlow = (slotType) => {
-  const item = equipment.value[slotType];
+const unequipSlow = (slotName) => {
+  const equipObj = equipment.value || {};
+  const item = equipObj[slotName];
   if (item) {
     itemToUnequip.value = item;
     showUnequipModal.value = true;
@@ -2301,25 +2378,19 @@ const unequipSlow = (slotType) => {
 };
 
 const confirmUnequip = async () => {
-  if (itemToUnequip.value)
+  if (itemToUnequip.value) {
     await inventoryStore.unequipItem(itemToUnequip.value.userItemId);
+    await Promise.all([
+        inventoryStore.fetchInventory(), 
+        charStore.fetchCharacter()
+    ]);
+  }
   closeModal();
 };
 
 const closeModal = () => {
   showUnequipModal.value = false;
   itemToUnequip.value = null;
-};
-
-// Hàm mặc đồ
-const equip = async (item) => {
-  // 1. Kiểm tra xem item có phải loại trang bị hợp lệ không
-  if (EQUIPMENT_TYPES.includes(item.item.type)) {
-    // 2. Nếu chưa mặc thì gọi Store để mặc
-    if (!item.isEquipped) {
-        await inventoryStore.equipItem(item.userItemId);
-    }
-  }
 };
 
 onMounted(() => {
@@ -2332,6 +2403,7 @@ onMounted(() => {
 @import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
 @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
 
+/* --- VARIABLES --- */
 :root {
   --wood-dark: #3e2723;
   --wood-mid: #4e342e;
@@ -2355,7 +2427,6 @@ onMounted(() => {
   align-items: center;
 }
 
-/* --- BACKGROUNDS --- */
 .ink-bg-layer { position: absolute; inset: 0; z-index: 0; background-color: #3e2723; }
 .mountain-bg {
   position: absolute; inset: 0;
@@ -2366,8 +2437,13 @@ onMounted(() => {
 }
 .fog-anim { position: absolute; inset: 0; background: linear-gradient(to top, #261815 10%, transparent 90%); }
 
-.char-wrapper { position: relative; z-index: 10; width: 100%; max-width: 1100px; padding: 20px; }
-.char-grid { display: grid; grid-template-columns: 300px 1fr 300px; gap: 20px; height: 600px; }
+.char-wrapper { position: relative; z-index: 10; width: 100%; max-width: 1200px; padding: 20px; }
+.char-grid { 
+    display: grid; 
+    grid-template-columns: 320px 1fr 320px; 
+    gap: 20px; 
+    height: 600px; 
+}
 
 /* --- PANELS --- */
 .panel {
@@ -2386,7 +2462,7 @@ onMounted(() => {
 .panel-header h3 { margin: 0; color: var(--gold); font-size: 1.2rem; font-weight: 900; letter-spacing: 2px; text-shadow: 0 2px 2px #000; }
 .decor-line { height: 2px; width: 30px; background: var(--gold-dim); opacity: 0.5; }
 
-/* --- STATS --- */
+/* --- STATS PANEL --- */
 .stats-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 15px; }
 .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); }
 .label { color: #a1887f; font-weight: bold; display: flex; align-items: center; gap: 10px; }
@@ -2401,95 +2477,111 @@ onMounted(() => {
 .divider { height: 2px; background: var(--wood-light); margin: 5px 0; }
 
 /* --- HERO PANEL --- */
-.hero-panel { background: radial-gradient(circle at center, #4e342e 0%, #261815 100%); position: relative; border-color: var(--gold); overflow: hidden; }
+.hero-panel { 
+    background: radial-gradient(circle at center, #4e342e 0%, #261815 100%); 
+    position: relative; 
+    border-color: var(--gold); 
+    overflow: hidden; 
+    display: flex; /* Đảm bảo content không bị collapse */
+    flex-direction: column;
+}
 .aura-bg {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: 300px; height: 300px;
+  width: 350px; height: 350px;
   background: radial-gradient(circle, rgba(255, 236, 179, 0.1) 0%, transparent 70%);
   animation: pulseAura 4s infinite;
 }
 .char-figure { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
-.skin-preview { height: 150px; width: 150px; object-fit: contain; image-rendering: pixelated; transform: scale(2); filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.8)); }
+.skin-preview { height: 180px; width: 180px; object-fit: contain; image-rendering: pixelated; transform: scale(2); filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.8)); }
 
-/* --- SLOTS --- */
-.equip-slot { position: absolute; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: transform 0.2s; }
+/* --- EQUIPMENT SLOTS --- */
+.equip-slot { 
+    position: absolute; z-index: 5; 
+    display: flex; flex-direction: column; align-items: center; gap: 5px; 
+    cursor: pointer; transition: transform 0.2s; 
+}
 .equip-slot:hover { transform: scale(1.1); z-index: 10; }
 
-/* [MỚI] Hiệu ứng sáng slot khi hover đồ tương ứng */
 .equip-slot.target-glow .slot-frame {
     border-color: #66bb6a;
-    box-shadow: 0 0 20px #66bb6a, inset 0 0 10px #66bb6a;
-    background: rgba(102, 187, 106, 0.1);
+    box-shadow: 0 0 20px #66bb6a, inset 0 0 10px rgba(102, 187, 106, 0.3);
     transform: scale(1.05);
 }
 
 .slot-frame {
-  width: 56px; height: 56px; background: rgba(0, 0, 0, 0.6);
+  width: 58px; height: 58px; background: rgba(0, 0, 0, 0.6);
   border: 2px solid #8d6e63; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.8); transition: 0.3s; position: relative;
 }
 .equip-slot.filled .slot-frame { border-color: var(--gold); background: rgba(255, 236, 179, 0.05); box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
 .slot-frame img { width: 90%; height: 90%; object-fit: contain; }
-.placeholder { font-size: 1.5rem; color: #5d4037; }
+.placeholder { font-size: 1.5rem; color: #5d4037; opacity: 0.5; }
+
+/* Level Tag & Debug Label */
 .slot-level-tag {
-  position: absolute; bottom: -4px; right: -4px; font-size: 10px; font-weight: 900;
-  background: #000; border: 1px solid #444; border-radius: 4px; padding: 0 3px;
+  position: absolute; bottom: -5px; right: -5px; font-size: 10px; font-weight: 900;
+  background: #111; border: 1px solid #444; border-radius: 4px; padding: 0 3px;
   z-index: 10; font-family: sans-serif; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
+.slot-label-debug {
+    font-size: 10px; color: #aaa; margin-top: 2px; text-shadow: 1px 1px 1px black;
+}
 
-/* Colors */
-.lvl-white { color: #fff; border-color: #666; }
-.lvl-gold { color: #ffd700; border-color: #ffd700; box-shadow: 0 0 5px #ffd700; }
-.lvl-purple { color: #d580ff; border-color: #d580ff; box-shadow: 0 0 5px #d580ff; }
-.lvl-red { color: #ff3333; border-color: #ff3333; box-shadow: 0 0 8px #ff0000; }
-.level-text { font-weight: bold; margin-left: 5px; }
+/* --- POSITIONING FIXED (Sử dụng Pixel cứng) --- */
+/* Cột trái */
+.necklace-slot { top: 30px; left: 20px; }
+.weapon-slot   { top: 50%; left: 10px; transform: translateY(-50%); }
+.ring-slot     { bottom: 30px; left: 20px; }
 
-/* Positioning */
-.necklace-slot { top: 15%; left: 15%; }
-.weapon-slot { top: 50%; left: 5%; transform: translateY(-50%); }
-.ring-slot { bottom: 15%; left: 15%; }
-.head-slot { top: 15%; right: 15%; }
-.body-slot { top: 50%; right: 5%; transform: translateY(-50%); }
-.boots-slot { bottom: 15%; right: 15%; }
+/* Cột phải */
+.head-slot     { top: 30px; right: 20px; }
+.body-slot     { top: 50%; right: 10px; transform: translateY(-50%); }
+.boots-slot    { bottom: 30px; right: 20px; }
+
+/* Fix hover cho slot giữa */
 .weapon-slot:hover, .body-slot:hover { transform: translateY(-50%) scale(1.1); }
 
-/* --- BAG --- */
+
+/* --- BAG PANEL --- */
 .bag-info { text-align: right; padding: 5px 15px; font-size: 0.8rem; color: #a1887f; }
 .mini-grid {
-  flex: 1; padding: 10px; display: grid;
+  flex: 1; padding: 15px; display: grid;
   grid-template-columns: repeat(4, 1fr); grid-auto-rows: 60px;
-  gap: 8px; overflow-y: auto; align-content: start;
+  gap: 10px; overflow-y: auto; align-content: start;
 }
 .mini-slot { background: rgba(0, 0, 0, 0.4); border: 1px solid #4e342e; border-radius: 4px; position: relative; cursor: pointer; transition: 0.2s; }
-.mini-slot.empty { opacity: 0.2; pointer-events: none; }
+.mini-slot.empty { opacity: 0.15; pointer-events: none; border-style: dashed; }
 .mini-slot:hover { border-color: var(--gold); background: rgba(255, 255, 255, 0.05); }
 .mini-slot img { width: 100%; height: 100%; padding: 4px; object-fit: contain; }
-.mini-level { position: absolute; top: 1px; right: 1px; font-size: 9px; font-weight: bold; background: rgba(0, 0, 0, 0.8); padding: 0 2px; border-radius: 2px; }
+
+.mini-level { position: absolute; top: 1px; right: 1px; font-size: 9px; font-weight: bold; background: rgba(0, 0, 0, 0.8); padding: 0 3px; border-radius: 2px; color: #fff; }
 .qty { position: absolute; bottom: 2px; right: 2px; background: rgba(0, 0, 0, 0.8); color: #fff; font-size: 0.7rem; padding: 0 4px; border-radius: 2px; }
-.equipped-dot { position: absolute; top: 3px; left: 3px; width: 6px; height: 6px; background: #4caf50; border-radius: 50%; box-shadow: 0 0 5px #4caf50; }
+
+/* Rarity */
 .rarity-C { border-bottom: 2px solid #9e9e9e; }
 .rarity-S { border-bottom: 2px solid var(--gold); }
 
 /* --- MODAL --- */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); }
-.dark-modal { width: 350px; background: var(--wood-dark); position: relative; box-shadow: 0 0 30px #000; }
+.dark-modal { width: 350px; background: var(--wood-dark); position: relative; box-shadow: 0 0 30px #000; border: 1px solid #5d4037; }
 .modal-content { padding: 20px; text-align: center; }
-.item-preview-box { background: rgba(0, 0, 0, 0.3); border: 1px solid #5d4037; padding: 10px; display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
-.preview-img { width: 50px; height: 50px; border: 1px solid var(--gold); padding: 2px; }
+.modal-title { margin-top: 0; color: var(--red-seal); border-bottom: 1px solid #4e342e; padding-bottom: 10px; }
+.item-preview-box { background: rgba(0, 0, 0, 0.3); border: 1px solid #5d4037; padding: 10px; display: flex; align-items: center; gap: 15px; margin: 20px 0; border-radius: 4px; }
+.preview-img { width: 50px; height: 50px; border: 1px solid var(--gold); padding: 2px; background: rgba(0,0,0,0.5); }
 .modal-actions { display: flex; gap: 10px; }
-.btn-wood { flex: 1; padding: 10px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+.btn-wood { flex: 1; padding: 10px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; border-radius: 4px; }
 .cancel { background: #4e342e; color: #bdbdbd; }
 .confirm { background: var(--red-seal); color: #fff; }
 
 @keyframes pulseAura {
-  0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.5; }
-  50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
-  100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.5; }
+  0% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.5; }
+  50% { transform: translate(-50%, -50%) scale(1.05); opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.5; }
 }
 
 @media (max-width: 900px) {
-  .char-grid { grid-template-columns: 1fr; height: auto; }
-  .hero-panel { height: 400px; }
+  .char-grid { grid-template-columns: 1fr; height: auto; gap: 20px; }
+  .hero-panel { height: 450px; order: -1; }
 }
 </style>

@@ -10,11 +10,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component; // [QUAN TRỌNG]
+import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
-// [FIX] Thêm @Component để Spring nhận diện đây là một Bean
 @Component
 public class AuthTokenFilter extends OncePerRequestFilter {
     @Autowired
@@ -33,10 +32,14 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-                // Kiểm tra tài khoản bị khóa ngay tại Filter
+                // [FIX] Kiểm tra tài khoản bị khóa và trả về JSON Error
                 if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()) {
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Tài khoản bị khóa");
-                    return;
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN); // 403 Forbidden
+                    response.setContentType("application/json");
+                    response.setCharacterEncoding("UTF-8");
+                    // Trả về JSON để Frontend nhận diện được chữ "BANNED"
+                    response.getWriter().write("{\"error\": \"BANNED\", \"message\": \"Tài khoản đã bị phong ấn.\"}");
+                    return; // Dừng luôn, không cho đi tiếp
                 }
 
                 UsernamePasswordAuthenticationToken authentication =
