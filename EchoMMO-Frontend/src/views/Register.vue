@@ -84,36 +84,195 @@ const handleRegister = async () => {
 </script>
 
 <style scoped>
-/* Copy y nguyên style từ Login.vue ở trên (bao gồm .auth-page bỏ background-image cứng) */
+/* =========================================
+   1. CẤU TRÚC CHÍNH (FIX LỖI SCROLL TRIỆT ĐỂ)
+   ========================================= */
 .auth-page {
-  min-height: 100vh;
+  /* 1. Cố định chiều cao trang bằng đúng màn hình */
+  height: 100vh; 
+  width: 100%;
+  
+  /* 2. Bắt buộc tạo thanh cuộn nếu nội dung dài hơn màn hình */
+  overflow-y: auto; 
+  
   display: flex;
-  align-items: center;
-  justify-content: center;
+  
+  /* 3. Thêm padding để khi cuộn xuống dưới cùng không bị sát mép */
+  padding: 20px 15px; 
+  box-sizing: border-box;
+
+  /* Background settings */
   background-repeat: no-repeat;
   background-position: center center;
   background-size: cover;
+  background-attachment: fixed; /* Giữ hình nền đứng yên khi cuộn */
   position: relative;
+  
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
-.auth-page::before { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.7); }
+
+/* Lớp phủ tối */
+.auth-page::before {
+  content: '';
+  /* Dùng fixed để lớp phủ luôn che toàn màn hình kể cả khi cuộn */
+  position: fixed; 
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 1;
+  /* Đảm bảo lớp phủ không che mất thanh cuộn (nếu có) */
+  pointer-events: none; 
+}
+
+/* Khung chứa nội dung */
 .auth-container {
-  position: relative; width: 100%; max-width: 450px;
-  background: rgba(30, 20, 15, 0.9); padding: 40px;
-  border-radius: 8px; border: 2px solid #5d4037;
-  box-shadow: 0 0 20px rgba(0,0,0,0.8); backdrop-filter: blur(5px); color: #f3f4f6;
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 480px;
+  
+  /* --- [QUAN TRỌNG] FIX SCROLL --- */
+  /* margin: auto giúp căn giữa khi đủ chỗ, và đẩy nội dung đi khi thiếu chỗ */
+  margin: auto; 
+  /* ------------------------------- */
+
+  background: rgba(30, 20, 15, 0.95); 
+  padding: 30px 35px;
+  border-radius: 8px;
+  border: 2px solid #5d4037;
+  
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(4px);
+  color: #f3f4f6;
 }
-.auth-header { text-align: center; margin-bottom: 25px; }
-.logo { width: 80px; margin-bottom: 10px; }
-.auth-header h2 { margin: 10px 0 5px; color: #fbc02d; font-family: "Noto Serif TC"; font-size: 2rem; }
-.auth-header p { color: #a1887f; font-size: 0.9rem; }
-.form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 5px; color: #fbc02d; font-weight: bold; font-size: 0.9rem; }
-.form-group input { width: 100%; padding: 10px; background: rgba(0,0,0,0.3); border: 1px solid #5d4037; border-radius: 4px; color: #fff; font-size: 1rem; box-sizing: border-box; }
-.form-group input:focus { outline: none; border-color: #fbc02d; box-shadow: 0 0 5px rgba(251, 192, 45, 0.5); }
-.btn-submit { width: 100%; padding: 12px; background: #b71c1c; color: #fff; border: none; border-radius: 4px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: 0.3s; font-family: "Noto Serif TC"; margin-top: 10px; }
-.btn-submit:hover { background: #d32f2f; transform: translateY(-2px); }
-.btn-submit:disabled { background: #5d4037; cursor: not-allowed; }
-.auth-footer { margin-top: 20px; text-align: center; font-size: 0.9rem; color: #a1887f; }
-.auth-footer a { color: #fbc02d; text-decoration: none; font-weight: bold; }
-.auth-footer a:hover { text-decoration: underline; }
+
+/* =========================================
+   2. HEADER (GHI DANH)
+   ========================================= */
+.auth-header {
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.logo {
+  width: 80px;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 0 5px rgba(251, 192, 45, 0.3));
+}
+
+.auth-header h2 {
+  margin: 5px 0;
+  color: #fbc02d;
+  font-family: 'UTM Thu Phap Thien An', cursive;
+  white-space: nowrap;
+  font-size: 3rem;
+  font-weight: normal;
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.8);
+  line-height: 1.2;
+}
+
+.auth-header p {
+  color: #a1887f;
+  font-size: 1rem;
+  margin-top: 5px;
+  font-style: italic;
+}
+
+/* =========================================
+   3. FORM INPUTS
+   ========================================= */
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  color: #ffca28;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px 15px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #5d4037;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 1rem;
+  box-sizing: border-box;
+  transition: all 0.3s ease;
+  font-family: sans-serif;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #fbc02d;
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 8px rgba(251, 192, 45, 0.4);
+}
+
+.form-group input::placeholder {
+  color: #8d6e63;
+}
+
+/* =========================================
+   4. BUTTON (KHỞI TẠO NHÂN VẬT)
+   ========================================= */
+.btn-submit {
+  width: 100%;
+  padding: 8px 10px 12px 10px;
+  margin-top: 15px;
+  background: linear-gradient(to bottom, #d32f2f, #b71c1c);
+  color: #fff;
+  border: 1px solid #e53935;
+  border-radius: 4px;
+  font-family: 'UTM Thu Phap Thien An', cursive;
+  font-size: 1.8rem;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+.btn-submit:hover {
+  background: linear-gradient(to bottom, #e53935, #c62828);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(183, 28, 28, 0.4);
+}
+
+.btn-submit:disabled {
+  background: #4e342e;
+  border-color: #3e2723;
+  color: #8d6e63;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* =========================================
+   5. FOOTER
+   ========================================= */
+.auth-footer {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 0.95rem;
+  color: #a1887f;
+}
+
+.auth-footer a {
+  color: #fbc02d;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.auth-footer a:hover {
+  color: #fff;
+  text-decoration: underline;
+  text-shadow: 0 0 5px #fbc02d;
+}
 </style>

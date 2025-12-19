@@ -1,14 +1,16 @@
 /* --- IMPORTS --- */
 @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap");
 
+/* --- KHAI BÁO FONT (Bước 3) --- */
 @font-face {
-  font-family: 'UTM Thu Phap Thien An';
-  src: url('@/assets/fonts/UTM-Thu-Phap-Thien-An.ttf') format('truetype');
-}
-
-@font-face {
-  font-family: 'MTD Dartangnon ITC';
-  src: url('@/assets/fonts/MTD-Dartangnon-ITC.otf') format('opentype');
+    font-family: 'UTM Thu Phap Thien An';
+    /* Đường dẫn trỏ vào thư mục fonts bạn đã tạo ở Bước 2 */
+    src: url('@/assets/fonts/UTM-Thu-Phap-Thien-An.woff2') format('woff2'),
+         url('@/assets/fonts/UTM-Thu-Phap-Thien-An.woff') format('woff'),
+         url('@/assets/fonts/UTM-Thu-Phap-Thien-An.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
 }
 /* --- ROOT VARIABLES (CYBER SYSTEM) --- */
 :root {
