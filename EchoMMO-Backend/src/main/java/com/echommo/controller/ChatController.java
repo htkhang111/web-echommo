@@ -1,33 +1,35 @@
 package com.echommo.controller;
 
 import com.echommo.dto.ChatMessageDTO;
-import com.echommo.service.ChatService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.handler.annotation.SendTo;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.stereotype.Controller;
 
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDateTime;
 
-@RestController
-@RequestMapping("/api/chat")
+@Controller
 public class ChatController {
 
-    @Autowired
-    private ChatService chatService;
-
-    @GetMapping("/recent")
-    public ResponseEntity<List<ChatMessageDTO>> getRecent() {
-        return ResponseEntity.ok(chatService.getRecentMessages());
+    @MessageMapping("/chat.sendMessage")
+    @SendTo("/topic/public")
+    public ChatMessageDTO sendMessage(@Payload ChatMessageDTO chatMessage) {
+        // Đảm bảo timestamp luôn có
+        if (chatMessage.getTimestamp() == null) {
+            chatMessage.setTimestamp(LocalDateTime.now().toString());
+        }
+        return chatMessage;
     }
 
-    @PostMapping("/send")
-    public ResponseEntity<?> send(@RequestBody Map<String, String> payload) {
-        try {
-            String content = payload.get("content");
-            return ResponseEntity.ok(chatService.sendMessage(content));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+    @MessageMapping("/chat.addUser")
+    @SendTo("/topic/public")
+    public ChatMessageDTO addUser(@Payload ChatMessageDTO chatMessage,
+                                  SimpMessageHeaderAccessor headerAccessor) {
+        // Add username in web socket session
+        if (chatMessage.getSenderName() != null) {
+            headerAccessor.getSessionAttributes().put("username", chatMessage.getSenderName());
         }
+        return chatMessage;
     }
 }

@@ -513,7 +513,7 @@ USE echommo_db;
 
 -- 1. TẠO TÀI KHOẢN ADMIN
 INSERT INTO users (username, password_hash, password, email, full_name, role, avatar_url)
-VALUES ('admin', '$2a$10$wW/i.b/w.w/wW/i.b/w.w/wW/i.b/w.w/wW/i.b/w.w', '123456', 'admin@echommo.com', 'Game Master',
+VALUES ('admin', '$2a$10$wPOKcn9CM0dlp.k83kEHne1UU90Y5.RL2MaLkqwJ0ZRnN3IbsRnnS', '123456', 'admin@echommo.com', 'Game Master',
         'ADMIN', '🐲');
 
 -- 2. TẠO VÍ ADMIN

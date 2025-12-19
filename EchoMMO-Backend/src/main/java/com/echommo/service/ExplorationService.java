@@ -26,7 +26,7 @@ public class ExplorationService {
     @Autowired private BattleSessionRepository battleSessionRepo;
     @Autowired private EnemyRepository enemyRepo;
 
-    // Cấu hình Map (Giữ nguyên)
+    // Cấu hình Map
     public enum GameMap {
         MAP_01("MAP_01", "Đồng Bằng", 1, 19,
                 List.of(1, 1, 1, 1, 5, 5, 5, 6, 6, 9),
@@ -85,7 +85,7 @@ public class ExplorationService {
 
         captchaService.checkLockStatus(c.getUser());
 
-        // --- [MIỄN PHÍ THỂ LỰC] ---
+        // --- [MIỄN PHÍ HÀNH TẨU - ĐỂ TEST] ---
         // if (c.getCurrentEnergy() < 1) throw new RuntimeException("Bạn đã kiệt sức! Hãy nghỉ ngơi.");
 
         GameMap map = GameMap.findById(mapId);
@@ -97,7 +97,7 @@ public class ExplorationService {
         Random r = new Random();
         Wallet w = c.getUser().getWallet();
 
-        // --- [MIỄN PHÍ THỂ LỰC] ---
+        // --- [MIỄN PHÍ HÀNH TẨU - ĐỂ TEST] ---
         // c.setCurrentEnergy(c.getCurrentEnergy() - 1);
 
         long expGain = 10L + c.getLevel();
@@ -228,7 +228,7 @@ public class ExplorationService {
         return battleSessionRepo.save(session);
     }
 
-    // --- Helpers (Giữ nguyên) ---
+    // --- Helpers ---
     @Transactional
     public Map<String, Object> gatherResource(Integer itemId, int amount) {
         Character c = characterService.getMyCharacter();
@@ -238,9 +238,10 @@ public class ExplorationService {
         }
         if (c.getGatheringRemainingAmount() < amount) amount = c.getGatheringRemainingAmount();
 
-        // [KHAI THÁC CŨNG MIỄN PHÍ]
-        // if (c.getCurrentEnergy() < amount) throw new RuntimeException("Không đủ năng lượng!");
-        // c.setCurrentEnergy(c.getCurrentEnergy() - amount);
+        // [ĐÃ SỬA: KHAI THÁC PHẢI TỐN THỂ LỰC]
+        // Đã bỏ comment 2 dòng dưới đây để tính năng trừ thể lực hoạt động lại
+        if (c.getCurrentEnergy() < amount) throw new RuntimeException("Không đủ năng lượng!");
+        c.setCurrentEnergy(c.getCurrentEnergy() - amount);
 
         c.setGatheringRemainingAmount(c.getGatheringRemainingAmount() - amount);
         Wallet wallet = c.getUser().getWallet();
@@ -254,6 +255,7 @@ public class ExplorationService {
         res.put("remainingAmount", c.getGatheringRemainingAmount());
         return res;
     }
+
     private int safeGet(Integer value) { return value == null ? 0 : value; }
     private void addItemToWallet(Wallet w, int itemId, int amount) {
         switch (itemId) {

@@ -10,10 +10,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Component; // [QUAN TRỌNG]
 import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
+// [FIX] Thêm @Component để Spring nhận diện đây là một Bean
 @Component
 public class AuthTokenFilter extends OncePerRequestFilter {
     @Autowired
@@ -31,6 +32,13 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 String username = jwtUtils.getUserNameFromJwtToken(jwt);
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+                // Kiểm tra tài khoản bị khóa ngay tại Filter
+                if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Tài khoản bị khóa");
+                    return;
+                }
+
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
 
@@ -39,7 +47,7 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {
-            System.out.println("Cannot set user authentication: " + e);
+            logger.error("Cannot set user authentication: {}", e);
         }
 
         filterChain.doFilter(request, response);

@@ -29,11 +29,14 @@ public class ChatService {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
 
         for (Message msg : messages) {
+            // [FIXED] Thêm getUserId() và getAvatarUrl() cho đủ 6 tham số
             dtos.add(new ChatMessageDTO(
-                    msg.getSender().getUsername(),
-                    msg.getContent(),
-                    msg.getSentAt().format(formatter),
-                    msg.getSender().getRole().toString()
+                    msg.getSender().getUserId(),       // senderId
+                    msg.getSender().getUsername(),     // senderName
+                    msg.getSender().getAvatarUrl(),    // avatarUrl
+                    msg.getContent(),                  // content
+                    msg.getSentAt().format(formatter), // timestamp
+                    msg.getSender().getRole().toString() // role
             ));
         }
         // Đảo ngược lại để tin cũ ở trên, tin mới ở dưới
@@ -56,11 +59,15 @@ public class ChatService {
         messageRepository.save(msg);
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
+
+        // [FIXED] Thêm getUserId() và getAvatarUrl() cho đủ 6 tham số
         return new ChatMessageDTO(
-                user.getUsername(),
-                msg.getContent(),
-                msg.getSentAt().format(formatter),
-                user.getRole().toString()
+                user.getUserId(),                // senderId
+                user.getUsername(),              // senderName
+                user.getAvatarUrl(),             // avatarUrl
+                msg.getContent(),                // content
+                msg.getSentAt().format(formatter), // timestamp
+                user.getRole().toString()        // role
         );
     }
 }

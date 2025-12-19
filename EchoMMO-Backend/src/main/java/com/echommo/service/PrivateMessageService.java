@@ -1,16 +1,19 @@
 package com.echommo.service;
 
-import com.echommo.entity.Friendship;
-import com.echommo.entity.User;
+import com.echommo.dto.ChatMessageDTO;
 import com.echommo.entity.PrivateMessage;
-import com.echommo.enums.Role; // [FIX] Import Role
+import com.echommo.entity.User;
+import com.echommo.enums.Role;
 import com.echommo.repository.FriendshipRepository;
 import com.echommo.repository.PrivateMessageRepository;
 import com.echommo.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import java.util.List;
+
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class PrivateMessageService {
@@ -18,24 +21,15 @@ public class PrivateMessageService {
     @Autowired private UserRepository userRepository;
     @Autowired private FriendshipRepository friendshipRepository;
 
-    private User getCurrentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUsername(username).orElseThrow();
-    }
-
-    public List<PrivateMessage> getConversation(Integer friendId) {
-        User me = getCurrentUser();
-        return pmRepository.findConversation(me.getUserId(), friendId);
-    }
-
-    public PrivateMessage sendPrivateMessage(Integer friendId, String content) {
-        User me = getCurrentUser();
-        User friend = userRepository.findById(friendId)
+    // --- GỬI TIN NHẮN ---
+    public ChatMessageDTO sendPrivateMessage(Integer senderId, Integer receiverId, String content) {
+        User me = userRepository.findById(senderId).orElseThrow();
+        User friend = userRepository.findById(receiverId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // [FIX] Cải tiến: Nếu là ADMIN thì không cần check bạn bè
+        // Admin được chat với tất cả, User thường phải là bạn bè
         boolean isAdmin = me.getRole() == Role.ADMIN;
-        boolean isFriend = !friendshipRepository.findExistingFriendship(me.getUserId(), friendId).isEmpty();
+        boolean isFriend = !friendshipRepository.findExistingFriendship(me.getUserId(), receiverId).isEmpty();
 
         if (!isAdmin && !isFriend) {
             throw new RuntimeException("Phải là bạn bè mới được nhắn tin!");
@@ -45,6 +39,77 @@ public class PrivateMessageService {
         pm.setSender(me);
         pm.setReceiver(friend);
         pm.setContent(content);
-        return pmRepository.save(pm);
+        pm.setSentAt(LocalDateTime.now());
+        pm.setIsRead(false);
+
+        PrivateMessage saved = pmRepository.save(pm);
+        return convertToDTO(saved);
+    }
+
+    // --- LẤY LỊCH SỬ CHAT ---
+    public List<ChatMessageDTO> getChatHistory(Integer userId1, Integer userId2) {
+        return pmRepository.findConversation(userId1, userId2).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    // --- LẤY DANH SÁCH HỘI THOẠI ---
+    public List<Map<String, Object>> getRecentConversations(Integer userId) {
+        List<PrivateMessage> allMsgs = pmRepository.findAllByUserId(userId);
+
+        // Map để lưu tin nhắn mới nhất của từng người
+        Map<Integer, PrivateMessage> latestMsgMap = new LinkedHashMap<>();
+
+        for (PrivateMessage msg : allMsgs) {
+            Integer partnerId = msg.getSender().getUserId().equals(userId)
+                    ? msg.getReceiver().getUserId()
+                    : msg.getSender().getUserId();
+
+            if (!latestMsgMap.containsKey(partnerId)) {
+                latestMsgMap.put(partnerId, msg);
+            }
+        }
+
+        List<Map<String, Object>> conversations = new ArrayList<>();
+        for (Map.Entry<Integer, PrivateMessage> entry : latestMsgMap.entrySet()) {
+            Integer partnerId = entry.getKey();
+            PrivateMessage msg = entry.getValue();
+
+            User partner = msg.getSender().getUserId().equals(partnerId) ? msg.getSender() : msg.getReceiver();
+
+            Map<String, Object> conv = new HashMap<>();
+            conv.put("userId", partner.getUserId());
+            conv.put("username", partner.getUsername());
+            conv.put("avatarUrl", partner.getAvatarUrl());
+            conv.put("lastMessage", (msg.getSender().getUserId().equals(userId) ? "Bạn: " : "") + msg.getContent());
+            conv.put("timestamp", msg.getSentAt());
+
+            long unread = pmRepository.countBySender_UserIdAndReceiver_UserIdAndIsReadFalse(partnerId, userId);
+            conv.put("unreadCount", unread);
+
+            conversations.add(conv);
+        }
+        return conversations;
+    }
+
+    public long countTotalUnread(Integer userId) {
+        return pmRepository.countByReceiver_UserIdAndIsReadFalse(userId);
+    }
+
+    @Transactional
+    public void markAsRead(Integer senderId, Integer currentUserId) {
+        pmRepository.markAsRead(senderId, currentUserId);
+    }
+
+    // [FIXED] Hàm này giờ truyền đúng 6 tham số khớp với ChatMessageDTO mới
+    private ChatMessageDTO convertToDTO(PrivateMessage pm) {
+        return new ChatMessageDTO(
+                pm.getSender().getUserId(),
+                pm.getSender().getUsername(),
+                pm.getSender().getAvatarUrl(),
+                pm.getContent(),
+                pm.getSentAt().toString(),
+                pm.getSender().getRole().name() // Role
+        );
     }
 }

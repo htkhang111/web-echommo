@@ -71,12 +71,6 @@ const printSignature = () => {
 
   // 3. IN RA CONSOLE
   console.log(`%c${logo}`, "color: #5d4037; font-weight: bold;");
-  
-  console.log(
-    `%c ECHO-MMO %c GIANG HỒ DẬY SÓNG `,
-    `background: #3e2723; color: #fbc02d; font-size: 20px; font-weight: 900; padding: 8px 12px; border-left: 4px solid #fbc02d; border-radius: 4px 0 0 4px; font-family: 'Cinzel', serif;`,
-    `background: #b71c1c; color: #fff; font-size: 20px; font-weight: 700; padding: 8px 12px; border-radius: 0 4px 4px 0; font-family: 'Noto Serif TC', serif; box-shadow: 4px 4px 10px rgba(0,0,0,0.5);`
-  );
 
   console.groupCollapsed("%c📜 NHẬT KÝ HỆ THỐNG (Click để xem)", "color: #8d6e63; font-weight: bold;");
     console.log(`%c ➤ Phiên bản: 1.0.0 (Alpha) `, styles.badge);

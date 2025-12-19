@@ -9,6 +9,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 public class UserService {
 
@@ -18,10 +20,15 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    // [FIX] Thêm hàm public này để Controller gọi được
+    public User findByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+    }
+
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        return findByUsername(username);
     }
 
     public User updateProfile(UpdateProfileRequest request) {
@@ -34,12 +41,10 @@ public class UserService {
     public String changePassword(ChangePasswordRequest request) {
         User user = getCurrentUser();
 
-        // Kiểm tra mật khẩu cũ (so khớp Hash)
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new RuntimeException("Mật khẩu hiện tại không đúng!");
         }
 
-        // [FIX] Cập nhật cả Hash và Password thường (để không bị lỗi NOT NULL trong DB)
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         user.setPassword(request.getNewPassword());
 

@@ -54,10 +54,7 @@
           </div>
         </router-link>
         
-        <!-- <button class="btn-logout" @click="handleLogout" title="Quy Ẩn Giang Hồ">
-          <i class="fas fa-sign-out-alt"></i>
-        </button> -->
-      </div>
+        </div>
 
     </div>
   </header>
@@ -84,8 +81,16 @@ const userSkinAvatar = computed(() => {
   return skin ? skin.sprites.idle : '/default-avatar.png'; // Fallback nếu lỗi
 });
 
+// [FIXED] Xử lý lỗi ảnh avatar để tránh lặp vô tận
 const handleAvatarError = (e) => {
-  e.target.src = "https://via.placeholder.com/50?text=U";
+  const fallbackUrl = "https://placehold.co/50?text=U"; // Dùng service ổn định hơn
+  
+  // Nếu ảnh hiện tại đã là ảnh fallback mà vẫn lỗi, thì dừng lại (return) để không lặp
+  if (e.target.src === fallbackUrl || e.target.src.includes('placehold.co')) {
+    return;
+  }
+  
+  e.target.src = fallbackUrl;
 }
 
 // Lấy Vàng từ Wallet (đảm bảo không crash nếu null)
