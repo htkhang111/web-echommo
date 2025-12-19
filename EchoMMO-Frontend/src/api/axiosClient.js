@@ -168,35 +168,25 @@ const axiosClient = axios.create({
   },
 });
 
-/**
- * Hàm kiểm tra Token hết hạn
- */
 const isTokenExpired = (token) => {
-  if (!token || token === "null" || token === "undefined") return true;
+  if (!token) return true;
   try {
-    const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const payload = JSON.parse(window.atob(base64));
-    const now = Math.floor(Date.now() / 1000);
-    return payload.exp < now; 
+    const payload = JSON.parse(window.atob(token.split(".")[1]));
+    return payload.exp < Date.now() / 1000;
   } catch (e) {
-    return true; 
+    return true;
   }
 };
 
-// --- 1. REQUEST INTERCEPTOR ---
+// Request Interceptor
 axiosClient.interceptors.request.use(
   (config) => {
     const authStore = useAuthStore();
-    
     if (authStore.token) {
       if (isTokenExpired(authStore.token)) {
-        console.warn("[AUTH] Token expired detected before request. Redirecting to login...");
         authStore.logout();
-        if (window.location.pathname !== "/login") {
-            window.location.href = "/login";
-        }
-        return Promise.reject(new Error("Token expired - Request cancelled"));
+        window.location.href = "/login";
+        return Promise.reject(new Error("Token expired"));
       }
       config.headers.Authorization = `Bearer ${authStore.token}`;
     }
@@ -205,41 +195,40 @@ axiosClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// --- 2. RESPONSE INTERCEPTOR (ĐÃ FIX) ---
+// Response Interceptor (XỬ LÝ BAN TẠI ĐÂY)
 axiosClient.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
     const authStore = useAuthStore();
-
+    
     if (error.response) {
-      const status = error.response.status;
-      const data = error.response.data; // Lấy dữ liệu lỗi từ server
+      const { status, data } = error.response;
 
-      // [FIX QUAN TRỌNG] Kiểm tra xem lỗi này có phải là BANNED không?
-      const isAccountBanned = data && data.error === 'BANNED';
+      // 1. Kiểm tra dấu hiệu bị Ban 
+      // Backend có thể trả về 403 Forbidden hoặc 401 kèm message "Ban" hoặc error code "BANNED"
+      const isBanned = (status === 403 || status === 401) && (
+         (data && data.error === 'BANNED') || 
+         (data && typeof data.message === 'string' && data.message.toLowerCase().includes('ban')) ||
+         (data && typeof data === 'string' && data.toLowerCase().includes('ban'))
+      );
 
-      // Điều kiện Logout: 
-      // 1. Lỗi 401 (Unauthorized)
-      // 2. HOẶC Lỗi 403 (Forbidden) VÀ Token hết hạn VÀ KHÔNG PHẢI LÀ BỊ BAN
-      // (Nếu bị Ban thì để yên cho Login.vue hiện Popup, không được reload trang)
-      if (status === 401 || (status === 403 && isTokenExpired(authStore.token) && !isAccountBanned)) {
-        console.error("[AUTH] Unauthorized access. Logging out...");
-        authStore.logout();
+      if (isBanned) {
+        // Lấy lý do từ response nếu có
+        const reason = data.message || data.reason || "Vi phạm quy định thiên phủ.";
         
-        if (window.location.pathname !== "/login") {
-            window.location.href = "/login";
-        }
+        // KÍCH HOẠT PHONG ẤN TRẬN
+        authStore.triggerBan(reason);
+        
+        // Chặn luồng, không logout để giữ màn hình Popup
+        return Promise.reject(error); 
       }
-      
-      // Log lỗi 403 chi tiết để debug
-      if (status === 403 && !isTokenExpired(authStore.token)) {
-        console.error("--- LỖI QUYỀN HẠN (403) ---");
-        console.error("API:", error.config.url);
+
+      // 2. Xử lý hết hạn Token thông thường (không phải ban)
+      if (status === 401 && !authStore.isBanned) {
+        authStore.logout();
+        window.location.href = "/login";
       }
     }
-
     return Promise.reject(error);
   }
 );

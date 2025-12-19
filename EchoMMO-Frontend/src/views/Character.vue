@@ -2042,16 +2042,12 @@ onMounted(() => {
             <h3>BẢN SẮC</h3>
             <div class="decor-line"></div>
           </div>
-
           <div class="stats-body">
             <div class="stat-row level-row">
               <span class="label">CẢNH GIỚI</span>
-              <span class="value highlight"
-                >Luyện Khí Tầng {{ charStore.character?.lv || 1 }}</span
-              >
+              <span class="value highlight">Luyện Khí Tầng {{ charStore.character?.lv || 1 }}</span>
             </div>
             <div class="divider"></div>
-            
             <div class="stat-row">
               <span class="label"><i class="fas fa-fist-raised"></i> Công Lực</span>
               <span class="value atk">
@@ -2061,7 +2057,6 @@ onMounted(() => {
                 </span>
               </span>
             </div>
-
             <div class="stat-row">
               <span class="label"><i class="fas fa-shield-alt"></i> Hộ Thể</span>
               <span class="value def">
@@ -2071,7 +2066,6 @@ onMounted(() => {
                 </span>
               </span>
             </div>
-
             <div class="stat-row">
               <span class="label"><i class="fas fa-wind"></i> Thân Pháp</span>
               <span class="value speed">
@@ -2081,7 +2075,6 @@ onMounted(() => {
                 </span>
               </span>
             </div>
-
             <div class="stat-row">
               <span class="label"><i class="fas fa-bolt"></i> Bạo Kích</span>
               <span class="value crit">
@@ -2105,7 +2098,13 @@ onMounted(() => {
             v-for="(slot, slotName) in SLOT_CONFIG"
             :key="slotName"
             class="equip-slot"
-            :class="[slot.className, { filled: equipment[slotName] }]"
+            :class="[
+                slot.className, 
+                { 
+                    'filled': equipment[slotName],
+                    'target-glow': hoveredType === slotName  // [NEW] Hiệu ứng sáng khi hover đồ trong túi
+                }
+            ]"
             @mousedown.left="unequipSlow(slotName)"
             :title="slot.label"
           >
@@ -2117,22 +2116,11 @@ onMounted(() => {
               <i v-else :class="['fas placeholder', slot.icon]"></i>
 
               <div
-                v-if="
-                  equipment[slotName] &&
-                  (equipment[slotName].enhanceLevel ||
-                    equipment[slotName].level)
-                "
+                v-if="equipment[slotName] && (equipment[slotName].enhanceLevel || equipment[slotName].level)"
                 class="slot-level-tag"
-                :class="
-                  getLevelClass(
-                    equipment[slotName].enhanceLevel ||
-                      equipment[slotName].level,
-                  )
-                "
+                :class="getLevelClass(equipment[slotName].enhanceLevel || equipment[slotName].level)"
               >
-                +{{
-                  equipment[slotName].enhanceLevel || equipment[slotName].level
-                }}
+                +{{ equipment[slotName].enhanceLevel || equipment[slotName].level }}
               </div>
             </div>
           </div>
@@ -2155,9 +2143,11 @@ onMounted(() => {
               class="mini-slot"
               :class="[
                 'rarity-' + (item.item.rarity || 'C'),
-                { 'is-equipped': item.isEquipped },
+                { 'is-equipped': item.isEquipped }
               ]"
               @click="equip(item)"
+              @mouseenter="hoveredType = item.item.type" 
+              @mouseleave="hoveredType = null"
               :title="item.item.name"
             >
               <img :src="resolveItemImage(item.item.imageUrl)" />
@@ -2170,9 +2160,7 @@ onMounted(() => {
                 +{{ item.enhanceLevel || item.level }}
               </div>
 
-              <span class="qty" v-if="item.quantity > 1">{{
-                item.quantity
-              }}</span>
+              <span class="qty" v-if="item.quantity > 1">{{ item.quantity }}</span>
               <div class="equipped-dot" v-if="item.isEquipped"></div>
             </div>
 
@@ -2187,11 +2175,7 @@ onMounted(() => {
     </div>
 
     <transition name="fade">
-      <div
-        v-if="showUnequipModal"
-        class="modal-overlay"
-        @click.self="closeModal"
-      >
+      <div v-if="showUnequipModal" class="modal-overlay" @click.self="closeModal">
         <div class="dark-modal">
           <div class="modal-border-top"></div>
           <div class="modal-content">
@@ -2205,29 +2189,16 @@ onMounted(() => {
               <div class="preview-info" v-if="itemToUnequip">
                 <span class="p-name">
                   {{ itemToUnequip.item.name }}
-                  <span
-                    class="level-text"
-                    :class="
-                      getLevelClass(
-                        itemToUnequip.enhanceLevel || itemToUnequip.level,
-                      )
-                    "
-                  >
-                    (+{{
-                      itemToUnequip.enhanceLevel || itemToUnequip.level || 0
-                    }})
+                  <span class="level-text" :class="getLevelClass(itemToUnequip.enhanceLevel || itemToUnequip.level)">
+                    (+{{ itemToUnequip.enhanceLevel || itemToUnequip.level || 0 }})
                   </span>
                 </span>
                 <span class="p-type">Sẽ trở về hành trang</span>
               </div>
             </div>
             <div class="modal-actions">
-              <button class="btn-wood cancel" @click="closeModal">
-                HỦY BỎ
-              </button>
-              <button class="btn-wood confirm" @click="confirmUnequip">
-                XÁC NHẬN
-              </button>
+              <button class="btn-wood cancel" @click="closeModal">HỦY BỎ</button>
+              <button class="btn-wood confirm" @click="confirmUnequip">XÁC NHẬN</button>
             </div>
           </div>
           <div class="modal-border-bot"></div>
@@ -2247,24 +2218,25 @@ import { resolveItemImage, getCurrentSkin } from "@/utils/assetHelper";
 const charStore = useCharacterStore();
 const inventoryStore = useInventoryStore();
 const authStore = useAuthStore();
+
+// Map trang bị đang mặc (Store trả về object dạng { WEAPON: item, HELMET: item })
 const equipment = computed(() => inventoryStore.equippedItems);
+const userSkinImg = computed(() => getCurrentSkin(authStore.user?.avatarUrl).sprites.idle);
 
-const userSkinImg = computed(
-  () => getCurrentSkin(authStore.user?.avatarUrl).sprites.idle,
-);
-
-// --- [FIX] LỌC ITEM ---
-// Danh sách các loại item được coi là Trang Bị
+// Danh sách loại Item được coi là trang bị
 const EQUIPMENT_TYPES = ["WEAPON", "ARMOR", "HELMET", "BOOTS", "RING", "NECKLACE"];
 
-// Computed property để lọc bỏ tài nguyên, chỉ lấy trang bị
+// Lọc Item trong túi (chỉ lấy trang bị)
 const bagItems = computed(() => {
   return inventoryStore.items.filter((i) => 
     i.item && EQUIPMENT_TYPES.includes(i.item.type)
   );
 });
 
-// TÍNH TOÁN CHỈ SỐ TỔNG
+// [MỚI] Biến để highlight slot khi hover đồ trong túi
+const hoveredType = ref(null);
+
+// Tính tổng chỉ số
 const totalStats = computed(() => {
   const char = charStore.character || {};
   let stats = {
@@ -2280,7 +2252,8 @@ const totalStats = computed(() => {
       stats.def += (slotItem.item.def || 0);
       stats.speed += (slotItem.item.speed || 0);
       stats.crit += (slotItem.item.critRate || 0);
-
+      
+      // Bonus level cường hóa (Giả sử)
       const lv = slotItem.enhanceLevel || slotItem.level || 0;
       if (lv > 0) {
         stats.atk += lv * 2; 
@@ -2297,7 +2270,7 @@ const totalStats = computed(() => {
   };
 });
 
-// Cấu hình slot
+// Config vị trí và icon cho từng slot
 const SLOT_CONFIG = {
   NECKLACE: { label: "Dây Chuyền", icon: "fa-gem", className: "necklace-slot" },
   WEAPON: { label: "Vũ Khí", icon: "fa-gavel", className: "weapon-slot" },
@@ -2315,7 +2288,7 @@ const getLevelClass = (lv) => {
   return "lvl-white";
 };
 
-// --- LOGIC MODAL & EQUIP ---
+// --- LOGIC EQUIP / UNEQUIP ---
 const showUnequipModal = ref(false);
 const itemToUnequip = ref(null);
 
@@ -2338,10 +2311,14 @@ const closeModal = () => {
   itemToUnequip.value = null;
 };
 
+// Hàm mặc đồ
 const equip = async (item) => {
-  // Chỉ cho phép mặc đồ nằm trong danh sách EQUIPMENT_TYPES
+  // 1. Kiểm tra xem item có phải loại trang bị hợp lệ không
   if (EQUIPMENT_TYPES.includes(item.item.type)) {
-    if (!item.isEquipped) await inventoryStore.equipItem(item.userItemId);
+    // 2. Nếu chưa mặc thì gọi Store để mặc
+    if (!item.isEquipped) {
+        await inventoryStore.equipItem(item.userItemId);
+    }
   }
 };
 
@@ -2378,7 +2355,7 @@ onMounted(() => {
   align-items: center;
 }
 
-/* Các class background giữ nguyên */
+/* --- BACKGROUNDS --- */
 .ink-bg-layer { position: absolute; inset: 0; z-index: 0; background-color: #3e2723; }
 .mountain-bg {
   position: absolute; inset: 0;
@@ -2392,7 +2369,7 @@ onMounted(() => {
 .char-wrapper { position: relative; z-index: 10; width: 100%; max-width: 1100px; padding: 20px; }
 .char-grid { display: grid; grid-template-columns: 300px 1fr 300px; gap: 20px; height: 600px; }
 
-/* Panel Styles */
+/* --- PANELS --- */
 .panel {
   background: rgba(30, 20, 15, 0.95);
   border: 3px solid var(--wood-light);
@@ -2409,7 +2386,7 @@ onMounted(() => {
 .panel-header h3 { margin: 0; color: var(--gold); font-size: 1.2rem; font-weight: 900; letter-spacing: 2px; text-shadow: 0 2px 2px #000; }
 .decor-line { height: 2px; width: 30px; background: var(--gold-dim); opacity: 0.5; }
 
-/* Stats Panel */
+/* --- STATS --- */
 .stats-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 15px; }
 .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); }
 .label { color: #a1887f; font-weight: bold; display: flex; align-items: center; gap: 10px; }
@@ -2423,7 +2400,7 @@ onMounted(() => {
 .crit { color: #ab47bc; }
 .divider { height: 2px; background: var(--wood-light); margin: 5px 0; }
 
-/* Hero Panel */
+/* --- HERO PANEL --- */
 .hero-panel { background: radial-gradient(circle at center, #4e342e 0%, #261815 100%); position: relative; border-color: var(--gold); overflow: hidden; }
 .aura-bg {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -2434,9 +2411,18 @@ onMounted(() => {
 .char-figure { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
 .skin-preview { height: 150px; width: 150px; object-fit: contain; image-rendering: pixelated; transform: scale(2); filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.8)); }
 
-/* Slots */
+/* --- SLOTS --- */
 .equip-slot { position: absolute; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; transition: transform 0.2s; }
-.equip-slot:hover { transform: scale(1.1); }
+.equip-slot:hover { transform: scale(1.1); z-index: 10; }
+
+/* [MỚI] Hiệu ứng sáng slot khi hover đồ tương ứng */
+.equip-slot.target-glow .slot-frame {
+    border-color: #66bb6a;
+    box-shadow: 0 0 20px #66bb6a, inset 0 0 10px #66bb6a;
+    background: rgba(102, 187, 106, 0.1);
+    transform: scale(1.05);
+}
+
 .slot-frame {
   width: 56px; height: 56px; background: rgba(0, 0, 0, 0.6);
   border: 2px solid #8d6e63; border-radius: 8px;
@@ -2451,13 +2437,15 @@ onMounted(() => {
   background: #000; border: 1px solid #444; border-radius: 4px; padding: 0 3px;
   z-index: 10; font-family: sans-serif; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
+
+/* Colors */
 .lvl-white { color: #fff; border-color: #666; }
 .lvl-gold { color: #ffd700; border-color: #ffd700; box-shadow: 0 0 5px #ffd700; }
 .lvl-purple { color: #d580ff; border-color: #d580ff; box-shadow: 0 0 5px #d580ff; }
 .lvl-red { color: #ff3333; border-color: #ff3333; box-shadow: 0 0 8px #ff0000; }
 .level-text { font-weight: bold; margin-left: 5px; }
 
-/* Slots Positioning */
+/* Positioning */
 .necklace-slot { top: 15%; left: 15%; }
 .weapon-slot { top: 50%; left: 5%; transform: translateY(-50%); }
 .ring-slot { bottom: 15%; left: 15%; }
@@ -2466,7 +2454,7 @@ onMounted(() => {
 .boots-slot { bottom: 15%; right: 15%; }
 .weapon-slot:hover, .body-slot:hover { transform: translateY(-50%) scale(1.1); }
 
-/* Bag Panel */
+/* --- BAG --- */
 .bag-info { text-align: right; padding: 5px 15px; font-size: 0.8rem; color: #a1887f; }
 .mini-grid {
   flex: 1; padding: 10px; display: grid;
@@ -2477,16 +2465,13 @@ onMounted(() => {
 .mini-slot.empty { opacity: 0.2; pointer-events: none; }
 .mini-slot:hover { border-color: var(--gold); background: rgba(255, 255, 255, 0.05); }
 .mini-slot img { width: 100%; height: 100%; padding: 4px; object-fit: contain; }
-.mini-level {
-  position: absolute; top: 1px; right: 1px; font-size: 9px; font-weight: bold;
-  background: rgba(0, 0, 0, 0.8); padding: 0 2px; border-radius: 2px;
-}
+.mini-level { position: absolute; top: 1px; right: 1px; font-size: 9px; font-weight: bold; background: rgba(0, 0, 0, 0.8); padding: 0 2px; border-radius: 2px; }
 .qty { position: absolute; bottom: 2px; right: 2px; background: rgba(0, 0, 0, 0.8); color: #fff; font-size: 0.7rem; padding: 0 4px; border-radius: 2px; }
 .equipped-dot { position: absolute; top: 3px; left: 3px; width: 6px; height: 6px; background: #4caf50; border-radius: 50%; box-shadow: 0 0 5px #4caf50; }
 .rarity-C { border-bottom: 2px solid #9e9e9e; }
 .rarity-S { border-bottom: 2px solid var(--gold); }
 
-/* Modal */
+/* --- MODAL --- */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); }
 .dark-modal { width: 350px; background: var(--wood-dark); position: relative; box-shadow: 0 0 30px #000; }
 .modal-content { padding: 20px; text-align: center; }

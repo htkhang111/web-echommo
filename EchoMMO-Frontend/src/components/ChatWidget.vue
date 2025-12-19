@@ -10,8 +10,8 @@
         <div class="chat-sidebar">
           <div class="sidebar-header">Tin Nhắn</div>
           <div class="conversation-list custom-scroll">
-             <div v-if="loadingList" class="loading-text">Đang tải...</div>
-             <div v-else-if="conversations.length === 0" class="empty-conv">Chưa có tin nhắn.</div>
+             <div v-if="loadingList" class="loading-text">Đang triệu hồi...</div>
+             <div v-else-if="conversations.length === 0" class="empty-conv">Chưa có ai liên lạc.</div>
              
              <div 
                 v-for="conv in conversations" 
@@ -48,7 +48,7 @@
            </div>
 
            <div class="chat-input-area">
-              <input v-model="newMessage" @keyup.enter="sendMessage" placeholder="Nhập tin nhắn..." ref="inputRef" />
+              <input v-model="newMessage" @keyup.enter="sendMessage" placeholder="Nhập mật ngữ..." ref="inputRef" />
               <button @click="sendMessage" :disabled="!newMessage.trim()"><i class="fas fa-paper-plane"></i></button>
            </div>
         </div>
@@ -88,7 +88,7 @@ const fetchConversations = async () => {
   loadingList.value = true;
   try {
     const res = await axiosClient.get('/messages/conversations');
-    conversations.value = res.data;
+    conversations.value = res.data || [];
   } catch (e) {
     console.error("Lỗi load hội thoại", e);
   } finally {
@@ -97,27 +97,35 @@ const fetchConversations = async () => {
 };
 
 const selectUser = async (conv) => {
-  currentChatUser.value = { id: conv.userId, username: conv.username };
+  if (!conv) return;
+  
+  // Map dữ liệu cẩn thận để tránh lỗi
+  currentChatUser.value = { 
+      id: conv.userId || conv.id, 
+      username: conv.username 
+  };
   messages.value = [];
   
+  // Đánh dấu đã đọc
   if (conv.unreadCount > 0) {
      try { await axiosClient.post(`/messages/read/${conv.userId}`); conv.unreadCount = 0; } catch(e){}
   }
   
-  await fetchHistory(conv.userId);
+  await fetchHistory(currentChatUser.value.id);
   scrollToBottom();
   nextTick(() => inputRef.value?.focus());
 };
 
 const fetchHistory = async (userId) => {
+  if (!userId) return;
   try {
     const res = await axiosClient.get(`/messages/history/${userId}`);
     messages.value = res.data.map(m => ({
       content: m.content,
       timestamp: m.timestamp,
-      // [FIX] Dùng authStore.userId (Getter an toàn) để check tin chính chủ
       isMine: m.senderId === authStore.userId 
     }));
+    scrollToBottom();
   } catch (e) { console.error(e); }
 };
 
@@ -126,13 +134,21 @@ const sendMessage = async () => {
   const content = newMessage.value;
   newMessage.value = "";
   
+  // Optimistic update
   messages.value.push({ content, timestamp: new Date().toISOString(), isMine: true });
   scrollToBottom();
 
   try {
     await axiosClient.post('/messages/send', { receiverId: currentChatUser.value.id, content });
+    
+    // Cập nhật lại lastMessage trong list bên trái
     const conv = conversations.value.find(c => c.userId === currentChatUser.value.id);
-    if (conv) conv.lastMessage = "Bạn: " + content;
+    if (conv) {
+        conv.lastMessage = "Bạn: " + content;
+    } else {
+        // Nếu là chat mới chưa có trong list -> Reload list
+        fetchConversations();
+    }
   } catch (e) { console.error(e); }
 };
 
@@ -140,41 +156,67 @@ const scrollToBottom = () => {
   nextTick(() => { if (msgContainer.value) msgContainer.value.scrollTop = msgContainer.value.scrollHeight; });
 };
 
-// [FIX] Watcher xử lý logic khi mở từ Admin hoặc Header
+// [HÀM MỚI] Xử lý mở chat với user cụ thể
+const handleOpenChatWithTarget = () => {
+    if (!chatStore.privateChatTarget) return;
+
+    const targetId = chatStore.privateChatTarget.id;
+    let targetConv = conversations.value.find(c => c.userId == targetId);
+    
+    // Nếu chưa có trong list chat -> Tạo dummy để hiển thị ngay
+    if (!targetConv) {
+        targetConv = {
+            userId: targetId,
+            username: chatStore.privateChatTarget.username,
+            avatarUrl: chatStore.privateChatTarget.avatarUrl,
+            lastMessage: '(Bắt đầu trò chuyện)',
+            unreadCount: 0
+        };
+        conversations.value.unshift(targetConv);
+    }
+    
+    selectUser(targetConv);
+};
+
+// --- WATCHERS QUAN TRỌNG ---
+
+// 1. Khi bật/tắt Widget
 watch(() => chatStore.isWidgetOpen, (isOpen) => {
   if (isOpen) {
     fetchConversations().then(() => {
-        // Nếu có targetUser từ store (được set trước khi mở)
-        if (chatStore.privateChatTarget) {
-            // [FIX] Dùng == để so sánh lỏng (number vs string) tránh lỗi
-            let target = conversations.value.find(c => c.userId == chatStore.privateChatTarget.id);
-            
-            if (!target) {
-                // Tạo conversation ảo nếu chưa có lịch sử chat
-                target = {
-                    userId: chatStore.privateChatTarget.id,
-                    username: chatStore.privateChatTarget.username,
-                    avatarUrl: chatStore.privateChatTarget.avatarUrl,
-                    lastMessage: '',
-                    unreadCount: 0
-                };
-                conversations.value.unshift(target);
-            }
-            // Tự động chọn user này
-            selectUser(target);
-        }
+        handleOpenChatWithTarget();
     });
   }
 });
 
+// 2. [QUAN TRỌNG] Khi Admin đổi người chat (kể cả khi widget đang mở)
+watch(() => chatStore.privateChatTarget, (newTarget) => {
+    if (newTarget && chatStore.isWidgetOpen) {
+        // Nếu list chưa load xong thì đợi, nếu xong rồi thì switch luôn
+        if (conversations.value.length === 0 && loadingList.value) {
+             // Đợi fetchConversations xong sẽ tự gọi handleOpenChatWithTarget ở watcher trên
+        } else {
+             handleOpenChatWithTarget();
+        }
+    }
+}, { deep: true });
+
+// Utils
 const getAvatar = (url) => getCurrentSkin(url)?.sprites?.idle || 'https://placehold.co/50?text=U';
 const handleAvatarError = (e) => { if(!e.target.src.includes('placehold')) e.target.src = 'https://placehold.co/50?text=U'; };
 const formatTime = (iso) => iso ? new Date(iso).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
 
 let pollingInterval;
 onMounted(() => {
+    // Nếu widget đang mở sẵn (reload trang) thì load luôn
+    if (chatStore.isWidgetOpen) {
+        fetchConversations();
+    }
+
     pollingInterval = setInterval(() => {
         if (chatStore.isWidgetOpen && currentChatUser.value) {
+             // Polling tin nhắn mới
+             // Lưu ý: Cần tối ưu polling nếu backend hỗ trợ SSE/WebSocket
              fetchHistory(currentChatUser.value.id);
         }
     }, 5000);
@@ -183,7 +225,7 @@ onUnmounted(() => clearInterval(pollingInterval));
 </script>
 
 <style scoped>
-/* Copy CSS cũ của bạn vào đây (không thay đổi gì) */
+/* CSS giữ nguyên từ bản cũ của bạn */
 .chat-widget-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 2000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
 .chat-widget-window { width: 800px; height: 600px; background: #2b1d1a; border: 2px solid #5d4037; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
 .chat-header { background: #3e2723; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; color: #fbc02d; font-family: "Cinzel", serif; border-bottom: 1px solid #5d4037; }
