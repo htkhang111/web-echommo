@@ -7,8 +7,14 @@
 
     <aside class="sidebar" :class="{ collapsed: isCollapsed }">
       <div class="logo-area">
-        <div class="logo-seal"><img :src="appLogo" alt="Logo" class="seal-image" /></div>
-        <transition name="fade"><div v-if="!isCollapsed" class="logo-text"><span class="brand-text">ECHOMMO</span></div></transition>
+        <div class="logo-seal">
+          <img :src="appLogo" alt="Logo" class="seal-image" />
+        </div>
+        <transition name="fade">
+          <div v-if="!isCollapsed" class="logo-text">
+            <span class="brand-text">ECHOMMO</span>
+          </div>
+        </transition>
       </div>
 
       <nav class="nav-links custom-scroll">
@@ -29,6 +35,12 @@
         <router-link to="/village" class="nav-item">
           <div class="nav-icon"><i class="fas fa-campground"></i></div>
           <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">DOANH TRẠI</span></transition>
+          <div class="active-glow"></div>
+        </router-link>
+
+        <router-link to="/pvp" class="nav-item">
+          <div class="nav-icon"><i class="fas fa-fist-raised"></i></div>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">LÔI ĐÀI</span></transition>
           <div class="active-glow"></div>
         </router-link>
 
@@ -84,7 +96,8 @@
       
       <main class="main-view custom-scroll">
         <div class="page-body">
-          <slot></slot> </div>
+          <slot></slot> 
+        </div>
         
         <GameFooter />
       </main>
@@ -98,14 +111,14 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "../stores/authStore";
 import GameHeader from "../components/GameHeader.vue";
 import GameFooter from "../components/GameFooter.vue";
-import { getAppLogo, getAssetUrl } from "@/utils/assetHelper"; // [FIX]
+import { getAppLogo, getAssetUrl } from "@/utils/assetHelper"; 
 
 const authStore = useAuthStore();
 const router = useRouter();
 const isCollapsed = ref(false);
 
 const appLogo = getAppLogo();
-const bgImage = getAssetUrl("b_doanhtrai.png"); // Dùng ảnh từ github
+const bgImage = getAssetUrl("b_doanhtrai.png");
 
 const toggleSidebar = () => { isCollapsed.value = !isCollapsed.value; };
 
@@ -121,12 +134,18 @@ const handleLogout = () => {
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Serif+TC:wght@500;700;900&family=Orbitron:wght@400;700&display=swap");
 
 .wuxia-theme { 
-  --sidebar-bg: #3e2723; --sidebar-border: #5d4037; --text-main: #fdf5e6; --text-dim: #d7ccc8; --accent-gold: #fbc02d; --accent-red: #b71c1c; --hover-bg: rgba(255, 255, 255, 0.08); --bg-deep: #0a0706; 
+  --sidebar-bg: #3e2723; 
+  --sidebar-border: #5d4037; 
+  --text-main: #fdf5e6; 
+  --text-dim: #d7ccc8; 
+  --accent-gold: #fbc02d; 
+  --accent-red: #b71c1c; 
+  --hover-bg: rgba(255, 255, 255, 0.08); 
+  --bg-deep: #0a0706; 
   display: flex; min-height: 100vh; background-color: #000; color: var(--text-main); font-family: "Noto Serif TC", serif; overflow: hidden; 
 }
 
 .ink-bg-layer { position: fixed; inset: 0; z-index: 0; background-color: var(--bg-deep); }
-/* Xóa background-image cứng trong CSS, dùng inline-style ở template */
 .mountain-bg { position: absolute; inset: 0; background-size: cover; filter: sepia(30%) grayscale(20%) brightness(0.3); opacity: 0.5; }
 .fog-overlay { position: absolute; inset: 0; background: linear-gradient( to right, rgba(10, 7, 6, 0.95), rgba(10, 7, 6, 0.5) ); pointer-events: none; }
 

@@ -61,7 +61,20 @@ public class Character {
     @Builder.Default private Integer baseCritRate = 50;
     @Builder.Default private Integer baseCritDmg = 150;
 
-    // [QUAN TRỌNG] Thêm trường lưu Map ID để nhớ vị trí
+    // --- [NEW] PVP & POWER STATS (Thêm phần này để khớp với DB và Service) ---
+    @Column(name = "total_power")
+    @Builder.Default private Integer totalPower = 0; // Lực chiến tổng
+
+    @Column(name = "pvp_points")
+    @Builder.Default private Integer pvpPoints = 1000; // Điểm Rank PvP
+
+    @Column(name = "pvp_wins")
+    @Builder.Default private Integer pvpWins = 0; // Số trận thắng
+
+    @Column(name = "pvp_matches_played")
+    @Builder.Default private Integer pvpMatchesPlayed = 0; // Tổng số trận đấu
+
+    // --- MAP & LOCATION ---
     @Builder.Default
     @Column(name = "current_map_id")
     private String currentMapId = "MAP_01";
@@ -89,4 +102,3 @@ public class Character {
         lastActive = LocalDateTime.now();
     }
 }
-

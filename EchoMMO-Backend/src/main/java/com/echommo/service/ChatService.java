@@ -23,7 +23,7 @@ public class ChatService {
     private UserRepository userRepository;
 
     public List<ChatMessageDTO> getRecentMessages() {
-        List<Message> messages = messageRepository.findTop20ByOrderBySentAtDesc();
+        List<Message> messages = messageRepository.findTop50ByOrderBySentAtDesc();
         List<ChatMessageDTO> dtos = new ArrayList<>();
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");

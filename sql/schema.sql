@@ -286,18 +286,42 @@ CREATE TABLE skills
 USE echommo_db;
 
 -- 1. Chữa trị các dòng dữ liệu đang bị NULL (Nguyên nhân chính gây lỗi 500)
-UPDATE wallet SET wood = 0 WHERE wood IS NULL;
-UPDATE wallet SET dried_wood = 0 WHERE dried_wood IS NULL;
-UPDATE wallet SET cold_wood = 0 WHERE cold_wood IS NULL;
-UPDATE wallet SET strange_wood = 0 WHERE strange_wood IS NULL;
-UPDATE wallet SET stone = 0 WHERE stone IS NULL;
-UPDATE wallet SET copper_ore = 0 WHERE copper_ore IS NULL;
-UPDATE wallet SET iron_ore = 0 WHERE iron_ore IS NULL;
-UPDATE wallet SET platinum = 0 WHERE platinum IS NULL;
-UPDATE wallet SET fish = 0 WHERE fish IS NULL;
-UPDATE wallet SET shark = 0 WHERE shark IS NULL;
-UPDATE wallet SET echo_coin = 0 WHERE echo_coin IS NULL;
-UPDATE wallet SET unknown_material = 0 WHERE unknown_material IS NULL;
+UPDATE wallet
+SET wood = 0
+WHERE wood IS NULL;
+UPDATE wallet
+SET dried_wood = 0
+WHERE dried_wood IS NULL;
+UPDATE wallet
+SET cold_wood = 0
+WHERE cold_wood IS NULL;
+UPDATE wallet
+SET strange_wood = 0
+WHERE strange_wood IS NULL;
+UPDATE wallet
+SET stone = 0
+WHERE stone IS NULL;
+UPDATE wallet
+SET copper_ore = 0
+WHERE copper_ore IS NULL;
+UPDATE wallet
+SET iron_ore = 0
+WHERE iron_ore IS NULL;
+UPDATE wallet
+SET platinum = 0
+WHERE platinum IS NULL;
+UPDATE wallet
+SET fish = 0
+WHERE fish IS NULL;
+UPDATE wallet
+SET shark = 0
+WHERE shark IS NULL;
+UPDATE wallet
+SET echo_coin = 0
+WHERE echo_coin IS NULL;
+UPDATE wallet
+SET unknown_material = 0
+WHERE unknown_material IS NULL;
 
 -- 2. Ép kiểu dữ liệu mặc định cho bảng (Phòng ngừa hậu họa)
 ALTER TABLE wallet
@@ -317,4 +341,85 @@ ALTER TABLE wallet
 USE echommo_db;
 
 -- Đổi tên cột 'stone' thành 'coal' trong bảng ví tiền
-ALTER TABLE wallet CHANGE COLUMN stone coal INT DEFAULT 0;
+ALTER TABLE wallet
+    CHANGE COLUMN stone coal INT DEFAULT 0;
+
+USE echommo_db;
+
+-- ==========================================
+-- 1. BẢNG HÀNG CHỜ (QUEUE)
+-- Lưu danh sách người chơi đang bấm "Tìm trận"
+-- ==========================================
+DROP TABLE IF EXISTS pvp_queue;
+CREATE TABLE pvp_queue
+(
+    queue_id  INT AUTO_INCREMENT PRIMARY KEY,
+    char_id   INT NOT NULL UNIQUE,             -- Một nhân vật chỉ được ở trong hàng chờ 1 lần
+    level     INT NOT NULL,                    -- Dùng để ghép trận công bằng
+    power     INT         DEFAULT 0,           -- Lực chiến (Optional: ghép theo lực chiến)
+    status    VARCHAR(20) DEFAULT 'SEARCHING', -- SEARCHING (Đang tìm), MATCHED (Đã thấy)
+    joined_at DATETIME    DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT FK_Queue_Character FOREIGN KEY (char_id) REFERENCES characters (char_id) ON DELETE CASCADE
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci;
+
+-- ==========================================
+-- 2. BẢNG TRẬN ĐẤU (MATCHES)
+-- Lưu trạng thái thực tế của trận đấu (Oẳn tù tì, Máu, Log)
+-- ==========================================
+DROP TABLE IF EXISTS pvp_matches;
+CREATE TABLE pvp_matches
+(
+    match_id      BIGINT AUTO_INCREMENT PRIMARY KEY,
+
+    -- Hai người chơi
+    player1_id    INT NOT NULL,
+    player2_id    INT NOT NULL,
+
+    -- Trạng thái trận đấu
+    status        VARCHAR(20) DEFAULT 'PENDING',         -- PENDING (Chờ chấp nhận), ACTIVE (Đang đánh), FINISHED (Xong), CANCELLED (Hủy)
+    winner_id     INT         DEFAULT NULL,              -- ID người thắng cuộc
+
+    -- Cơ chế Chấp nhận trận đấu (10s đếm ngược)
+    p1_accepted   BOOLEAN     DEFAULT FALSE,
+    p2_accepted   BOOLEAN     DEFAULT FALSE,
+    created_at    DATETIME    DEFAULT CURRENT_TIMESTAMP, -- Dùng để tính timeout 10s
+
+    -- Cơ chế Battle & Oẳn tù tì
+    turn_count    INT         DEFAULT 1,                 -- Hiệp thứ mấy
+
+    rps_p1_move   VARCHAR(10) DEFAULT NULL,              -- ROCK, PAPER, SCISSORS (Null là chưa chọn)
+    rps_p2_move   VARCHAR(10) DEFAULT NULL,
+
+    -- Snapshot HP tại thời điểm trận đấu (Để tránh hack client sửa máu)
+    p1_current_hp INT         DEFAULT 0,
+    p2_current_hp INT         DEFAULT 0,
+
+    -- Log diễn biến lượt vừa rồi (VD: "A ra Búa thắng B ra Kéo. A đánh 500 dmg")
+    last_log      TEXT,
+
+    updated_at    DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT FK_Match_P1 FOREIGN KEY (player1_id) REFERENCES characters (char_id) ON DELETE CASCADE,
+    CONSTRAINT FK_Match_P2 FOREIGN KEY (player2_id) REFERENCES characters (char_id) ON DELETE CASCADE
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci;
+
+-- ==========================================
+-- 3. CẬP NHẬT BẢNG CHARACTERS
+-- Thêm cột điểm xếp hạng PvP và thống kê thắng thua
+-- ==========================================
+ALTER TABLE characters
+    ADD COLUMN pvp_points         INT DEFAULT 1000, -- Điểm Elo/Rank (Mặc định 1000)
+    ADD COLUMN pvp_wins           INT DEFAULT 0, -- Tổng số trận thắng
+    ADD COLUMN pvp_matches_played INT DEFAULT 0;
+-- Tổng số trận đã đấu
+
+-- ==========================================
+-- 4. TRIGGER (Tùy chọn)
+-- Tự động xóa khỏi hàng chờ khi vào trận (Có thể xử lý bằng Code Backend thay thế)
+-- ==========================================
+-- (Tôi khuyến nghị xử lý logic này ở Java Service để dễ kiểm soát hơn là dùng Trigger SQL)

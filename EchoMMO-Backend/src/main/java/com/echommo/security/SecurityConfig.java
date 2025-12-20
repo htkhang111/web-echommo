@@ -93,9 +93,16 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        // 1. Các API công khai (Không cần Token)
                         .requestMatchers("/api/auth/**", "/api/public/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
-                        .requestMatchers("/ws/**").permitAll() // WebSocket cho Chat
+                        .requestMatchers("/ws/**").permitAll()
+
+                        // 2. [QUAN TRỌNG] Cấu hình rõ ràng cho API PvP
+                        // Yêu cầu phải có Token (Authenticated) mới được gọi
+                        .requestMatchers("/api/pvp/**").authenticated()
+
+                        // 3. Tất cả các request còn lại cũng yêu cầu Token
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -109,8 +116,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // [FIX] Chỉ định rõ nguồn gốc (Origin) thay vì dùng "*" để tránh lỗi CORS khi có Credentials
-        // Thêm các domain mà đạo hữu dùng để chạy game
+        // Cấu hình CORS (Giữ nguyên như của bạn là rất tốt)
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",       // Vue Local Dev
                 "http://localhost:4173",       // Vue Preview
@@ -120,7 +126,7 @@ public class SecurityConfig {
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
-        configuration.setAllowCredentials(true); // Cho phép gửi Cookie/Auth Header
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

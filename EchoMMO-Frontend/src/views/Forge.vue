@@ -1,4 +1,4 @@
-<!-- <template>
+<template>
   <div class="page-container forge-page ancient-theme">
     <div class="wood-bg-layer"></div>
     <div class="fire-overlay"></div>
@@ -484,11 +484,11 @@ const fetchInventory = async () => { await inventoryStore.fetchInventory(); };
 @keyframes pulse-red { 0% { box-shadow: 0 0 10px #ff1744; } 50% { box-shadow: 0 0 25px #ff1744; } 100% { box-shadow: 0 0 10px #ff1744; } }
 .error-text { color: #ff5252; margin-top: 10px; font-size: 0.9rem; }
 .custom-scroll::-webkit-scrollbar { width: 6px; } .custom-scroll::-webkit-scrollbar-thumb { background: #5d4037; border-radius: 3px; } .custom-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
-</style> -->
+</style>
 
 
 
-<template>
+<!-- <template>
   <div class="page-container forge-page ancient-theme">
     <div class="wood-bg-layer"></div>
     <div class="fire-overlay"></div>
@@ -748,26 +748,31 @@ const parsedSubStats = computed(() => {
   }
 });
 
-// [LOGIC RANDOM] Tính tỉ lệ thành công dựa trên cấp độ
+// [LOGIC RANDOM UPDATE] Tỉ lệ thành công giảm dần đều từ Lv 1 -> 30
+// Không còn mốc an toàn 100% nữa!
 const currentSuccessRate = computed(() => {
     if (!selectedItem.value) return 0;
     const item = selectedItem.value;
     
-    // Mythic Rate (Khó)
+    // Mythic Rate (Rất khó)
     if (item.isMythic) {
-        if (item.mythicLevel < 5) return 50;
-        if (item.mythicLevel < 10) return 30;
-        return 10;
+        if (item.mythicLevel < 5) return 40;
+        if (item.mythicLevel < 10) return 25;
+        return 5;
     }
 
-    // Normal Rate
-    const lv = item.enhanceLevel;
-    if (lv < 5) return 100; // 0-4: 100%
-    if (lv < 10) return 80;  // 5-9: 80%
-    if (lv < 15) return 60;  // 10-14: 60%
-    if (lv < 20) return 40;  // 15-19: 40%
-    if (lv < 25) return 20;  // 20-24: 20%
-    return 10;               // 25+: 10%
+    // Normal Rate: Công thức tuyến tính (Linear Decay)
+    // Lv 0 -> +1: 95%
+    // Lv 10 -> +11: 65%
+    // Lv 20 -> +21: 35%
+    // Lv 29 -> +30: 8%
+    // Mỗi cấp giảm khoảng 3% tỉ lệ
+    const baseRate = 95;
+    const decay = item.enhanceLevel * 3; 
+    const rate = baseRate - decay;
+    
+    // Luôn giữ tối thiểu 5% để còn có hy vọng (hoặc tuyệt vọng)
+    return Math.max(5, rate);
 });
 
 const getRateColorClass = (rate) => {
@@ -834,26 +839,23 @@ const selectItem = (item) => {
   errorMessage.value = "";
 };
 
-// [UPDATED] Hàm xử lý cường hóa với Random Frontend
 const handleUpgrade = async () => {
   if (!selectedItem.value || isForging.value) return;
   isForging.value = true;
   errorMessage.value = "";
 
-  // 1. RANDOM "HÊN XUI" GIẢ LẬP (FRONTEND)
+  // [RANDOM LOGIC] Check may mắn
   const roll = Math.random() * 100;
-  // Nếu roll > tỷ lệ thành công (ví dụ: roll ra 85 > 80%) => THẤT BẠI
+  
+  // So sánh với tỷ lệ hiện tại (đã được sửa thành giảm dần từ Lv 1)
   if (roll > currentSuccessRate.value) {
       setTimeout(() => {
-          showResultModal("fail", "CƯỜNG HÓA THẤT BẠI", "Rất tiếc! Bạn đã mất nguyên liệu. Hãy thử lại vận may!");
+          showResultModal("fail", "CƯỜNG HÓA THẤT BẠI", "Rất tiếc! Lần này thần may mắn không mỉm cười.");
           isForging.value = false;
-          // [Lưu ý] Vẫn có thể cần gọi API để trừ tiền nếu logic game yêu cầu, 
-          // nhưng ở đây ta chặn luôn để demo hiệu ứng trước.
-      }, 1500); // Chờ 1.5s cho hồi hộp
+      }, 1500);
       return; 
   }
 
-  // 2. NẾU THÀNH CÔNG (FRONTEND PASS) -> GỌI API
   try {
     const url = `/equipment/enhance/${selectedItem.value.userItemId}`;
     await axiosClient.post(url);
@@ -1051,4 +1053,4 @@ const fetchInventory = async () => { await inventoryStore.fetchInventory(); };
 @keyframes pulse-red { 0% { box-shadow: 0 0 10px #ff1744; } 50% { box-shadow: 0 0 25px #ff1744; } 100% { box-shadow: 0 0 10px #ff1744; } }
 .error-text { color: #ff5252; margin-top: 10px; font-size: 0.9rem; }
 .custom-scroll::-webkit-scrollbar { width: 6px; } .custom-scroll::-webkit-scrollbar-thumb { background: #5d4037; border-radius: 3px; } .custom-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
-</style>
+</style> -->

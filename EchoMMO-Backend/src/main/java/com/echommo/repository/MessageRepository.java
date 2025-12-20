@@ -8,6 +8,6 @@ import java.util.List;
 
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
-    // Lấy 20 tin nhắn mới nhất (sắp xếp giảm dần theo thời gian)
-    List<Message> findTop20ByOrderBySentAtDesc();
+    // Lấy 50 tin nhắn mới nhất, sắp xếp giảm dần theo thời gian gửi
+    List<Message> findTop50ByOrderBySentAtDesc();
 }

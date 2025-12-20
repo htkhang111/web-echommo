@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 
 // --- Public Views ---
-import Home from '../views/Home.vue' // Bạn có thể muốn đổi cái này thành LandingPage nếu Home.vue là trang game nội bộ
+import Home from '../views/Home.vue'
 import Login from '../views/Login.vue'
 import Register from '../views/Register.vue'
 import ForgotPassword from '../views/ForgotPassword.vue'
@@ -20,6 +20,7 @@ import Inventory from '../views/Inventory.vue'
 import Marketplace from '../views/Marketplace.vue'
 import Forge from '../views/Forge.vue'
 import EvolveMythic from '../views/EvolveMythic.vue'
+import PvpArena from '../views/PvpArena.vue' // [NEW] Import trang PvP mới
 
 // --- Social & Info ---
 import Leaderboard from '../views/Leaderboard.vue'
@@ -39,7 +40,7 @@ import UpdatesView from '../views/UpdatesView.vue'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', name: 'Home', component: Home, meta: { requiresAuth: true } }, // [FIX] Đổi thành requiresAuth để không vào thẳng
+    { path: '/', name: 'Home', component: Home, meta: { requiresAuth: true } },
     { path: '/login', name: 'Login', component: Login },
     { path: '/register', name: 'Register', component: Register },
     { path: '/forgot-password', name: 'ForgotPassword', component: ForgotPassword },
@@ -57,6 +58,10 @@ const router = createRouter({
     { path: '/marketplace', name: 'Marketplace', component: Marketplace, meta: { requiresAuth: true } },
     { path: '/forge', name: 'Forge', component: Forge, meta: { requiresAuth: true } },
     { path: '/evolve-mythic', name: 'EvolveMythic', component: EvolveMythic, meta: { requiresAuth: true } },
+    
+    // [NEW] Route cho Lôi Đài
+    { path: '/pvp', name: 'PvpArena', component: PvpArena, meta: { requiresAuth: true } },
+
     { path: '/leaderboard', name: 'Leaderboard', component: Leaderboard, meta: { requiresAuth: true } },
     { path: '/friends', name: 'Friends', component: Friends, meta: { requiresAuth: true } },
     { path: '/notifications', name: 'Notifications', component: Notifications, meta: { requiresAuth: true } },
@@ -74,7 +79,6 @@ const router = createRouter({
 })
 
 router.beforeEach(async (to, from, next) => {
-  // [FIX] Xóa '/' khỏi danh sách publicPages
   const publicPages = ['/login', '/register', '/forgot-password', '/about', '/help', '/privacy', '/rules', '/updates'];
   const authRequired = !publicPages.includes(to.path);
   const authStore = useAuthStore();
@@ -84,7 +88,7 @@ router.beforeEach(async (to, from, next) => {
     return next('/login');
   }
 
-  // Nếu đã Login mà cố vào trang Login/Register -> Vào Village (hoặc Home)
+  // Nếu đã Login mà cố vào trang Login/Register -> Vào Village
   if (authStore.token && (to.path === '/login' || to.path === '/register')) {
     return next('/village');
   }
