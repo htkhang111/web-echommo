@@ -55,7 +55,8 @@
           <span>{{ maxNode > 0 ? Math.round((1 - remainingNode / maxNode) * 100) : 100 }}%</span>
         </div>
         <div class="progress-track">
-          <div class="progress-fill" :style="{ width: (maxNode > 0 ? (1 - remainingNode / maxNode) * 100 : 100) + '%' }"></div>
+          <div class="progress-fill"
+            :style="{ width: (maxNode > 0 ? (1 - remainingNode / maxNode) * 100 : 100) + '%' }"></div>
         </div>
       </div>
 
@@ -64,11 +65,13 @@
           <i class="fas fa-bolt"></i> Nội Năng: <strong>{{ charStore.character?.currentEnergy || 0 }}</strong>
         </div>
         <div class="btn-grid">
-          <button class="btn-wood action-btn" @click="handleGather(1)" :disabled="isGathering || remainingNode <= 0 || (charStore.character?.currentEnergy || 0) < 1 || playerLevel < currentEvent.reqLevel">
+          <button class="btn-wood action-btn" @click="handleGather(1)"
+            :disabled="isGathering || remainingNode <= 0 || (charStore.character?.currentEnergy || 0) < 1 || playerLevel < currentEvent.reqLevel">
             <span class="btn-main">KHAI THÁC</span>
             <span class="btn-sub">Tốn 1 <i class="fas fa-bolt"></i></span>
           </button>
-          <button class="btn-seal action-btn" @click="handleGatherAll" :disabled="isGathering || remainingNode <= 0 || (charStore.character?.currentEnergy || 0) < 1 || playerLevel < currentEvent.reqLevel">
+          <button class="btn-seal action-btn" @click="handleGatherAll"
+            :disabled="isGathering || remainingNode <= 0 || (charStore.character?.currentEnergy || 0) < 1 || playerLevel < currentEvent.reqLevel">
             <span class="btn-main">TỰ ĐỘNG</span>
             <span class="btn-sub">Gom nhanh (Max 10)</span>
           </button>
@@ -76,7 +79,7 @@
         <div class="feedback-text" v-if="feedbackMsg">{{ feedbackMsg }}</div>
       </div>
     </div>
-    
+
     <div v-else class="gathering-panel" style="text-align: center; color: #aaa;">
       <p>Đang đồng bộ dữ liệu mỏ...</p>
     </div>
@@ -89,7 +92,7 @@ import { useCharacterStore } from "@/stores/characterStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "vue-router";
 import axiosClient from "@/api/axiosClient";
-import { resolveItemImage, getAssetUrl } from "@/utils/assetHelper"; 
+import { resolveItemImage, getAssetUrl } from "@/utils/assetHelper";
 
 const charStore = useCharacterStore();
 const authStore = useAuthStore();
@@ -98,7 +101,7 @@ let energyRefreshInterval = null;
 
 const currentEvent = ref(null);
 const remainingNode = ref(0);
-const maxNode = ref(10); 
+const maxNode = ref(10);
 const isGathering = ref(false);
 const feedbackMsg = ref("");
 const bgImage = getAssetUrl("b_mountain.jpg");
@@ -160,14 +163,14 @@ const handleGather = async (times = 1) => {
     await new Promise(r => setTimeout(r, 800));
     const charId = charStore.character.id || charStore.character.characterId;
     const payload = { characterId: charId, itemId: currentEvent.value.rewardItemId, amount: times };
-    
+
     await axiosClient.post("/exploration/gather", payload);
-    
+
     remainingNode.value -= times;
-    await charStore.fetchCharacter(); 
-    
+    await charStore.fetchCharacter();
+
     feedbackMsg.value = `Thu hoạch thành công! (+${times} ${currentEvent.value.lootName})`;
-    
+
     if (remainingNode.value <= 0) {
       feedbackMsg.value = "Mỏ tài nguyên đã cạn!";
       setTimeout(() => router.push('/explore'), 1500);
@@ -196,52 +199,338 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.page-container { height: 100vh; overflow: hidden; display: flex; flex-direction: column; background: #1a1a1a; position: relative; }
-.ink-bg-layer { position: absolute; inset: 0; z-index: 0; }
-.mountain-bg { position: absolute; inset: 0; background-size: cover; opacity: 0.3; }
-.nav-header { position: relative; z-index: 10; padding: 10px; }
-.btn-wood-back { background: #3e2723; color: #d7ccc8; border: 1px solid #5d4037; padding: 8px 15px; cursor: pointer; font-family: "Noto Serif TC", serif; font-weight: bold; display: flex; align-items: center; gap: 5px; }
-.gathering-panel { position: relative; z-index: 10; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; color: #eee; }
-.event-header { text-align: center; margin-bottom: 20px; }
-.node-frame { position: relative; width: 120px; height: 120px; margin: 0 auto 10px; display: flex; justify-content: center; align-items: center; }
-.node-circle { width: 100px; height: 100px; background: rgba(0,0,0,0.5); border-radius: 50%; border: 3px solid #5d4037; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-.node-img { width: 80%; height: 80%; object-fit: contain; }
-.rarity-seal { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); background: #333; padding: 2px 8px; font-size: 0.8rem; border-radius: 10px; border: 1px solid #777; white-space: nowrap; }
-.bg-common { background: #555; color: #ccc; }
-.bg-uncommon { background: #2e7d32; color: #a5d6a7; }
-.bg-rare { background: #1565c0; color: #90caf9; }
-.bg-epic { background: #6a1b9a; color: #ce93d8; }
-.bg-legendary { background: #e65100; color: #ffcc80; }
-.node-name { font-size: 1.5rem; margin: 5px 0; font-family: "Orbitron", sans-serif; text-shadow: 0 0 5px currentColor; }
-.text-common { color: #ccc; }
-.text-uncommon { color: #66bb6a; }
-.text-rare { color: #42a5f5; }
-.text-epic { color: #ab47bc; }
-.text-legendary { color: #ffa726; }
-.req-box { font-size: 0.9rem; color: #aaa; margin-top: 5px; }
-.highlight { color: #fbc02d; font-weight: bold; }
-.info-scroll-area { width: 100%; max-width: 400px; background: rgba(0,0,0,0.3); border: 1px solid #444; border-radius: 8px; padding: 15px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; }
-.status-row { display: flex; align-items: center; gap: 15px; }
-.icon-wrap { width: 30px; text-align: center; color: #8d6e63; font-size: 1.2rem; }
-.stat-detail { flex: 1; display: flex; justify-content: space-between; font-size: 0.95rem; }
-.gold-text { color: #ffd700; }
-.text-red { color: #ef5350; }
-.progress-container { width: 100%; max-width: 400px; margin-bottom: 20px; }
-.progress-label { display: flex; justify-content: space-between; font-size: 0.85rem; color: #bbb; margin-bottom: 5px; }
-.progress-track { width: 100%; height: 10px; background: #333; border-radius: 5px; overflow: hidden; }
-.progress-fill { height: 100%; background: linear-gradient(90deg, #66bb6a, #43a047); transition: width 0.5s ease; }
-.action-zone { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 15px; text-align: center; }
-.energy-tag { font-size: 1rem; color: #4fc3f7; background: rgba(3,169,244,0.1); padding: 5px 15px; border-radius: 15px; display: inline-block; margin: 0 auto; }
-.energy-low { color: #ef5350; background: rgba(244,67,54,0.1); }
-.btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.action-btn { padding: 15px; border: none; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.2s; }
-.action-btn:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
-.action-btn:not(:disabled):hover { transform: translateY(-2px); filter: brightness(1.1); }
-.btn-wood { background: #4e342e; color: #fff; border: 1px solid #6d4c41; }
-.btn-seal { background: #263238; color: #fff; border: 1px solid #37474f; }
-.btn-main { font-weight: bold; font-size: 1.1rem; }
-.btn-sub { font-size: 0.8rem; opacity: 0.8; margin-top: 3px; }
-.feedback-text { color: #69f0ae; font-weight: bold; min-height: 24px; }
-.shake-anim { animation: shake 0.5s infinite; }
-@keyframes shake { 0% { transform: rotate(0deg); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } 100% { transform: rotate(0deg); } }
+.page-container {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+  position: relative;
+}
+
+.ink-bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.mountain-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  opacity: 0.3;
+}
+
+.nav-header {
+  position: relative;
+  z-index: 10;
+  padding: 10px;
+}
+
+.btn-wood-back {
+  background: #3e2723;
+  color: #d7ccc8;
+  border: 1px solid #5d4037;
+  padding: 8px 15px;
+  cursor: pointer;
+  font-family: "Noto Serif TC", serif;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.gathering-panel {
+  position: relative;
+  z-index: 10;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #eee;
+}
+
+.event-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.node-frame {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.node-circle {
+  width: 100px;
+  height: 100px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  border: 3px solid #5d4037;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.node-img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+.rarity-seal {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  border-radius: 10px;
+  border: 1px solid #777;
+  white-space: nowrap;
+}
+
+.bg-common {
+  background: #555;
+  color: #ccc;
+}
+
+.bg-uncommon {
+  background: #2e7d32;
+  color: #a5d6a7;
+}
+
+.bg-rare {
+  background: #1565c0;
+  color: #90caf9;
+}
+
+.bg-epic {
+  background: #6a1b9a;
+  color: #ce93d8;
+}
+
+.bg-legendary {
+  background: #e65100;
+  color: #ffcc80;
+}
+
+.node-name {
+  font-size: 1.5rem;
+  margin: 5px 0;
+  font-family: "Orbitron", sans-serif;
+  text-shadow: 0 0 5px currentColor;
+}
+
+.text-common {
+  color: #ccc;
+}
+
+.text-uncommon {
+  color: #66bb6a;
+}
+
+.text-rare {
+  color: #42a5f5;
+}
+
+.text-epic {
+  color: #ab47bc;
+}
+
+.text-legendary {
+  color: #ffa726;
+}
+
+.req-box {
+  font-size: 0.9rem;
+  color: #aaa;
+  margin-top: 5px;
+}
+
+.highlight {
+  color: #fbc02d;
+  font-weight: bold;
+}
+
+.info-scroll-area {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.icon-wrap {
+  width: 30px;
+  text-align: center;
+  color: #8d6e63;
+  font-size: 1.2rem;
+}
+
+.stat-detail {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+}
+
+.gold-text {
+  color: #ffd700;
+}
+
+.text-red {
+  color: #ef5350;
+}
+
+.progress-container {
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 20px;
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #bbb;
+  margin-bottom: 5px;
+}
+
+.progress-track {
+  width: 100%;
+  height: 10px;
+  background: #333;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #66bb6a, #43a047);
+  transition: width 0.5s ease;
+}
+
+.action-zone {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  text-align: center;
+}
+
+.energy-tag {
+  font-size: 1rem;
+  color: #4fc3f7;
+  background: rgba(3, 169, 244, 0.1);
+  padding: 5px 15px;
+  border-radius: 15px;
+  display: inline-block;
+  margin: 0 auto;
+}
+
+.energy-low {
+  color: #ef5350;
+  background: rgba(244, 67, 54, 0.1);
+}
+
+.btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.action-btn {
+  padding: 15px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.action-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.btn-wood {
+  background: #4e342e;
+  color: #fff;
+  border: 1px solid #6d4c41;
+}
+
+.btn-seal {
+  background: #263238;
+  color: #fff;
+  border: 1px solid #37474f;
+}
+
+.btn-main {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.btn-sub {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  margin-top: 3px;
+}
+
+.feedback-text {
+  color: #69f0ae;
+  font-weight: bold;
+  min-height: 24px;
+}
+
+.shake-anim {
+  animation: shake 0.5s infinite;
+}
+
+@keyframes shake {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  25% {
+    transform: rotate(-5deg);
+  }
+
+  75% {
+    transform: rotate(5deg);
+  }
+
+  100% {
+    transform: rotate(0deg);
+  }
+}
 </style>

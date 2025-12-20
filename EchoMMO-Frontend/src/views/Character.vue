@@ -1,2032 +1,3 @@
-<!-- <template>
-  <div class="page-container character-page wuxia-dark-theme">
-    <div class="ink-bg-layer">
-      <div class="mountain-bg"></div>
-      <div class="fog-anim"></div>
-    </div>
-
-    <div class="char-wrapper">
-      <div class="char-grid">
-        
-        <div class="panel stats-panel">
-          <div class="panel-header">
-            <div class="decor-line"></div>
-            <h3>BẢN SẮC</h3>
-            <div class="decor-line"></div>
-          </div>
-          
-          <div class="stats-body">
-            <div class="stat-row level-row">
-              <span class="label">CẢNH GIỚI</span>
-              <span class="value highlight">Luyện Khí Tầng {{ charStore.character?.lv || 1 }}</span>
-            </div>
-
-            <div class="divider"></div>
-
-            <div class="stat-row">
-              <span class="label"><i class="fas fa-fist-raised"></i> Công Lực</span>
-              <span class="value atk">{{ charStore.character?.baseAtk || 0 }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="label"><i class="fas fa-shield-alt"></i> Hộ Thể</span>
-              <span class="value def">{{ charStore.character?.baseDef || 0 }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="label"><i class="fas fa-wind"></i> Thân Pháp</span>
-              <span class="value speed">{{ charStore.character?.baseSpeed || 0 }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="label"><i class="fas fa-bolt"></i> Bạo Kích</span>
-              <span class="value crit">{{ charStore.character?.baseCritRate || 0 }}%</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel hero-panel">
-          <div class="aura-bg"></div>
-          
-          <div class="char-figure">
-            <i class="fas fa-user-ninja"></i>
-          </div>
-
-          <div 
-            class="equip-slot head-slot" 
-            :class="{ filled: equipment.HELMET }"
-            @mousedown.left="unequipSlow('HELMET')" 
-            @contextmenu.prevent="unequipFast('HELMET')"
-            title="Mũ"
-          >
-            <div class="slot-frame">
-              <img v-if="equipment.HELMET" :src="equipment.HELMET.item.imageUrl" />
-              <i v-else class="fas fa-hat-cowboy-side placeholder"></i>
-            </div>
-            <div class="slot-label">Mão</div>
-          </div>
-
-          <div 
-            class="equip-slot weapon-slot" 
-            :class="{ filled: equipment.WEAPON }"
-            @mousedown.left="unequipSlow('WEAPON')" 
-            @contextmenu.prevent="unequipFast('WEAPON')"
-            title="Vũ Khí"
-          >
-            <div class="slot-frame">
-              <img v-if="equipment.WEAPON" :src="equipment.WEAPON.item.imageUrl" />
-              <i v-else class="fas fa-gavel placeholder"></i>
-            </div>
-            <div class="slot-label">Binh Khí</div>
-          </div>
-
-          <div 
-            class="equip-slot body-slot" 
-            :class="{ filled: equipment.ARMOR }"
-            @mousedown.left="unequipSlow('ARMOR')" 
-            @contextmenu.prevent="unequipFast('ARMOR')"
-            title="Y Phục"
-          >
-            <div class="slot-frame">
-              <img v-if="equipment.ARMOR" :src="equipment.ARMOR.item.imageUrl" />
-              <i v-else class="fas fa-tshirt placeholder"></i>
-            </div>
-            <div class="slot-label">Y Phục</div>
-          </div>
-
-          <div 
-            class="equip-slot boots-slot" 
-            :class="{ filled: equipment.BOOTS }"
-            @mousedown.left="unequipSlow('BOOTS')" 
-            @contextmenu.prevent="unequipFast('BOOTS')"
-            title="Giày"
-          >
-            <div class="slot-frame">
-              <img v-if="equipment.BOOTS" :src="equipment.BOOTS.item.imageUrl" />
-              <i v-else class="fas fa-socks placeholder"></i>
-            </div>
-            <div class="slot-label">Hài</div>
-          </div>
-        </div>
-
-        <div class="panel bag-panel">
-          <div class="panel-header">
-            <div class="decor-line"></div>
-            <h3>HÀNH NANG</h3>
-            <div class="decor-line"></div>
-          </div>
-          <div class="bag-info">
-            Sức chứa: {{ inventoryStore.items.length }} / 50
-          </div>
-          
-          <div class="mini-grid custom-scroll">
-            <div 
-              v-for="item in inventoryStore.items" 
-              :key="item.userItemId" 
-              class="mini-slot"
-              :class="[
-                'rarity-' + (item.item.rarity || 'C'),
-                { 'is-equipped': item.isEquipped }
-              ]" 
-              @click="equip(item)" 
-              :title="item.item.name"
-            >
-              <img :src="item.item.imageUrl" />
-              <span class="qty" v-if="item.quantity > 1">{{ item.quantity }}</span>
-              <div class="equipped-dot" v-if="item.isEquipped"></div>
-            </div>
-            <div v-for="n in (20 - (inventoryStore.items.length % 20))" :key="'e'+n" class="mini-slot empty"></div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <transition name="fade">
-      <div v-if="showUnequipModal" class="modal-overlay" @click.self="closeModal">
-        <div class="dark-modal">
-          <div class="modal-border-top"></div>
-          <div class="modal-content">
-            <h3 class="modal-title">GỠ BỎ TRANG BỊ</h3>
-            
-            <div class="item-preview-box">
-               <img v-if="itemToUnequip" :src="itemToUnequip.item.imageUrl" class="preview-img">
-               <div class="preview-info" v-if="itemToUnequip">
-                 <span class="p-name">{{ itemToUnequip.item.name }}</span>
-                 <span class="p-type">Sẽ trở về hành trang</span>
-               </div>
-            </div>
-
-            <div class="modal-actions">
-              <button class="btn-wood cancel" @click="closeModal">HỦY BỎ</button>
-              <button class="btn-wood confirm" @click="confirmUnequip">XÁC NHẬN</button>
-            </div>
-          </div>
-          <div class="modal-border-bot"></div>
-        </div>
-      </div>
-    </transition>
-
-  </div>
-</template>
-
-<script setup>
-import { computed, onMounted, ref } from 'vue'; 
-import { useCharacterStore } from '@/stores/characterStore';
-import { useInventoryStore } from '@/stores/inventoryStore';
-
-const charStore = useCharacterStore();
-const inventoryStore = useInventoryStore();
-const equipment = computed(() => inventoryStore.equippedItems);
-
-// LOGIC MODAL
-const showUnequipModal = ref(false);
-const itemToUnequip = ref(null);
-const slotToUnequip = ref(null);
-
-const unequipSlow = (slotType) => {
-    const item = equipment.value[slotType];
-    if (item) {
-        itemToUnequip.value = item;
-        slotToUnequip.value = slotType;
-        showUnequipModal.value = true;
-    }
-};
-
-const unequipFast = async (slotType) => {
-    const item = equipment.value[slotType];
-    if (item) {
-        await inventoryStore.unequipItem(item.userItemId);
-    }
-};
-
-const confirmUnequip = async () => {
-    if (itemToUnequip.value) {
-        await inventoryStore.unequipItem(itemToUnequip.value.userItemId);
-    }
-    closeModal();
-};
-
-const closeModal = () => {
-    showUnequipModal.value = false;
-    itemToUnequip.value = null;
-    slotToUnequip.value = null;
-};
-
-const equip = async (item) => {
-    const types = ['WEAPON', 'ARMOR', 'HELMET', 'BOOTS'];
-    if (types.includes(item.item.type)) {
-        if (!item.isEquipped) await inventoryStore.equipItem(item.userItemId);
-    }
-};
-
-onMounted(() => { 
-    charStore.fetchCharacter(); 
-    inventoryStore.fetchInventory(); 
-});
-</script>
-
-<style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
-@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
-
-/* --- PALETTE --- */
-:root {
-  --wood-dark: #3e2723;
-  --wood-mid: #4e342e;
-  --wood-light: #5d4037;
-  --gold: #ffecb3;
-  --gold-dim: #ffe082;
-  --text-light: #f3f4f6;
-  --red-seal: #b71c1c;
-}
-
-.wuxia-dark-theme {
-    background-color: #212121;
-    min-height: 100vh;
-    font-family: "Noto Serif TC", serif;
-    color: var(--text-light);
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-/* Background Layers */
-.ink-bg-layer { position: absolute; inset: 0; z-index: 0; background-color: #3e2723; }
-.mountain-bg {
-    position: absolute; inset: 0;
-    background-image: url("https://images.unsplash.com/photo-1518182170546-0766ce6fec56?q=80&w=2000&auto=format&fit=crop");
-    background-size: cover; filter: sepia(40%) brightness(0.5) contrast(1.2); opacity: 0.6;
-}
-.fog-anim {
-    position: absolute; inset: 0;
-    background: linear-gradient(to top, #261815 10%, transparent 90%);
-}
-
-.char-wrapper {
-    position: relative;
-    z-index: 10;
-    width: 100%;
-    max-width: 1100px;
-    padding: 20px;
-}
-
-.char-grid {
-    display: grid;
-    grid-template-columns: 300px 1fr 300px;
-    gap: 20px;
-    height: 600px;
-}
-
-/* --- PANELS COMMON --- */
-.panel {
-    background: rgba(30, 20, 15, 0.95);
-    border: 3px solid var(--wood-light);
-    border-radius: 4px;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-    position: relative;
-}
-
-.panel-header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 15px;
-    background: rgba(0,0,0,0.2);
-    border-bottom: 2px solid var(--wood-light);
-    gap: 10px;
-}
-
-.panel-header h3 {
-    margin: 0;
-    color: var(--gold);
-    font-size: 1.2rem;
-    font-weight: 900;
-    letter-spacing: 2px;
-    text-shadow: 0 2px 2px #000;
-}
-
-.decor-line {
-    height: 2px;
-    width: 30px;
-    background: var(--gold-dim);
-    opacity: 0.5;
-}
-
-/* --- LEFT PANEL: STATS --- */
-.stats-body {
-    padding: 20px;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.stat-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
-}
-
-.label {
-    color: #a1887f;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.label i { width: 20px; text-align: center; color: var(--gold); }
-
-.value { font-weight: bold; font-size: 1.1rem; }
-.highlight { color: var(--gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
-.atk { color: #ef5350; }
-.def { color: #42a5f5; }
-.speed { color: #66bb6a; }
-.crit { color: #ab47bc; }
-
-.divider { height: 2px; background: var(--wood-light); margin: 5px 0; }
-
-/* --- CENTER PANEL: HERO --- */
-.hero-panel {
-    background: radial-gradient(circle at center, #4e342e 0%, #261815 100%);
-    position: relative;
-    border-color: var(--gold); /* Viền vàng nổi bật */
-    overflow: hidden;
-}
-
-.aura-bg {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 300px; height: 300px;
-    background: radial-gradient(circle, rgba(255, 236, 179, 0.1) 0%, transparent 70%);
-    animation: pulseAura 4s infinite;
-}
-
-.char-figure {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10rem;
-    color: rgba(0,0,0,0.5);
-    filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));
-    z-index: 1;
-}
-
-/* Slots Positioning */
-.equip-slot {
-    position: absolute;
-    z-index: 5;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-.equip-slot:hover { transform: scale(1.1); }
-
-.slot-frame {
-    width: 64px;
-    height: 64px;
-    background: rgba(0,0,0,0.6);
-    border: 2px solid #8d6e63;
-    border-radius: 8px; /* Bo góc nhẹ */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 10px rgba(0,0,0,0.8);
-    transition: 0.3s;
-}
-
-.equip-slot.filled .slot-frame {
-    border-color: var(--gold);
-    background: rgba(255, 236, 179, 0.05);
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-}
-
-.slot-frame img { width: 90%; height: 90%; object-fit: contain; }
-.placeholder { font-size: 1.5rem; color: #5d4037; }
-.slot-label {
-    font-size: 0.8rem;
-    color: var(--gold-dim);
-    text-shadow: 1px 1px 2px #000;
-    background: rgba(0,0,0,0.7);
-    padding: 2px 6px;
-    border-radius: 4px;
-}
-
-/* Positions */
-.head-slot { top: 40px; left: 50%; transform: translateX(-50%); }
-.head-slot:hover { transform: translateX(-50%) scale(1.1); }
-
-.weapon-slot { top: 50%; left: 30px; transform: translateY(-50%); }
-.weapon-slot:hover { transform: translateY(-50%) scale(1.1); }
-
-.body-slot { top: 50%; right: 30px; transform: translateY(-50%); }
-.body-slot:hover { transform: translateY(-50%) scale(1.1); }
-
-.boots-slot { bottom: 40px; left: 50%; transform: translateX(-50%); }
-.boots-slot:hover { transform: translateX(-50%) scale(1.1); }
-
-/* --- RIGHT PANEL: BAG --- */
-.bag-info {
-    text-align: right;
-    padding: 5px 15px;
-    font-size: 0.8rem;
-    color: #a1887f;
-}
-
-.mini-grid {
-    flex: 1;
-    padding: 10px;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 60px;
-    gap: 8px;
-    overflow-y: auto;
-    align-content: start;
-}
-
-.mini-slot {
-    background: rgba(0,0,0,0.4);
-    border: 1px solid #4e342e;
-    border-radius: 4px;
-    position: relative;
-    cursor: pointer;
-    transition: 0.2s;
-}
-.mini-slot.empty { opacity: 0.2; pointer-events: none; }
-
-.mini-slot:hover { border-color: var(--gold); background: rgba(255,255,255,0.05); }
-
-.mini-slot img { width: 100%; height: 100%; padding: 4px; object-fit: contain; }
-.qty {
-    position: absolute; bottom: 2px; right: 2px;
-    background: rgba(0,0,0,0.8); color: #fff;
-    font-size: 0.7rem; padding: 0 4px; border-radius: 2px;
-}
-.equipped-dot {
-    position: absolute; top: 3px; left: 3px;
-    width: 6px; height: 6px; background: #4caf50;
-    border-radius: 50%; box-shadow: 0 0 5px #4caf50;
-}
-
-/* Rarity Borders */
-.rarity-C { border-bottom: 2px solid #9e9e9e; }
-.rarity-S { border-bottom: 2px solid var(--gold); }
-
-/* --- MODAL --- */
-.modal-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.85);
-    display: flex; justify-content: center; align-items: center;
-    z-index: 1000; backdrop-filter: blur(2px);
-}
-.dark-modal {
-    width: 350px; background: var(--wood-dark);
-    position: relative; box-shadow: 0 0 30px #000;
-}
-.modal-border-top { height: 10px; background: #2d1e1b; box-shadow: inset 0 -2px 5px rgba(0,0,0,0.5); }
-.modal-border-bot { height: 10px; background: #2d1e1b; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); }
-.modal-content { padding: 20px; text-align: center; }
-
-.modal-title { color: var(--red-seal); margin: 0 0 15px 0; border-bottom: 1px solid #5d4037; padding-bottom: 10px; }
-
-.item-preview-box {
-    background: rgba(0,0,0,0.3); border: 1px solid #5d4037;
-    padding: 10px; display: flex; align-items: center; gap: 15px; margin-bottom: 20px;
-}
-.preview-img { width: 50px; height: 50px; border: 1px solid var(--gold); padding: 2px; }
-.preview-info { display: flex; flex-direction: column; text-align: left; }
-.p-name { color: var(--gold); font-weight: bold; }
-.p-type { font-size: 0.8rem; color: #9e9e9e; }
-
-.modal-actions { display: flex; gap: 10px; }
-.btn-wood { flex: 1; padding: 10px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
-.cancel { background: #4e342e; color: #bdbdbd; }
-.confirm { background: var(--red-seal); color: #fff; }
-.confirm:hover { background: #d32f2f; }
-
-@keyframes pulseAura {
-    0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.5; }
-    50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.8; }
-    100% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.5; }
-}
-
-/* Responsive */
-@media (max-width: 900px) {
-    .char-grid { grid-template-columns: 1fr; height: auto; }
-    .hero-panel { height: 400px; }
-}
-</style> -->
-
-<!-- code moi -->
-<!-- <template>
-  <div class="page-container character-page wuxia-dark-theme">
-    <div class="ink-bg-layer">
-      <div class="mountain-bg"></div>
-      <div class="fog-anim"></div>
-    </div>
-
-    <div class="char-wrapper">
-      <div class="char-grid">
-        <div class="panel stats-panel">
-          <div class="panel-header">
-            <div class="decor-line"></div>
-            <h3>BẢN SẮC</h3>
-            <div class="decor-line"></div>
-          </div>
-
-          <div class="stats-body">
-            <div class="stat-row level-row">
-              <span class="label">CẢNH GIỚI</span>
-              <span class="value highlight"
-                >Luyện Khí Tầng {{ charStore.character?.lv || 1 }}</span
-              >
-            </div>
-            <div class="divider"></div>
-            <div class="stat-row">
-              <span class="label"
-                ><i class="fas fa-fist-raised"></i> Công Lực</span
-              ><span class="value atk">{{
-                charStore.character?.baseAtk || 0
-              }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="label"><i class="fas fa-shield-alt"></i> Hộ Thể</span
-              ><span class="value def">{{
-                charStore.character?.baseDef || 0
-              }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="label"><i class="fas fa-wind"></i> Thân Pháp</span
-              ><span class="value speed">{{
-                charStore.character?.baseSpeed || 0
-              }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="label"><i class="fas fa-bolt"></i> Bạo Kích</span
-              ><span class="value crit"
-                >{{ charStore.character?.baseCritRate || 0 }}%</span
-              >
-            </div>
-          </div>
-        </div>
-
-        <div class="panel hero-panel">
-          <div class="aura-bg"></div>
-
-          <div class="char-figure">
-            <img :src="userSkinImg" class="skin-preview" />
-          </div>
-
-          <div
-            class="equip-slot necklace-slot"
-            :class="{ filled: equipment.NECKLACE }"
-            @mousedown.left="unequipSlow('NECKLACE')"
-            title="Dây Chuyền"
-          >
-            <div class="slot-frame">
-              <img
-                v-if="equipment.NECKLACE"
-                :src="resolveItemImage(equipment.NECKLACE.item.imageUrl)"
-              />
-              <i v-else class="fas fa-gem placeholder"></i>
-            </div>
-          </div>
-
-          <div
-            class="equip-slot weapon-slot"
-            :class="{ filled: equipment.WEAPON }"
-            @mousedown.left="unequipSlow('WEAPON')"
-            title="Vũ Khí"
-          >
-            <div class="slot-frame">
-              <img
-                v-if="equipment.WEAPON"
-                :src="resolveItemImage(equipment.WEAPON.item.imageUrl)"
-              />
-              <i v-else class="fas fa-gavel placeholder"></i>
-            </div>
-          </div>
-
-          <div
-            class="equip-slot ring-slot"
-            :class="{ filled: equipment.RING }"
-            @mousedown.left="unequipSlow('RING')"
-            title="Nhẫn"
-          >
-            <div class="slot-frame">
-              <img
-                v-if="equipment.RING"
-                :src="resolveItemImage(equipment.RING.item.imageUrl)"
-              />
-              <i v-else class="fas fa-ring placeholder"></i>
-            </div>
-          </div>
-
-          <div
-            class="equip-slot head-slot"
-            :class="{ filled: equipment.HELMET }"
-            @mousedown.left="unequipSlow('HELMET')"
-            title="Mũ"
-          >
-            <div class="slot-frame">
-              <img
-                v-if="equipment.HELMET"
-                :src="resolveItemImage(equipment.HELMET.item.imageUrl)"
-              />
-              <i v-else class="fas fa-hat-cowboy-side placeholder"></i>
-            </div>
-          </div>
-
-          <div
-            class="equip-slot body-slot"
-            :class="{ filled: equipment.ARMOR }"
-            @mousedown.left="unequipSlow('ARMOR')"
-            title="Y Phục"
-          >
-            <div class="slot-frame">
-              <img
-                v-if="equipment.ARMOR"
-                :src="resolveItemImage(equipment.ARMOR.item.imageUrl)"
-              />
-              <i v-else class="fas fa-tshirt placeholder"></i>
-            </div>
-          </div>
-
-          <div
-            class="equip-slot boots-slot"
-            :class="{ filled: equipment.BOOTS }"
-            @mousedown.left="unequipSlow('BOOTS')"
-            title="Giày"
-          >
-            <div class="slot-frame">
-              <img
-                v-if="equipment.BOOTS"
-                :src="resolveItemImage(equipment.BOOTS.item.imageUrl)"
-              />
-              <i v-else class="fas fa-socks placeholder"></i>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel bag-panel">
-          <div class="panel-header">
-            <div class="decor-line"></div>
-            <h3>HÀNH NANG</h3>
-            <div class="decor-line"></div>
-          </div>
-          <div class="bag-info">
-            Sức chứa: {{ inventoryStore.items.length }} / 50
-          </div>
-
-          <div class="mini-grid custom-scroll">
-            <div
-              v-for="item in inventoryStore.items"
-              :key="item.userItemId"
-              class="mini-slot"
-              :class="[
-                'rarity-' + (item.item.rarity || 'C'),
-                { 'is-equipped': item.isEquipped },
-              ]"
-              @click="equip(item)"
-              :title="item.item.name"
-            >
-              <img :src="resolveItemImage(item.item.imageUrl)" />
-              <span class="qty" v-if="item.quantity > 1">{{
-                item.quantity
-              }}</span>
-              <div class="equipped-dot" v-if="item.isEquipped"></div>
-            </div>
-            <div
-              v-for="n in 20 - (inventoryStore.items.length % 20)"
-              :key="'e' + n"
-              class="mini-slot empty"
-            ></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <transition name="fade">
-      <div
-        v-if="showUnequipModal"
-        class="modal-overlay"
-        @click.self="closeModal"
-      >
-        <div class="dark-modal">
-          <div class="modal-border-top"></div>
-          <div class="modal-content">
-            <h3 class="modal-title">GỠ BỎ TRANG BỊ</h3>
-            <div class="item-preview-box">
-              <img
-                v-if="itemToUnequip"
-                :src="resolveItemImage(itemToUnequip.item.imageUrl)"
-                class="preview-img"
-              />
-              <div class="preview-info" v-if="itemToUnequip">
-                <span class="p-name">{{ itemToUnequip.item.name }}</span>
-                <span class="p-type">Sẽ trở về hành trang</span>
-              </div>
-            </div>
-            <div class="modal-actions">
-              <button class="btn-wood cancel" @click="closeModal">
-                HỦY BỎ
-              </button>
-              <button class="btn-wood confirm" @click="confirmUnequip">
-                XÁC NHẬN
-              </button>
-            </div>
-          </div>
-          <div class="modal-border-bot"></div>
-        </div>
-      </div>
-    </transition>
-  </div>
-</template>
-
-<script setup>
-import { computed, onMounted, ref } from "vue";
-import { useCharacterStore } from "@/stores/characterStore";
-import { useInventoryStore } from "@/stores/inventoryStore";
-import { useAuthStore } from "@/stores/authStore";
-import { resolveItemImage, getCurrentSkin } from "@/utils/assetHelper"; // Import hàm helper mới
-
-const charStore = useCharacterStore();
-const inventoryStore = useInventoryStore();
-const authStore = useAuthStore();
-const equipment = computed(() => inventoryStore.equippedItems);
-
-const userSkinImg = computed(
-  () => getCurrentSkin(authStore.user?.avatarUrl).sprites.idle,
-);
-
-// --- LOGIC MODAL & EQUIP (Giữ nguyên) ---
-const showUnequipModal = ref(false);
-const itemToUnequip = ref(null);
-
-const unequipSlow = (slotType) => {
-  const item = equipment.value[slotType];
-  if (item) {
-    itemToUnequip.value = item;
-    showUnequipModal.value = true;
-  }
-};
-
-const confirmUnequip = async () => {
-  if (itemToUnequip.value)
-    await inventoryStore.unequipItem(itemToUnequip.value.userItemId);
-  closeModal();
-};
-
-const closeModal = () => {
-  showUnequipModal.value = false;
-  itemToUnequip.value = null;
-};
-
-const equip = async (item) => {
-  const types = ["WEAPON", "ARMOR", "HELMET", "BOOTS", "RING", "NECKLACE"];
-  if (types.includes(item.item.type)) {
-    if (!item.isEquipped) await inventoryStore.equipItem(item.userItemId);
-  }
-};
-
-onMounted(() => {
-  charStore.fetchCharacter();
-  inventoryStore.fetchInventory();
-});
-</script>
-
-<style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
-@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
-
-/* --- CORE VARIABLES --- */
-:root {
-  --wood-dark: #3e2723;
-  --wood-mid: #4e342e;
-  --wood-light: #5d4037;
-  --gold: #ffecb3;
-  --gold-dim: #ffe082;
-  --text-light: #f3f4f6;
-  --red-seal: #b71c1c;
-}
-
-.wuxia-dark-theme {
-  background-color: #212121;
-  min-height: 100vh;
-  font-family: "Noto Serif TC", serif;
-  color: var(--text-light);
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-/* ... (Giữ các CSS Background cũ) ... */
-.ink-bg-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-color: #3e2723;
-}
-
-.mountain-bg {
-  position: absolute;
-  inset: 0;
-  background-image: url("https://images.unsplash.com/photo-1518182170546-0766ce6fec56?q=80&w=2000&auto=format&fit=crop");
-  background-size: cover;
-  filter: sepia(40%) brightness(0.5) contrast(1.2);
-  opacity: 0.6;
-}
-
-.fog-anim {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, #261815 10%, transparent 90%);
-}
-
-.char-wrapper {
-  position: relative;
-  z-index: 10;
-  width: 100%;
-  max-width: 1100px;
-  padding: 20px;
-}
-
-.char-grid {
-  display: grid;
-  grid-template-columns: 300px 1fr 300px;
-  gap: 20px;
-  height: 600px;
-}
-
-.panel {
-  background: rgba(30, 20, 15, 0.95);
-  border: 3px solid var(--wood-light);
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-  position: relative;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 15px;
-  background: rgba(0, 0, 0, 0.2);
-  border-bottom: 2px solid var(--wood-light);
-  gap: 10px;
-}
-
-.panel-header h3 {
-  margin: 0;
-  color: var(--gold);
-  font-size: 1.2rem;
-  font-weight: 900;
-  letter-spacing: 2px;
-  text-shadow: 0 2px 2px #000;
-}
-
-.decor-line {
-  height: 2px;
-  width: 30px;
-  background: var(--gold-dim);
-  opacity: 0.5;
-}
-
-.stats-body {
-  padding: 20px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
-}
-
-.label {
-  color: #a1887f;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.label i {
-  width: 20px;
-  text-align: center;
-  color: var(--gold);
-}
-
-.value {
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-
-.highlight {
-  color: var(--gold);
-  text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
-}
-
-.atk {
-  color: #ef5350;
-}
-
-.def {
-  color: #42a5f5;
-}
-
-.speed {
-  color: #66bb6a;
-}
-
-.crit {
-  color: #ab47bc;
-}
-
-.divider {
-  height: 2px;
-  background: var(--wood-light);
-  margin: 5px 0;
-}
-
-/* --- CENTER PANEL: HERO (SỬA LAYOUT) --- */
-.hero-panel {
-  background: radial-gradient(circle at center, #4e342e 0%, #261815 100%);
-  position: relative;
-  border-color: var(--gold);
-  overflow: hidden;
-}
-
-.aura-bg {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(
-    circle,
-    rgba(255, 236, 179, 0.1) 0%,
-    transparent 70%
-  );
-  animation: pulseAura 4s infinite;
-}
-
-.char-figure {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-}
-
-.skin-preview {
-  height: 150px;
-  width: 150px;
-  object-fit: contain;
-  image-rendering: pixelated;
-  transform: scale(2);
-  filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.8));
-}
-
-/* Slots Positioning (6 Món) */
-.equip-slot {
-  position: absolute;
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.equip-slot:hover {
-  transform: scale(1.1);
-}
-
-.slot-frame {
-  width: 56px;
-  height: 56px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 2px solid #8d6e63;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
-  transition: 0.3s;
-}
-
-.equip-slot.filled .slot-frame {
-  border-color: var(--gold);
-  background: rgba(255, 236, 179, 0.05);
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-}
-
-.slot-frame img {
-  width: 90%;
-  height: 90%;
-  object-fit: contain;
-}
-
-.placeholder {
-  font-size: 1.5rem;
-  color: #5d4037;
-}
-
-/* --- POSITIONING 6 SLOTS (Trái 3 - Phải 3) --- */
-/* Cột Trái */
-.necklace-slot {
-  top: 15%;
-  left: 15%;
-}
-
-.weapon-slot {
-  top: 50%;
-  left: 5%;
-  transform: translateY(-50%);
-}
-
-.ring-slot {
-  bottom: 15%;
-  left: 15%;
-}
-
-/* Cột Phải */
-.head-slot {
-  top: 15%;
-  right: 15%;
-}
-
-.body-slot {
-  top: 50%;
-  right: 5%;
-  transform: translateY(-50%);
-}
-
-.boots-slot {
-  bottom: 15%;
-  right: 15%;
-}
-
-/* Override hover transform để giữ vị trí */
-.weapon-slot:hover,
-.body-slot:hover {
-  transform: translateY(-50%) scale(1.1);
-}
-
-/* --- RIGHT PANEL & MODAL (Giữ nguyên) --- */
-.bag-info {
-  text-align: right;
-  padding: 5px 15px;
-  font-size: 0.8rem;
-  color: #a1887f;
-}
-
-.mini-grid {
-  flex: 1;
-  padding: 10px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 60px;
-  gap: 8px;
-  overflow-y: auto;
-  align-content: start;
-}
-
-.mini-slot {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid #4e342e;
-  border-radius: 4px;
-  position: relative;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.mini-slot.empty {
-  opacity: 0.2;
-  pointer-events: none;
-}
-
-.mini-slot:hover {
-  border-color: var(--gold);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.mini-slot img {
-  width: 100%;
-  height: 100%;
-  padding: 4px;
-  object-fit: contain;
-}
-
-.qty {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
-  font-size: 0.7rem;
-  padding: 0 4px;
-  border-radius: 2px;
-}
-
-.equipped-dot {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 6px;
-  height: 6px;
-  background: #4caf50;
-  border-radius: 50%;
-  box-shadow: 0 0 5px #4caf50;
-}
-
-.rarity-C {
-  border-bottom: 2px solid #9e9e9e;
-}
-
-.rarity-S {
-  border-bottom: 2px solid var(--gold);
-}
-
-/* Modal styles (lược bớt cho gọn, dùng lại từ code cũ) */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  backdrop-filter: blur(2px);
-}
-
-.dark-modal {
-  width: 350px;
-  background: var(--wood-dark);
-  position: relative;
-  box-shadow: 0 0 30px #000;
-}
-
-.modal-content {
-  padding: 20px;
-  text-align: center;
-}
-
-.item-preview-box {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid #5d4037;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  margin-bottom: 20px;
-}
-
-.preview-img {
-  width: 50px;
-  height: 50px;
-  border: 1px solid var(--gold);
-  padding: 2px;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-wood {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  font-weight: bold;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.cancel {
-  background: #4e342e;
-  color: #bdbdbd;
-}
-
-.confirm {
-  background: var(--red-seal);
-  color: #fff;
-}
-
-@keyframes pulseAura {
-  0% {
-    transform: translate(-50%, -50%) scale(0.9);
-    opacity: 0.5;
-  }
-
-  50% {
-    transform: translate(-50%, -50%) scale(1.1);
-    opacity: 0.8;
-  }
-
-  100% {
-    transform: translate(-50%, -50%) scale(0.9);
-    opacity: 0.5;
-  }
-}
-
-@media (max-width: 900px) {
-  .char-grid {
-    grid-template-columns: 1fr;
-    height: auto;
-  }
-
-  .hero-panel {
-    height: 400px;
-  }
-}
-</style> -->
-
-
-
-
-
-<!-- <template>
-  <div class="page-container character-page wuxia-dark-theme">
-    <div class="ink-bg-layer">
-      <div class="mountain-bg"></div>
-      <div class="fog-anim"></div>
-    </div>
-
-    <div class="char-wrapper">
-      <div class="char-grid">
-        <div class="panel stats-panel">
-          <div class="panel-header">
-            <div class="decor-line"></div>
-            <h3>BẢN SẮC</h3>
-            <div class="decor-line"></div>
-          </div>
-
-          <div class="stats-body">
-            <div class="stat-row level-row">
-              <span class="label">CẢNH GIỚI</span>
-              <span class="value highlight"
-                >Luyện Khí Tầng {{ charStore.character?.lv || 1 }}</span
-              >
-            </div>
-            <div class="divider"></div>
-            <div class="stat-row">
-              <span class="label"
-                ><i class="fas fa-fist-raised"></i> Công Lực</span
-              ><span class="value atk">{{
-                charStore.character?.baseAtk || 0
-              }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="label"><i class="fas fa-shield-alt"></i> Hộ Thể</span
-              ><span class="value def">{{
-                charStore.character?.baseDef || 0
-              }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="label"><i class="fas fa-wind"></i> Thân Pháp</span
-              ><span class="value speed">{{
-                charStore.character?.baseSpeed || 0
-              }}</span>
-            </div>
-            <div class="stat-row">
-              <span class="label"><i class="fas fa-bolt"></i> Bạo Kích</span
-              ><span class="value crit"
-                >{{ charStore.character?.baseCritRate || 0 }}%</span
-              >
-            </div>
-          </div>
-        </div>
-
-        <div class="panel hero-panel">
-          <div class="aura-bg"></div>
-
-          <div class="char-figure">
-            <img :src="userSkinImg" class="skin-preview" />
-          </div>
-
-          <div
-            v-for="(slot, slotName) in SLOT_CONFIG"
-            :key="slotName"
-            class="equip-slot"
-            :class="[slot.className, { filled: equipment[slotName] }]"
-            @mousedown.left="unequipSlow(slotName)"
-            :title="slot.label"
-          >
-            <div class="slot-frame">
-              <img
-                v-if="equipment[slotName]"
-                :src="resolveItemImage(equipment[slotName].item.imageUrl)"
-              />
-              <i v-else :class="['fas placeholder', slot.icon]"></i>
-
-              <div
-                v-if="
-                  equipment[slotName] &&
-                  (equipment[slotName].enhanceLevel ||
-                    equipment[slotName].level)
-                "
-                class="slot-level-tag"
-                :class="
-                  getLevelClass(
-                    equipment[slotName].enhanceLevel ||
-                      equipment[slotName].level,
-                  )
-                "
-              >
-                +{{
-                  equipment[slotName].enhanceLevel || equipment[slotName].level
-                }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="panel bag-panel">
-          <div class="panel-header">
-            <div class="decor-line"></div>
-            <h3>HÀNH NANG</h3>
-            <div class="decor-line"></div>
-          </div>
-          <div class="bag-info">
-            Sức chứa: {{ inventoryStore.items.length }} / 50
-          </div>
-
-          <div class="mini-grid custom-scroll">
-            <div
-              v-for="item in inventoryStore.items"
-              :key="item.userItemId"
-              class="mini-slot"
-              :class="[
-                'rarity-' + (item.item.rarity || 'C'),
-                { 'is-equipped': item.isEquipped },
-              ]"
-              @click="equip(item)"
-              :title="item.item.name"
-            >
-              <img :src="resolveItemImage(item.item.imageUrl)" />
-
-              <div
-                v-if="item.enhanceLevel || item.level"
-                class="mini-level"
-                :class="getLevelClass(item.enhanceLevel || item.level)"
-              >
-                +{{ item.enhanceLevel || item.level }}
-              </div>
-
-              <span class="qty" v-if="item.quantity > 1">{{
-                item.quantity
-              }}</span>
-              <div class="equipped-dot" v-if="item.isEquipped"></div>
-            </div>
-
-            <div
-              v-for="n in Math.max(0, 20 - (inventoryStore.items.length % 20))"
-              :key="'e' + n"
-              class="mini-slot empty"
-            ></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <transition name="fade">
-      <div
-        v-if="showUnequipModal"
-        class="modal-overlay"
-        @click.self="closeModal"
-      >
-        <div class="dark-modal">
-          <div class="modal-border-top"></div>
-          <div class="modal-content">
-            <h3 class="modal-title">GỠ BỎ TRANG BỊ</h3>
-            <div class="item-preview-box">
-              <img
-                v-if="itemToUnequip"
-                :src="resolveItemImage(itemToUnequip.item.imageUrl)"
-                class="preview-img"
-              />
-              <div class="preview-info" v-if="itemToUnequip">
-                <span class="p-name">
-                  {{ itemToUnequip.item.name }}
-                  <span
-                    class="level-text"
-                    :class="
-                      getLevelClass(
-                        itemToUnequip.enhanceLevel || itemToUnequip.level,
-                      )
-                    "
-                  >
-                    (+{{
-                      itemToUnequip.enhanceLevel || itemToUnequip.level || 0
-                    }})
-                  </span>
-                </span>
-                <span class="p-type">Sẽ trở về hành trang</span>
-              </div>
-            </div>
-            <div class="modal-actions">
-              <button class="btn-wood cancel" @click="closeModal">
-                HỦY BỎ
-              </button>
-              <button class="btn-wood confirm" @click="confirmUnequip">
-                XÁC NHẬN
-              </button>
-            </div>
-          </div>
-          <div class="modal-border-bot"></div>
-        </div>
-      </div>
-    </transition>
-  </div>
-</template>
-
-<script setup>
-import { computed, onMounted, ref } from "vue";
-import { useCharacterStore } from "@/stores/characterStore";
-import { useInventoryStore } from "@/stores/inventoryStore";
-import { useAuthStore } from "@/stores/authStore";
-import { resolveItemImage, getCurrentSkin } from "@/utils/assetHelper";
-
-const charStore = useCharacterStore();
-const inventoryStore = useInventoryStore();
-const authStore = useAuthStore();
-const equipment = computed(() => inventoryStore.equippedItems);
-
-const userSkinImg = computed(
-  () => getCurrentSkin(authStore.user?.avatarUrl).sprites.idle,
-);
-
-// Cấu hình slot để loop trong template cho gọn
-const SLOT_CONFIG = {
-  NECKLACE: { label: "Dây Chuyền", icon: "fa-gem", className: "necklace-slot" },
-  WEAPON: { label: "Vũ Khí", icon: "fa-gavel", className: "weapon-slot" },
-  RING: { label: "Nhẫn", icon: "fa-ring", className: "ring-slot" },
-  HELMET: { label: "Mũ", icon: "fa-hat-cowboy-side", className: "head-slot" },
-  ARMOR: { label: "Y Phục", icon: "fa-tshirt", className: "body-slot" },
-  BOOTS: { label: "Giày", icon: "fa-socks", className: "boots-slot" },
-};
-
-// [MỚI] Hàm lấy class màu sắc level
-const getLevelClass = (lv) => {
-  if (!lv) return "";
-  if (lv >= 15) return "lvl-red";
-  if (lv >= 10) return "lvl-purple";
-  if (lv >= 5) return "lvl-gold";
-  return "lvl-white";
-};
-
-// --- LOGIC MODAL & EQUIP ---
-const showUnequipModal = ref(false);
-const itemToUnequip = ref(null);
-
-const unequipSlow = (slotType) => {
-  const item = equipment.value[slotType];
-  if (item) {
-    itemToUnequip.value = item;
-    showUnequipModal.value = true;
-  }
-};
-
-const confirmUnequip = async () => {
-  if (itemToUnequip.value)
-    await inventoryStore.unequipItem(itemToUnequip.value.userItemId);
-  closeModal();
-};
-
-const closeModal = () => {
-  showUnequipModal.value = false;
-  itemToUnequip.value = null;
-};
-
-const equip = async (item) => {
-  const types = ["WEAPON", "ARMOR", "HELMET", "BOOTS", "RING", "NECKLACE"];
-  if (types.includes(item.item.type)) {
-    if (!item.isEquipped) await inventoryStore.equipItem(item.userItemId);
-  }
-};
-
-onMounted(() => {
-  charStore.fetchCharacter();
-  inventoryStore.fetchInventory();
-});
-</script>
-
-<style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
-@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
-
-/* --- CORE VARIABLES --- */
-:root {
-  --wood-dark: #3e2723;
-  --wood-mid: #4e342e;
-  --wood-light: #5d4037;
-  --gold: #ffecb3;
-  --gold-dim: #ffe082;
-  --text-light: #f3f4f6;
-  --red-seal: #b71c1c;
-}
-
-.wuxia-dark-theme {
-  background-color: #212121;
-  min-height: 100vh;
-  font-family: "Noto Serif TC", serif;
-  color: var(--text-light);
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.ink-bg-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-color: #3e2723;
-}
-
-.mountain-bg {
-  position: absolute;
-  inset: 0;
-  background-image: url("https://images.unsplash.com/photo-1518182170546-0766ce6fec56?q=80&w=2000&auto=format&fit=crop");
-  background-size: cover;
-  filter: sepia(40%) brightness(0.5) contrast(1.2);
-  opacity: 0.6;
-}
-
-.fog-anim {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, #261815 10%, transparent 90%);
-}
-
-.char-wrapper {
-  position: relative;
-  z-index: 10;
-  width: 100%;
-  max-width: 1100px;
-  padding: 20px;
-}
-
-.char-grid {
-  display: grid;
-  grid-template-columns: 300px 1fr 300px;
-  gap: 20px;
-  height: 600px;
-}
-
-.panel {
-  background: rgba(30, 20, 15, 0.95);
-  border: 3px solid var(--wood-light);
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-  position: relative;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 15px;
-  background: rgba(0, 0, 0, 0.2);
-  border-bottom: 2px solid var(--wood-light);
-  gap: 10px;
-}
-
-.panel-header h3 {
-  margin: 0;
-  color: var(--gold);
-  font-size: 1.2rem;
-  font-weight: 900;
-  letter-spacing: 2px;
-  text-shadow: 0 2px 2px #000;
-}
-
-.decor-line {
-  height: 2px;
-  width: 30px;
-  background: var(--gold-dim);
-  opacity: 0.5;
-}
-
-.stats-body {
-  padding: 20px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
-}
-
-.label {
-  color: #a1887f;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.label i {
-  width: 20px;
-  text-align: center;
-  color: var(--gold);
-}
-
-.value {
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-
-.highlight {
-  color: var(--gold);
-  text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
-}
-
-.atk {
-  color: #ef5350;
-}
-.def {
-  color: #42a5f5;
-}
-.speed {
-  color: #66bb6a;
-}
-.crit {
-  color: #ab47bc;
-}
-
-.divider {
-  height: 2px;
-  background: var(--wood-light);
-  margin: 5px 0;
-}
-
-.hero-panel {
-  background: radial-gradient(circle at center, #4e342e 0%, #261815 100%);
-  position: relative;
-  border-color: var(--gold);
-  overflow: hidden;
-}
-
-.aura-bg {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(
-    circle,
-    rgba(255, 236, 179, 0.1) 0%,
-    transparent 70%
-  );
-  animation: pulseAura 4s infinite;
-}
-
-.char-figure {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-}
-
-.skin-preview {
-  height: 150px;
-  width: 150px;
-  object-fit: contain;
-  image-rendering: pixelated;
-  transform: scale(2);
-  filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.8));
-}
-
-.equip-slot {
-  position: absolute;
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.equip-slot:hover {
-  transform: scale(1.1);
-}
-
-.slot-frame {
-  width: 56px;
-  height: 56px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 2px solid #8d6e63;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
-  transition: 0.3s;
-  position: relative; /* Quan trọng để đặt level tag */
-}
-
-.equip-slot.filled .slot-frame {
-  border-color: var(--gold);
-  background: rgba(255, 236, 179, 0.05);
-  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-}
-
-.slot-frame img {
-  width: 90%;
-  height: 90%;
-  object-fit: contain;
-}
-
-.placeholder {
-  font-size: 1.5rem;
-  color: #5d4037;
-}
-
-/* [MỚI] STYLE LEVEL TAG TRÊN SLOT LỚN */
-.slot-level-tag {
-  position: absolute;
-  bottom: -4px; /* Đẩy ra ngoài slot một chút hoặc để trong tùy ý */
-  right: -4px;
-  font-size: 10px;
-  font-weight: 900;
-  background: #000;
-  border: 1px solid #444;
-  border-radius: 4px;
-  padding: 0 3px;
-  z-index: 10;
-  font-family: sans-serif;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-}
-
-/* --- COLORS --- */
-.lvl-white {
-  color: #fff;
-  border-color: #666;
-}
-.lvl-gold {
-  color: #ffd700;
-  border-color: #ffd700;
-  box-shadow: 0 0 5px #ffd700;
-}
-.lvl-purple {
-  color: #d580ff;
-  border-color: #d580ff;
-  box-shadow: 0 0 5px #d580ff;
-}
-.lvl-red {
-  color: #ff3333;
-  border-color: #ff3333;
-  box-shadow: 0 0 8px #ff0000;
-}
-
-.level-text {
-  font-weight: bold;
-  margin-left: 5px;
-}
-
-/* --- POSITIONING --- */
-.necklace-slot {
-  top: 15%;
-  left: 15%;
-}
-.weapon-slot {
-  top: 50%;
-  left: 5%;
-  transform: translateY(-50%);
-}
-.ring-slot {
-  bottom: 15%;
-  left: 15%;
-}
-.head-slot {
-  top: 15%;
-  right: 15%;
-}
-.body-slot {
-  top: 50%;
-  right: 5%;
-  transform: translateY(-50%);
-}
-.boots-slot {
-  bottom: 15%;
-  right: 15%;
-}
-
-.weapon-slot:hover,
-.body-slot:hover {
-  transform: translateY(-50%) scale(1.1);
-}
-
-/* --- RIGHT PANEL --- */
-.bag-info {
-  text-align: right;
-  padding: 5px 15px;
-  font-size: 0.8rem;
-  color: #a1887f;
-}
-
-.mini-grid {
-  flex: 1;
-  padding: 10px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 60px;
-  gap: 8px;
-  overflow-y: auto;
-  align-content: start;
-}
-
-.mini-slot {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid #4e342e;
-  border-radius: 4px;
-  position: relative;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.mini-slot.empty {
-  opacity: 0.2;
-  pointer-events: none;
-}
-.mini-slot:hover {
-  border-color: var(--gold);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.mini-slot img {
-  width: 100%;
-  height: 100%;
-  padding: 4px;
-  object-fit: contain;
-}
-
-.mini-level {
-  position: absolute;
-  top: 1px;
-  right: 1px;
-  font-size: 9px;
-  font-weight: bold;
-  background: rgba(0, 0, 0, 0.8);
-  padding: 0 2px;
-  border-radius: 2px;
-}
-
-.qty {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  background: rgba(0, 0, 0, 0.8);
-  color: #fff;
-  font-size: 0.7rem;
-  padding: 0 4px;
-  border-radius: 2px;
-}
-
-.equipped-dot {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 6px;
-  height: 6px;
-  background: #4caf50;
-  border-radius: 50%;
-  box-shadow: 0 0 5px #4caf50;
-}
-
-.rarity-C {
-  border-bottom: 2px solid #9e9e9e;
-}
-.rarity-S {
-  border-bottom: 2px solid var(--gold);
-}
-
-/* MODAL */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  backdrop-filter: blur(2px);
-}
-
-.dark-modal {
-  width: 350px;
-  background: var(--wood-dark);
-  position: relative;
-  box-shadow: 0 0 30px #000;
-}
-
-.modal-content {
-  padding: 20px;
-  text-align: center;
-}
-
-.item-preview-box {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid #5d4037;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  margin-bottom: 20px;
-}
-
-.preview-img {
-  width: 50px;
-  height: 50px;
-  border: 1px solid var(--gold);
-  padding: 2px;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 10px;
-}
-.btn-wood {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  font-weight: bold;
-  cursor: pointer;
-  transition: 0.2s;
-}
-.cancel {
-  background: #4e342e;
-  color: #bdbdbd;
-}
-.confirm {
-  background: var(--red-seal);
-  color: #fff;
-}
-
-@keyframes pulseAura {
-  0% {
-    transform: translate(-50%, -50%) scale(0.9);
-    opacity: 0.5;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.1);
-    opacity: 0.8;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(0.9);
-    opacity: 0.5;
-  }
-}
-
-@media (max-width: 900px) {
-  .char-grid {
-    grid-template-columns: 1fr;
-    height: auto;
-  }
-  .hero-panel {
-    height: 400px;
-  }
-}
-</style> -->
-
-
 <template>
   <div class="page-container character-page wuxia-dark-theme">
     <div class="ink-bg-layer">
@@ -2093,42 +64,60 @@ onMounted(() => {
         <div class="panel hero-panel">
           <div class="aura-bg"></div>
 
-          <div class="char-figure">
-            <img :src="userSkinImg" class="skin-preview" />
+          <div class="equip-column left-col">
+             <div 
+                v-for="key in ['NECKLACE', 'WEAPON', 'RING']" 
+                :key="key"
+                class="equip-slot"
+                :class="{ 
+                    'filled': equipment[key],
+                    'target-glow': hoveredType === key
+                }"
+                @mousedown.left="unequipSlow(key)"
+                :title="SLOT_CONFIG[key].label"
+             >
+                <div class="slot-frame">
+                    <img v-if="equipment[key]" :src="resolveItemImage(equipment[key].item.imageUrl)" />
+                    <i v-else :class="['fas placeholder', SLOT_CONFIG[key].icon]"></i>
+                    
+                    <div v-if="equipment[key] && (equipment[key].enhanceLevel || equipment[key].level)" class="slot-level-tag" :class="getLevelClass(equipment[key].enhanceLevel || equipment[key].level)">
+                        +{{ equipment[key].enhanceLevel || equipment[key].level }}
+                    </div>
+                </div>
+                <div class="slot-label-small">{{ SLOT_CONFIG[key].label }}</div>
+             </div>
           </div>
 
-          <div
-            v-for="(slot, slotName) in SLOT_CONFIG"
-            :key="slotName"
-            class="equip-slot"
-            :class="[
-                slot.className, 
-                { 
-                    'filled': equipment[slotName],
-                    'target-glow': hoveredType === slotName
-                }
-            ]"
-            @mousedown.left="unequipSlow(slotName)"
-            :title="slot.label"
-          >
-            <div class="slot-frame">
-              <img
-                v-if="equipment[slotName]"
-                :src="resolveItemImage(equipment[slotName].item.imageUrl)"
-              />
-              <i v-else :class="['fas placeholder', slot.icon]"></i>
-
-              <div
-                v-if="equipment[slotName] && (equipment[slotName].enhanceLevel || equipment[slotName].level)"
-                class="slot-level-tag"
-                :class="getLevelClass(equipment[slotName].enhanceLevel || equipment[slotName].level)"
-              >
-                +{{ equipment[slotName].enhanceLevel || equipment[slotName].level }}
-              </div>
+          <div class="char-center-col">
+            <div class="char-figure">
+                <img :src="userSkinImg" class="skin-preview" />
             </div>
-            
-            <div class="slot-label-debug" v-if="!equipment[slotName]">{{ slot.label }}</div>
           </div>
+
+          <div class="equip-column right-col">
+             <div 
+                v-for="key in ['HELMET', 'ARMOR', 'BOOTS']" 
+                :key="key"
+                class="equip-slot"
+                :class="{ 
+                    'filled': equipment[key],
+                    'target-glow': hoveredType === key
+                }"
+                @mousedown.left="unequipSlow(key)"
+                :title="SLOT_CONFIG[key].label"
+             >
+                <div class="slot-frame">
+                    <img v-if="equipment[key]" :src="resolveItemImage(equipment[key].item.imageUrl)" />
+                    <i v-else :class="['fas placeholder', SLOT_CONFIG[key].icon]"></i>
+
+                    <div v-if="equipment[key] && (equipment[key].enhanceLevel || equipment[key].level)" class="slot-level-tag" :class="getLevelClass(equipment[key].enhanceLevel || equipment[key].level)">
+                        +{{ equipment[key].enhanceLevel || equipment[key].level }}
+                    </div>
+                </div>
+                <div class="slot-label-small">{{ SLOT_CONFIG[key].label }}</div>
+             </div>
+          </div>
+
         </div>
 
         <div class="panel bag-panel">
@@ -2169,7 +158,7 @@ onMounted(() => {
             </div>
 
             <div
-              v-for="n in Math.max(0, 20 - (bagItems.length % 20))"
+              v-for="n in Math.max(0, 25 - (bagItems.length))"
               :key="'e' + n"
               class="mini-slot empty"
             ></div>
@@ -2209,7 +198,7 @@ onMounted(() => {
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useCharacterStore } from "@/stores/characterStore";
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -2219,85 +208,89 @@ const charStore = useCharacterStore();
 const inventoryStore = useInventoryStore();
 const authStore = useAuthStore();
 
-// --- 1. CONFIG SLOT CHUẨN ---
+// --- 1. CẤU HÌNH SLOT (Khớp hoàn toàn với ENUM trong Database) ---
 const SLOT_CONFIG = {
   NECKLACE: { label: "Dây Chuyền", icon: "fa-gem", className: "necklace-slot" },
   WEAPON:   { label: "Vũ Khí",     icon: "fa-gavel", className: "weapon-slot" },
   RING:     { label: "Nhẫn",       icon: "fa-ring",  className: "ring-slot" },
-  
   HELMET:   { label: "Mũ",         icon: "fa-hat-cowboy-side", className: "head-slot" },
   ARMOR:    { label: "Y Phục",     icon: "fa-tshirt",          className: "body-slot" },
   BOOTS:    { label: "Giày",       icon: "fa-socks",           className: "boots-slot" },
 };
 
-// --- 2. HÀM CHUẨN HÓA TYPE (HỖ TRỢ CẢ TIẾNG VIỆT/ANH) ---
-// Hàm này sẽ gom mọi loại tên về 6 loại chuẩn
-const normalizeSlot = (itemType) => {
-  if (!itemType) return null;
-  const t = itemType.toUpperCase().trim();
+// --- 2. HÀM CHUẨN HÓA SLOT (Ưu tiên slot_type từ DB) ---
+const determineSlot = (item) => {
+  if (!item) return null;
 
-  // 1. VŨ KHÍ
-  if (["WEAPON", "SWORD", "BLADE", "BOW", "SPEAR", "STAFF", "DAGGER", "AXE", "VU_KHI", "KIEM", "DAO", "CUNG"].includes(t)) return "WEAPON";
-  
-  // 2. MŨ (NÓN)
-  if (["HELMET", "HEAD", "HAT", "CAP", "VISOR", "MASK", "MU", "NON", "MAO"].includes(t)) return "HELMET";
-  
-  // 3. ÁO (GIÁP)
-  if (["ARMOR", "BODY", "CLOTH", "ROBE", "CHEST", "TUNIC", "PLATE", "AO", "GIAP", "Y_PHUC"].includes(t)) return "ARMOR";
-  
-  // 4. GIÀY
-  if (["BOOTS", "SHOE", "FEET", "GREAVES", "LEG", "GIAY", "HAI", "UNG"].includes(t)) return "BOOTS";
-  
-  // 5. NHẪN
-  if (["RING", "ACCESSORY", "TRINKET", "FINGER", "NHAN", "GIOI_CHI"].includes(t)) return "RING"; 
-  
-  // 6. DÂY CHUYỀN
-  if (["NECKLACE", "AMULET", "PENDANT", "NECK", "DAY_CHUYEN", "NGOC_BOI"].includes(t)) return "NECKLACE";
+  // CÁCH 1: Lấy trực tiếp từ cột slot_type trong DB (Chính xác 100%)
+  // Backend thường trả về: item.slotType hoặc item.slot_type
+  const dbSlot = item.slotType || item.slot_type; 
+  if (dbSlot && dbSlot !== 'NONE' && SLOT_CONFIG[dbSlot]) {
+      return dbSlot;
+  }
+
+  // CÁCH 2: Nếu DB chưa setup slot_type, dùng logic đoán theo tên/type (Fallback)
+  const t = String(item.type || "").toUpperCase().trim();
+  const name = String(item.name || "").toUpperCase().trim();
+  const combined = t + " " + name; // Kiểm tra cả tên và loại
+
+  if (combined.includes("BOOT") || combined.includes("GIAY") || combined.includes("HAI") || combined.includes("SHOE")) return "BOOTS";
+  if (combined.includes("NECK") || combined.includes("DAY CHUYEN") || combined.includes("AMULET") || combined.includes("LIEN")) return "NECKLACE";
+  if (combined.includes("HELMET") || combined.includes("MU") || combined.includes("NON") || combined.includes("MAO") || combined.includes("HAT")) return "HELMET";
+  if (combined.includes("RING") || combined.includes("NHAN") || combined.includes("ACCESSORY")) return "RING";
+  if (combined.includes("ARMOR") || combined.includes("AO") || combined.includes("GIAP") || combined.includes("Y PHUC") || combined.includes("ROBE")) return "ARMOR";
+  if (combined.includes("WEAPON") || combined.includes("KIEM") || combined.includes("DAO") || combined.includes("CUNG") || combined.includes("THUONG")) return "WEAPON";
 
   return null;
 };
 
 // --- 3. XỬ LÝ DỮ LIỆU HIỂN THỊ ---
 const equipment = computed(() => {
-  let raw = { ...(inventoryStore.equippedItems || {}) };
+  const mapped = {};
   const allItems = inventoryStore.items || [];
-  
-  // Fallback: Tìm trong túi những món có isEquipped = true
-  if (Object.keys(raw).length === 0 && allItems.length > 0) {
-     allItems.forEach(item => {
-        if (item && item.isEquipped && item.item) {
-           raw[item.item.type] = item; 
-        }
-     });
+  const rawEquip = inventoryStore.equippedItems;
+
+  // 1. Quét từ danh sách tổng (Ưu tiên)
+  if (allItems.length > 0) {
+      allItems.forEach(userItem => {
+          if (userItem && userItem.item && userItem.isEquipped) {
+              const slot = determineSlot(userItem.item);
+              if (slot) mapped[slot] = userItem;
+          }
+      });
   }
 
-  const mapped = {};
-  for (const [key, item] of Object.entries(raw)) {
-    if (!item) continue;
-    // Kiểm tra Type từ Item trước, nếu ko có thì dùng Key
-    const typeToCheck = (item.item && item.item.type) ? item.item.type : key;
-    const slot = normalizeSlot(typeToCheck);
-    
-    if (slot) {
-        mapped[slot] = item;
-    } else {
-        console.warn(`[Equip Debug] Không tìm thấy slot cho loại: ${typeToCheck}`);
-    }
+  // 2. Quét bổ sung từ equippedItems (Nếu danh sách tổng bị thiếu)
+  if (rawEquip) {
+      const equipList = Array.isArray(rawEquip) ? rawEquip : Object.values(rawEquip);
+      equipList.forEach(userItem => {
+         if (userItem && userItem.item) {
+             const slot = determineSlot(userItem.item);
+             // Chỉ ghi đè nếu slot đó chưa có (tránh xung đột)
+             if (slot && !mapped[slot]) mapped[slot] = userItem;
+         }
+      });
   }
+
   return mapped;
 });
 
-// Lọc đồ trong túi
+// Lọc đồ trong túi (Chỉ hiện đồ chưa mặc và có slot hợp lệ)
 const bagItems = computed(() => {
   const items = inventoryStore.items || [];
-  return items.filter(i => 
-    i && i.item && 
-    normalizeSlot(i.item.type) !== null && 
-    !i.isEquipped 
+  return items.filter(ui => 
+    ui && ui.item && 
+    determineSlot(ui.item) !== null && 
+    !ui.isEquipped 
   );
 });
 
-const userSkinImg = computed(() => getCurrentSkin(authStore.user?.avatarUrl).sprites.idle);
+// Skin
+const userSkinImg = computed(() => {
+    const skin = getCurrentSkin(authStore.user?.avatarUrl);
+    return skin ? skin.sprites.idle : ''; 
+});
+
 const hoveredType = ref(null);
 
 // Tính chỉ số
@@ -2310,13 +303,12 @@ const totalStats = computed(() => {
     crit: char.baseCritRate || 0,
   };
 
-  const equipObj = equipment.value || {};
-  Object.values(equipObj).forEach((slotItem) => {
+  Object.values(equipment.value).forEach((slotItem) => {
     if (slotItem && slotItem.item) {
-      stats.atk += (slotItem.item.atk || 0);
-      stats.def += (slotItem.item.def || 0);
-      stats.speed += (slotItem.item.speed || 0);
-      stats.crit += (slotItem.item.critRate || 0);
+      stats.atk += (slotItem.item.atkBonus || slotItem.item.atk || 0); // Fix theo DB (atk_bonus)
+      stats.def += (slotItem.item.defBonus || slotItem.item.def || 0);
+      stats.speed += (slotItem.item.speedBonus || slotItem.item.speed || 0);
+      // stats.crit += ... (Nếu có)
       
       const lv = slotItem.enhanceLevel || slotItem.level || 0;
       if (lv > 0) {
@@ -2342,35 +334,37 @@ const getLevelClass = (lv) => {
   return "lvl-white";
 };
 
-// --- ACTION EQUIP ---
-const equip = async (item) => {
-  if (!item || !item.item) return;
+// --- 4. HÀM MẶC ĐỒ ---
+const equip = async (userItem) => {
+  if (!userItem || !userItem.item) return;
 
-  const type = item.item.type;
-  const targetSlot = normalizeSlot(type);
+  const slot = determineSlot(userItem.item);
   
-  // LOG DEBUG: Bật console lên xem dòng này nếu mặc không được
-  console.log(`Mặc đồ: ${item.item.name} | Loại gốc: ${type} -> Slot chuẩn: ${targetSlot}`);
+  console.log(`Đang mặc: ${userItem.item.name}`);
+  console.log(`Slot Type (DB): ${userItem.item.slotType || userItem.item.slot_type}`);
+  console.log(`Slot Tính toán: ${slot}`);
 
-  if (targetSlot) {
-    if (!item.isEquipped) {
-        await inventoryStore.equipItem(item.userItemId);
+  if (slot) {
+    try {
+        await inventoryStore.equipItem(userItem.userItemId);
         await Promise.all([
             inventoryStore.fetchInventory(), 
             charStore.fetchCharacter()
         ]);
+    } catch (e) {
+        console.error("Lỗi API:", e);
     }
   } else {
-    alert(`Chưa hỗ trợ mặc loại trang bị này: ${type}`);
+    alert(`Vật phẩm này chưa được định nghĩa ô trang bị (Slot Type: ${userItem.item.slotType})`);
   }
 };
 
+// --- 5. HÀM GỠ ĐỒ ---
 const showUnequipModal = ref(false);
 const itemToUnequip = ref(null);
 
 const unequipSlow = (slotName) => {
-  const equipObj = equipment.value || {};
-  const item = equipObj[slotName];
+  const item = equipment.value[slotName];
   if (item) {
     itemToUnequip.value = item;
     showUnequipModal.value = true;
@@ -2379,11 +373,15 @@ const unequipSlow = (slotName) => {
 
 const confirmUnequip = async () => {
   if (itemToUnequip.value) {
-    await inventoryStore.unequipItem(itemToUnequip.value.userItemId);
-    await Promise.all([
-        inventoryStore.fetchInventory(), 
-        charStore.fetchCharacter()
-    ]);
+    try {
+        await inventoryStore.unequipItem(itemToUnequip.value.userItemId);
+        await Promise.all([
+            inventoryStore.fetchInventory(), 
+            charStore.fetchCharacter()
+        ]);
+    } catch (e) {
+        console.error(e);
+    }
   }
   closeModal();
 };
@@ -2393,9 +391,19 @@ const closeModal = () => {
   itemToUnequip.value = null;
 };
 
-onMounted(() => {
-  charStore.fetchCharacter();
-  inventoryStore.fetchInventory();
+// --- Hover Logic ---
+// Khi hover vào item trong túi, xác định nó thuộc slot nào để highlight
+const setHover = (item) => {
+    if(item && item.item) {
+        hoveredType.value = determineSlot(item.item);
+    }
+}
+
+onMounted(async () => {
+  await Promise.all([
+      charStore.fetchCharacter(),
+      inventoryStore.fetchInventory()
+  ]);
 });
 </script>
 
@@ -2409,7 +417,6 @@ onMounted(() => {
   --wood-mid: #4e342e;
   --wood-light: #5d4037;
   --gold: #ffecb3;
-  --gold-dim: #ffe082;
   --text-light: #f3f4f6;
   --red-seal: #b71c1c;
   --bonus-green: #66bb6a;
@@ -2427,25 +434,24 @@ onMounted(() => {
   align-items: center;
 }
 
+/* Backgrounds */
 .ink-bg-layer { position: absolute; inset: 0; z-index: 0; background-color: #3e2723; }
 .mountain-bg {
   position: absolute; inset: 0;
   background-image: url("https://images.unsplash.com/photo-1518182170546-0766ce6fec56?q=80&w=2000&auto=format&fit=crop");
-  background-size: cover;
-  filter: sepia(40%) brightness(0.5) contrast(1.2);
-  opacity: 0.6;
+  background-size: cover; opacity: 0.6; filter: sepia(40%) brightness(0.5);
 }
 .fog-anim { position: absolute; inset: 0; background: linear-gradient(to top, #261815 10%, transparent 90%); }
 
 .char-wrapper { position: relative; z-index: 10; width: 100%; max-width: 1200px; padding: 20px; }
 .char-grid { 
     display: grid; 
-    grid-template-columns: 320px 1fr 320px; 
+    grid-template-columns: 300px 1fr 300px; 
     gap: 20px; 
     height: 600px; 
 }
 
-/* --- PANELS --- */
+/* Panels */
 .panel {
   background: rgba(30, 20, 15, 0.95);
   border: 3px solid var(--wood-light);
@@ -2455,133 +461,118 @@ onMounted(() => {
   position: relative;
 }
 .panel-header {
-  display: flex; align-items: center; justify-content: center;
   padding: 15px; background: rgba(0, 0, 0, 0.2);
-  border-bottom: 2px solid var(--wood-light); gap: 10px;
+  border-bottom: 2px solid var(--wood-light);
+  display: flex; align-items: center; justify-content: center; gap: 10px;
 }
-.panel-header h3 { margin: 0; color: var(--gold); font-size: 1.2rem; font-weight: 900; letter-spacing: 2px; text-shadow: 0 2px 2px #000; }
-.decor-line { height: 2px; width: 30px; background: var(--gold-dim); opacity: 0.5; }
+.panel-header h3 { margin: 0; color: var(--gold); font-size: 1.2rem; font-weight: 900; }
+.decor-line { height: 2px; width: 30px; background: var(--gold); opacity: 0.5; }
 
-/* --- STATS PANEL --- */
+/* Stats */
 .stats-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 15px; }
-.stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed rgba(255, 255, 255, 0.1); }
-.label { color: #a1887f; font-weight: bold; display: flex; align-items: center; gap: 10px; }
-.label i { width: 20px; text-align: center; color: var(--gold); }
-.value { font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 5px; }
-.stat-bonus { color: #66bb6a; font-size: 0.75em; font-weight: normal; }
-.highlight { color: var(--gold); text-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
-.atk { color: #ef5350; }
-.def { color: #42a5f5; }
-.speed { color: #66bb6a; }
-.crit { color: #ab47bc; }
-.divider { height: 2px; background: var(--wood-light); margin: 5px 0; }
+.stat-row { display: flex; justify-content: space-between; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 5px; }
+.label { color: #a1887f; font-weight: bold; }
+.value { font-weight: bold; font-size: 1.1rem; }
+.stat-bonus { color: var(--bonus-green); font-size: 0.8rem; }
+.atk { color: #ef5350; } .def { color: #42a5f5; } .speed { color: #66bb6a; } .crit { color: #ab47bc; }
 
-/* --- HERO PANEL --- */
-.hero-panel { 
-    background: radial-gradient(circle at center, #4e342e 0%, #261815 100%); 
-    position: relative; 
-    border-color: var(--gold); 
-    overflow: hidden; 
-    display: flex; /* Đảm bảo content không bị collapse */
+/* --- HERO PANEL (FLEXBOX LAYOUT - FIX OVERLAP) --- */
+.hero-panel {
+    background: radial-gradient(circle at center, #4e342e 0%, #261815 100%);
+    border-color: var(--gold);
+    display: flex;
+    flex-direction: row; /* Xếp ngang */
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+}
+
+.equip-column {
+    display: flex;
     flex-direction: column;
+    justify-content: space-around;
+    height: 100%;
+    z-index: 5;
+    gap: 30px; /* Khoảng cách giữa các ô dọc */
 }
-.aura-bg {
-  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  width: 350px; height: 350px;
-  background: radial-gradient(circle, rgba(255, 236, 179, 0.1) 0%, transparent 70%);
-  animation: pulseAura 4s infinite;
-}
-.char-figure { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
-.skin-preview { height: 180px; width: 180px; object-fit: contain; image-rendering: pixelated; transform: scale(2); filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.8)); }
 
-/* --- EQUIPMENT SLOTS --- */
-.equip-slot { 
-    position: absolute; z-index: 5; 
-    display: flex; flex-direction: column; align-items: center; gap: 5px; 
-    cursor: pointer; transition: transform 0.2s; 
+.char-center-col {
+    flex: 1;
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.char-figure { z-index: 1; }
+.skin-preview { height: 250px; width: 250px; object-fit: contain; image-rendering: pixelated; transform: scale(1.5); filter: drop-shadow(0 10px 10px rgba(0,0,0,0.8)); }
+.aura-bg { position: absolute; width: 300px; height: 300px; background: radial-gradient(circle, rgba(255,236,179,0.1), transparent 70%); animation: pulseAura 4s infinite; }
+
+/* Slots */
+.equip-slot {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: 0.2s;
 }
 .equip-slot:hover { transform: scale(1.1); z-index: 10; }
 
-.equip-slot.target-glow .slot-frame {
-    border-color: #66bb6a;
-    box-shadow: 0 0 20px #66bb6a, inset 0 0 10px rgba(102, 187, 106, 0.3);
-    transform: scale(1.05);
-}
-
 .slot-frame {
-  width: 58px; height: 58px; background: rgba(0, 0, 0, 0.6);
-  border: 2px solid #8d6e63; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.8); transition: 0.3s; position: relative;
+    width: 60px; height: 60px;
+    background: rgba(0,0,0,0.6);
+    border: 2px solid #8d6e63;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 10px rgba(0,0,0,0.8);
+    position: relative;
 }
-.equip-slot.filled .slot-frame { border-color: var(--gold); background: rgba(255, 236, 179, 0.05); box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
+.equip-slot.filled .slot-frame { border-color: var(--gold); background: rgba(255,236,179,0.05); box-shadow: 0 0 15px rgba(255,215,0,0.3); }
+.equip-slot.target-glow .slot-frame { border-color: #66bb6a; box-shadow: 0 0 20px #66bb6a; transform: scale(1.05); }
+
 .slot-frame img { width: 90%; height: 90%; object-fit: contain; }
 .placeholder { font-size: 1.5rem; color: #5d4037; opacity: 0.5; }
+.slot-label-small { font-size: 10px; color: #aaa; margin-top: 4px; text-transform: uppercase; text-shadow: 1px 1px 1px #000; }
 
-/* Level Tag & Debug Label */
 .slot-level-tag {
-  position: absolute; bottom: -5px; right: -5px; font-size: 10px; font-weight: 900;
-  background: #111; border: 1px solid #444; border-radius: 4px; padding: 0 3px;
-  z-index: 10; font-family: sans-serif; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    position: absolute; bottom: -5px; right: -5px;
+    font-size: 10px; font-weight: 900; background: #000; border: 1px solid #444;
+    padding: 0 3px; border-radius: 4px;
 }
-.slot-label-debug {
-    font-size: 10px; color: #aaa; margin-top: 2px; text-shadow: 1px 1px 1px black;
-}
+.lvl-white { color: white; } .lvl-gold { color: gold; border-color: gold; }
 
-/* --- POSITIONING FIXED (Sử dụng Pixel cứng) --- */
-/* Cột trái */
-.necklace-slot { top: 30px; left: 20px; }
-.weapon-slot   { top: 50%; left: 10px; transform: translateY(-50%); }
-.ring-slot     { bottom: 30px; left: 20px; }
-
-/* Cột phải */
-.head-slot     { top: 30px; right: 20px; }
-.body-slot     { top: 50%; right: 10px; transform: translateY(-50%); }
-.boots-slot    { bottom: 30px; right: 20px; }
-
-/* Fix hover cho slot giữa */
-.weapon-slot:hover, .body-slot:hover { transform: translateY(-50%) scale(1.1); }
-
-
-/* --- BAG PANEL --- */
-.bag-info { text-align: right; padding: 5px 15px; font-size: 0.8rem; color: #a1887f; }
+/* Bag */
+.bag-info { text-align: right; padding: 10px; color: #a1887f; font-size: 0.85rem; }
 .mini-grid {
-  flex: 1; padding: 15px; display: grid;
-  grid-template-columns: repeat(4, 1fr); grid-auto-rows: 60px;
-  gap: 10px; overflow-y: auto; align-content: start;
+    padding: 10px; display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px; overflow-y: auto; max-height: 500px;
 }
-.mini-slot { background: rgba(0, 0, 0, 0.4); border: 1px solid #4e342e; border-radius: 4px; position: relative; cursor: pointer; transition: 0.2s; }
-.mini-slot.empty { opacity: 0.15; pointer-events: none; border-style: dashed; }
-.mini-slot:hover { border-color: var(--gold); background: rgba(255, 255, 255, 0.05); }
+.mini-slot {
+    height: 60px; background: rgba(0,0,0,0.4); border: 1px solid #4e342e;
+    border-radius: 4px; position: relative; cursor: pointer;
+}
 .mini-slot img { width: 100%; height: 100%; padding: 4px; object-fit: contain; }
+.mini-slot.empty { opacity: 0.15; border-style: dashed; }
+.qty { position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.8); color: white; font-size: 10px; padding: 0 4px; border-radius: 2px; }
 
-.mini-level { position: absolute; top: 1px; right: 1px; font-size: 9px; font-weight: bold; background: rgba(0, 0, 0, 0.8); padding: 0 3px; border-radius: 2px; color: #fff; }
-.qty { position: absolute; bottom: 2px; right: 2px; background: rgba(0, 0, 0, 0.8); color: #fff; font-size: 0.7rem; padding: 0 4px; border-radius: 2px; }
-
-/* Rarity */
-.rarity-C { border-bottom: 2px solid #9e9e9e; }
-.rarity-S { border-bottom: 2px solid var(--gold); }
-
-/* --- MODAL --- */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); }
-.dark-modal { width: 350px; background: var(--wood-dark); position: relative; box-shadow: 0 0 30px #000; border: 1px solid #5d4037; }
+/* Modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+.dark-modal { width: 300px; background: var(--wood-dark); border: 1px solid #5d4037; box-shadow: 0 0 30px #000; }
 .modal-content { padding: 20px; text-align: center; }
-.modal-title { margin-top: 0; color: var(--red-seal); border-bottom: 1px solid #4e342e; padding-bottom: 10px; }
-.item-preview-box { background: rgba(0, 0, 0, 0.3); border: 1px solid #5d4037; padding: 10px; display: flex; align-items: center; gap: 15px; margin: 20px 0; border-radius: 4px; }
-.preview-img { width: 50px; height: 50px; border: 1px solid var(--gold); padding: 2px; background: rgba(0,0,0,0.5); }
+.item-preview-box { background: rgba(0,0,0,0.3); padding: 10px; margin: 15px 0; display: flex; align-items: center; gap: 10px; }
+.preview-img { width: 50px; height: 50px; border: 1px solid var(--gold); }
 .modal-actions { display: flex; gap: 10px; }
-.btn-wood { flex: 1; padding: 10px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; border-radius: 4px; }
-.cancel { background: #4e342e; color: #bdbdbd; }
-.confirm { background: var(--red-seal); color: #fff; }
+.btn-wood { flex: 1; padding: 10px; cursor: pointer; font-weight: bold; border-radius: 4px; border: none; }
+.cancel { background: #4e342e; color: #ccc; }
+.confirm { background: var(--red-seal); color: white; }
 
-@keyframes pulseAura {
-  0% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.5; }
-  50% { transform: translate(-50%, -50%) scale(1.05); opacity: 0.7; }
-  100% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.5; }
-}
+@keyframes pulseAura { 0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.9); } 50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); } }
 
 @media (max-width: 900px) {
-  .char-grid { grid-template-columns: 1fr; height: auto; gap: 20px; }
-  .hero-panel { height: 450px; order: -1; }
+    .char-grid { grid-template-columns: 1fr; height: auto; gap: 20px; }
+    .hero-panel { height: 450px; order: -1; }
 }
 </style>
