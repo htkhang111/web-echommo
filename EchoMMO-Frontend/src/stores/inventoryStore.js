@@ -49,7 +49,7 @@ export const useInventoryStore = defineStore("inventory", {
           error.response &&
           (error.response.status === 401 || error.response.status === 403)
         ) {
-          alert("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
+          // alert("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
         }
       } finally {
         this.isLoading = false;
