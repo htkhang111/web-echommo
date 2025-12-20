@@ -2,9 +2,7 @@
   <header class="game-header">
     <div class="header-texture"></div>
     <div class="header-border-bot"></div>
-    <button class="menu-toggle mobile-only" @click="$emit('toggle-sidebar')">
-      <i class="fas fa-bars"></i>
-    </button>
+    
     <div class="spacer"></div>
 
     <div class="hud-container" v-if="authStore.token">
@@ -78,7 +76,7 @@ import { useChatStore } from "../stores/chatStore";
 import { getCurrentSkin, getAssetUrl } from "@/utils/assetHelper";
 import ChatWidget from "./ChatWidget.vue";
 
-// [FIX] Khai báo emits để tránh warning trong Console
+// Giữ lại defineEmits để tránh warning từ Vue nếu parent component vẫn truyền sự kiện xuống
 const emit = defineEmits(['toggle-sidebar']);
 
 const authStore = useAuthStore();
@@ -88,7 +86,6 @@ const chatStore = useChatStore();
 
 const friendRequestCount = ref(0);
 
-// Helper truy cập wallet an toàn
 const walletStore = {
   wallet: computed(() => authStore.user?.wallet)
 };
@@ -106,10 +103,7 @@ const handleAvatarError = (e) => {
   e.target.src = fallbackUrl;
 }
 
-// [FIX] Computed cho Gold (Đã có sẵn)
 const currentGold = computed(() => walletStore.wallet.value?.gold || 0);
-
-// [FIX] Thêm Computed cho EchoCoin để lấy giá trị chính xác từ Ref
 const currentEcho = computed(() => walletStore.wallet.value?.echoCoin || 0);
 
 const formatNumber = (val) => {
@@ -173,15 +167,7 @@ onMounted(() => {
   flex: 1;
 }
 
-.menu-toggle {
-  background: transparent;
-  border: none;
-  color: #fbc02d;
-  font-size: 1.5rem;
-  cursor: pointer;
-  margin-right: 15px;
-  padding: 5px;
-}
+/* Đã xóa class .menu-toggle */
 
 .hud-container {
   display: flex;
