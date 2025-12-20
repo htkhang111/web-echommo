@@ -30,14 +30,15 @@ public class CharacterService {
     @Autowired private ItemRepository itemRepo;
     @Autowired private UserItemRepository userItemRepo;
 
+    // --- 1. LẤY THÔNG TIN NHÂN VẬT (Tính toán điểm tiềm năng ảo để hiển thị) ---
     public Character getMyCharacter() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepo.findByUsername(username).orElse(null);
         if (user == null) return null;
 
-        Character c = characterRepo.findByUser_UserId(user.getUserId()).orElse(null);
+        Character c = characterRepo.findByUserId(user.getUserId()).orElse(null);
         if (c != null) {
-            // [FIX] Xử lý Null an toàn để tránh lỗi 400 (NullPointerException)
+            // [LOGIC TÍNH ĐIỂM TIỀM NĂNG]
             int lvl = c.getLevel() != null ? c.getLevel() : 1;
             int str = c.getStr() != null ? c.getStr() : 5;
             int vit = c.getVit() != null ? c.getVit() : 5;
@@ -46,132 +47,168 @@ public class CharacterService {
             int intel = c.getIntelligence() != null ? c.getIntelligence() : 5;
             int luck = c.getLuck() != null ? c.getLuck() : 5;
 
-            // Tính tổng điểm tiềm năng đáng lẽ phải có
-            // Mặc định 5 điểm mỗi cấp (hoặc lấy từ GameConstants)
+            // Mặc định 5 điểm mỗi cấp
             int pointsPerLevel = 5;
             try { pointsPerLevel = GameConstants.STAT_POINTS_PER_LEVEL; } catch (Exception ignored) {}
 
+            // Tổng điểm đáng lẽ có = (Level - 1) * 5
             int expectedPoints = (lvl - 1) * pointsPerLevel;
 
-            // [FIX] Tính tổng điểm đã cộng (Phải bao gồm cả VIT và AGI)
+            // Tổng điểm đã cộng (Trừ đi 5 điểm gốc ban đầu của mỗi chỉ số)
             int usedPoints = (str - 5) + (vit - 5) + (agi - 5) + (dex - 5) + (intel - 5) + (luck - 5);
 
-            // Cập nhật số điểm còn lại (không lưu vào DB ở đây, chỉ set để trả về FE)
+            // Set vào biến tạm để Frontend hiển thị (không lưu DB dòng này)
             c.setStatPoints(Math.max(0, expectedPoints - usedPoints));
 
-            // Cập nhật các trường null thành mặc định để FE hiển thị đẹp
-            if (c.getStr() == null) c.setStr(5);
-            if (c.getVit() == null) c.setVit(5);
-            if (c.getAgi() == null) c.setAgi(5);
-            if (c.getDex() == null) c.setDex(5);
-            if (c.getIntelligence() == null) c.setIntelligence(5);
-            if (c.getLuck() == null) c.setLuck(5);
+            // Fill default null values
+            ensureNoNullStats(c);
         }
         return c;
     }
 
-    // [QUAN TRỌNG] Hàm này được GameService gọi
+    // --- 2. TẠO NHÂN VẬT MẶC ĐỊNH (Dùng nội bộ) ---
     @Transactional
     public Character createDefaultCharacter(User user) {
-        if (characterRepo.findByUser_UserId(user.getUserId()).isPresent()) {
-            return characterRepo.findByUser_UserId(user.getUserId()).get();
+        if (characterRepo.findByUserId(user.getUserId()).isPresent()) {
+            return characterRepo.findByUserId(user.getUserId()).get();
         }
-
-        Character c = new Character();
-        c.setUser(user);
-        c.setName(user.getUsername());
-        c.setLevel(1);
-        c.setStatus(CharacterStatus.IDLE);
-
-        // Khởi tạo chỉ số cơ bản
-        c.setStr(5); c.setVit(5); c.setAgi(5);
-        c.setDex(5); c.setIntelligence(5); c.setLuck(5);
-        recalculateStats(c);
-
-        Character savedChar = characterRepo.save(c);
-        grantStarterPack(savedChar);
-        return savedChar;
+        return initNewCharacter(user, user.getUsername());
     }
 
+    // --- 3. TẠO NHÂN VẬT (Dùng API) ---
     @Transactional
     public Character createCharacter(CharacterRequest req) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepo.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (characterRepo.findByUser_UserId(user.getUserId()).isPresent()) {
+        if (characterRepo.findByUserId(user.getUserId()).isPresent()) {
             throw new RuntimeException("Bạn đã có nhân vật rồi!");
         }
+        return initNewCharacter(user, req.getName());
+    }
 
+    // Helper tạo mới chung
+    private Character initNewCharacter(User user, String charName) {
         Character c = new Character();
         c.setUser(user);
-        c.setName(req.getName());
+        c.setName(charName);
         c.setLevel(1);
         c.setStatus(CharacterStatus.IDLE);
 
+        // Stats gốc
         c.setStr(5); c.setVit(5); c.setAgi(5);
         c.setDex(5); c.setIntelligence(5); c.setLuck(5);
-        recalculateStats(c);
+
+        recalculateStats(c); // Tính máu, lực chiến lần đầu
 
         Character savedChar = characterRepo.save(c);
         grantStarterPack(savedChar);
         return savedChar;
     }
 
-    // [NEW] Hàm cộng điểm tiềm năng
+    // --- 4. CỘNG ĐIỂM TIỀM NĂNG (AN TOÀN) ---
     @Transactional
     public Character addStats(Map<String, Integer> stats) {
         Character c = getMyCharacter();
         if (c == null) throw new RuntimeException("Chưa tạo nhân vật!");
 
-        int available = c.getStatPoints();
+        // A. TÍNH TOÁN LẠI ĐIỂM TIỀM NĂNG THỰC TẾ (Validate Server-side)
+        int lvl = c.getLevel() != null ? c.getLevel() : 1;
+        int str = c.getStr() != null ? c.getStr() : 5;
+        int vit = c.getVit() != null ? c.getVit() : 5;
+        int agi = c.getAgi() != null ? c.getAgi() : 5;
+        int dex = c.getDex() != null ? c.getDex() : 5;
+        int intel = c.getIntelligence() != null ? c.getIntelligence() : 5;
+        int luck = c.getLuck() != null ? c.getLuck() : 5;
 
-        // Lấy số điểm muốn cộng cho từng chỉ số
+        int pointsPerLevel = 5;
+        try { pointsPerLevel = GameConstants.STAT_POINTS_PER_LEVEL; } catch (Exception ignored) {}
+
+        int expectedPoints = (lvl - 1) * pointsPerLevel;
+        int usedPoints = (str - 5) + (vit - 5) + (agi - 5) + (dex - 5) + (intel - 5) + (luck - 5);
+        int available = Math.max(0, expectedPoints - usedPoints);
+
+        // B. KIỂM TRA ĐẦU VÀO
         int addStr = stats.getOrDefault("str", 0);
         int addVit = stats.getOrDefault("vit", 0);
         int addAgi = stats.getOrDefault("agi", 0);
         int addDex = stats.getOrDefault("dex", 0);
-        int addInt = stats.getOrDefault("int", 0); // Lưu ý key là 'int' hay 'intelligence' tùy FE gửi
+        int addInt = stats.getOrDefault("int", 0);
         int addLuck = stats.getOrDefault("luck", 0);
 
         int totalCost = addStr + addVit + addAgi + addDex + addInt + addLuck;
 
         if (totalCost <= 0) throw new IllegalArgumentException("Vui lòng chọn chỉ số để cộng!");
-        if (totalCost > available) throw new IllegalArgumentException("Không đủ điểm tiềm năng!");
+        if (totalCost > available) throw new IllegalArgumentException("Không đủ điểm tiềm năng! Bạn chỉ còn " + available + " điểm.");
 
-        // Cộng điểm
-        c.setStr((c.getStr() != null ? c.getStr() : 5) + addStr);
-        c.setVit((c.getVit() != null ? c.getVit() : 5) + addVit);
-        c.setAgi((c.getAgi() != null ? c.getAgi() : 5) + addAgi);
-        c.setDex((c.getDex() != null ? c.getDex() : 5) + addDex);
-        c.setIntelligence((c.getIntelligence() != null ? c.getIntelligence() : 5) + addInt);
-        c.setLuck((c.getLuck() != null ? c.getLuck() : 5) + addLuck);
+        // C. CỘNG VÀ LƯU
+        c.setStr(str + addStr);
+        c.setVit(vit + addVit);
+        c.setAgi(agi + addAgi);
+        c.setDex(dex + addDex);
+        c.setIntelligence(intel + addInt);
+        c.setLuck(luck + addLuck);
 
-        // Tính toán lại các chỉ số phụ (HP, ATK...) dựa trên stats mới
+        // D. TÍNH LẠI CHỈ SỐ PHỤ & LỰC CHIẾN
         recalculateStats(c);
+
+        // Cập nhật lại statPoints vào object trả về
+        c.setStatPoints(available - totalCost);
 
         return characterRepo.save(c);
     }
 
-    // Hàm cập nhật chỉ số phụ dựa trên Stats
+    // --- 5. TÍNH TOÁN CHỈ SỐ PHỤ & LỰC CHIẾN (QUAN TRỌNG CHO PVP) ---
     private void recalculateStats(Character c) {
-        int str = c.getStr() != null ? c.getStr() : 5;
-        int vit = c.getVit() != null ? c.getVit() : 5;
-        int agi = c.getAgi() != null ? c.getAgi() : 5;
+        ensureNoNullStats(c);
 
-        // Công thức ví dụ (Bạn có thể sửa lại theo game design):
-        // Máu = 200 + (VIT * 20)
-        c.setMaxHp(200 + (vit * 20));
+        int str = c.getStr();
+        int vit = c.getVit();
+        int agi = c.getAgi();
+        int intel = c.getIntelligence();
+        int dex = c.getDex();
 
-        // Tấn công = 10 + (STR * 2)
+        // 1. Máu = 200 + (VIT * 20)
+        int oldMaxHp = c.getMaxHp() != null ? c.getMaxHp() : 200;
+        int newMaxHp = 200 + (vit * 20);
+        c.setMaxHp(newMaxHp);
+
+        // 2. Tấn công = 10 + (STR * 2)
         c.setBaseAtk(10 + (str * 2));
 
-        // Tốc độ = 10 + AGI
+        // 3. Tốc độ = 10 + AGI
         c.setBaseSpeed(10 + agi);
 
-        // Hồi máu khi lên cấp hoặc giữ nguyên tỷ lệ? Ở đây mình giữ nguyên máu hiện tại nhưng không vượt quá max
-        if (c.getCurrentHp() > c.getMaxHp()) {
-            c.setCurrentHp(c.getMaxHp());
-        }
+        // 4. Crit Rate/Dmg (Cơ bản)
+        c.setBaseCritRate(5 + (luckByClass(c) / 5)); // Ví dụ
+        c.setBaseCritDmg(150 + (dex / 2));
+
+        // 5. [QUAN TRỌNG] TÍNH LỰC CHIẾN (Combat Power)
+        // Công thức: HP/10 + ATK + DEF + SPEED + (Stats Tổng)
+        int power = (newMaxHp / 10) + c.getBaseAtk() + c.getBaseDef() + c.getBaseSpeed()
+                + str + vit + agi + intel + dex;
+        c.setTotalPower(power);
+
+        // Logic hồi đầy máu khi MaxHP tăng (giống game RPG)
+        // Hoặc giữ nguyên % máu (tùy bạn chọn), ở đây mình giữ nguyên giá trị hiện tại
+        if (c.getCurrentHp() == null) c.setCurrentHp(newMaxHp);
+        if (c.getCurrentHp() > newMaxHp) c.setCurrentHp(newMaxHp);
+    }
+
+    // --- HELPER METHODS ---
+
+    private void ensureNoNullStats(Character c) {
+        if (c.getStr() == null) c.setStr(5);
+        if (c.getVit() == null) c.setVit(5);
+        if (c.getAgi() == null) c.setAgi(5);
+        if (c.getDex() == null) c.setDex(5);
+        if (c.getIntelligence() == null) c.setIntelligence(5);
+        if (c.getLuck() == null) c.setLuck(5);
+        if (c.getBaseDef() == null) c.setBaseDef(5);
+    }
+
+    private int luckByClass(Character c) {
+        return c.getLuck() != null ? c.getLuck() : 5;
     }
 
     private void grantStarterPack(Character character) {

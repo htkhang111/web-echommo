@@ -1,61 +1,40 @@
 package com.echommo.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.ToString;
-import org.hibernate.annotations.UpdateTimestamp;
-
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 @Entity
 @Table(name = "wallet")
 public class Wallet {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "wallet_id")
-    private Integer walletId;
+    private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
-    @JsonIgnore // Ngắt vòng lặp JSON khi gọi API User
-    @ToString.Exclude
+    @OneToOne
+    @JoinColumn(name = "user_id", referencedColumnName = "user_id")
     private User user;
 
-    // --- Currency ---
-    @Column(precision = 18, scale = 2)
-    private BigDecimal gold = BigDecimal.valueOf(100.00);
+    private Long gold = 0L;
+    private Integer diamonds = 0;
 
-    @Column(name = "diamonds")
-    private Integer diamonds = 0; // Legacy
+    // [FIX] Decimal logic
+    @Column(name = "echo_coin", precision = 20, scale = 8)
+    private BigDecimal echoCoin = BigDecimal.ZERO;
 
-    @Column(name = "echo_coin")
-    private Integer echoCoin = 0; // New Currency
+    private Integer wood = 0;
+    private Integer driedWood = 0;
+    private Integer coldWood = 0;
+    private Integer strangeWood = 0;
 
-    // --- Resources ---
-    // Gỗ (Wood)
-    private Integer wood = 0;        // ID 1
-    private Integer driedWood = 0;   // ID 2
-    private Integer coldWood = 0;    // ID 3
-    private Integer strangeWood = 0; // ID 4
+    // [FIX] Renamed to coal
+    private Integer coal = 0;
 
-    // Khoáng sản (Minerals)
-    private Integer coal = 0;        // [FIX] ID 5 (Đã đổi từ Stone -> Coal)
-    private Integer copperOre = 0;   // ID 6
-    private Integer ironOre = 0;     // ID 7
-    private Integer platinum = 0;    // ID 8
-
-    // Thực phẩm (Food/Fish)
-    private Integer fish = 0;        // ID 9
-    private Integer shark = 0;       // ID 10
-
-    // Khác
-    private Integer unknownMaterial = 0; // ID 12
-
-    @UpdateTimestamp
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private Integer copperOre = 0;
+    private Integer ironOre = 0;
+    private Integer platinum = 0;
+    private Integer fish = 0;
+    private Integer shark = 0;
+    private Integer unknownMaterial = 0;
 }

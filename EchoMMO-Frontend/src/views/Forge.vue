@@ -1,4 +1,4 @@
-<template>
+<!-- <template>
   <div class="page-container forge-page ancient-theme">
     <div class="wood-bg-layer"></div>
     <div class="fire-overlay"></div>
@@ -484,11 +484,11 @@ const fetchInventory = async () => { await inventoryStore.fetchInventory(); };
 @keyframes pulse-red { 0% { box-shadow: 0 0 10px #ff1744; } 50% { box-shadow: 0 0 25px #ff1744; } 100% { box-shadow: 0 0 10px #ff1744; } }
 .error-text { color: #ff5252; margin-top: 10px; font-size: 0.9rem; }
 .custom-scroll::-webkit-scrollbar { width: 6px; } .custom-scroll::-webkit-scrollbar-thumb { background: #5d4037; border-radius: 3px; } .custom-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
-</style>
+</style> -->
 
 
 
-<!-- <template>
+<template>
   <div class="page-container forge-page ancient-theme">
     <div class="wood-bg-layer"></div>
     <div class="fire-overlay"></div>
@@ -630,10 +630,7 @@ const fetchInventory = async () => { await inventoryStore.fetchInventory(); };
                   </div>
 
                   <div class="rate-row">
-                    Tỉ lệ thành công: 
-                    <span :class="getRateColorClass(currentSuccessRate)">
-                      {{ currentSuccessRate }}%
-                    </span>
+                    Tỉ lệ: <span class="high-rate">100%</span>
                   </div>
                 </div>
 
@@ -679,14 +676,12 @@ const fetchInventory = async () => { await inventoryStore.fetchInventory(); };
 
     <transition name="pop-up">
       <div v-if="showResult" class="result-overlay" @click="closeResult">
-        <div class="result-card" :class="resultStatus" @click.stop>
+        <div class="result-card success" @click.stop>
           <div class="result-header">
-            <div class="result-icon-circle">
-              <i class="fas" :class="resultStatus === 'success' ? 'fa-check' : 'fa-skull-crossbones'"></i>
-            </div>
+            <div class="result-icon-circle"><i class="fas fa-check"></i></div>
           </div>
           <div class="result-body">
-            <h2 class="result-title">{{ resultTitle }}</h2>
+            <h2 class="result-title">THÀNH CÔNG!</h2>
             <p class="result-desc">{{ resultMessage }}</p>
           </div>
           <button class="btn-confirm" @click="closeResult">XÁC NHẬN</button>
@@ -713,8 +708,6 @@ const marketStore = useMarketStore();
 const selectedItem = ref(null);
 const isForging = ref(false);
 const showResult = ref(false);
-const resultStatus = ref("success"); // 'success' | 'fail'
-const resultTitle = ref("");
 const resultMessage = ref("");
 const errorMessage = ref("");
 const filterType = ref("ALL");
@@ -748,39 +741,6 @@ const parsedSubStats = computed(() => {
   }
 });
 
-// [LOGIC RANDOM UPDATE] Tỉ lệ thành công giảm dần đều từ Lv 1 -> 30
-// Không còn mốc an toàn 100% nữa!
-const currentSuccessRate = computed(() => {
-    if (!selectedItem.value) return 0;
-    const item = selectedItem.value;
-    
-    // Mythic Rate (Rất khó)
-    if (item.isMythic) {
-        if (item.mythicLevel < 5) return 40;
-        if (item.mythicLevel < 10) return 25;
-        return 5;
-    }
-
-    // Normal Rate: Công thức tuyến tính (Linear Decay)
-    // Lv 0 -> +1: 95%
-    // Lv 10 -> +11: 65%
-    // Lv 20 -> +21: 35%
-    // Lv 29 -> +30: 8%
-    // Mỗi cấp giảm khoảng 3% tỉ lệ
-    const baseRate = 95;
-    const decay = item.enhanceLevel * 3; 
-    const rate = baseRate - decay;
-    
-    // Luôn giữ tối thiểu 5% để còn có hy vọng (hoặc tuyệt vọng)
-    return Math.max(5, rate);
-});
-
-const getRateColorClass = (rate) => {
-    if (rate >= 80) return "rate-high";
-    if (rate >= 50) return "rate-mid";
-    return "rate-low";
-};
-
 // [LOGIC ĐỒNG BỘ BACKEND] Tính toán chi phí
 const upgradeCost = computed(() => {
   if (!selectedItem.value) return { gold: 0, materials: [] };
@@ -788,17 +748,19 @@ const upgradeCost = computed(() => {
   const item = selectedItem.value;
   const type = item.item.type;
   
+  // Logic Mythic Upgrade (Tăng cấp cho đồ Mythic)
   if (item.isMythic) {
       const nextLv = item.mythicLevel + 1;
       return {
           gold: nextLv * 100000,
           materials: [
-             { name: "Nguyên liệu lạ", qty: nextLv * 50, img: "r_mystrile_node.png" },
-             { name: "Echo Coin", qty: nextLv, img: "r_echo_coin.png" }
+             { name: "Nguyên liệu lạ", qty: nextLv * 50, img: "r_mystrile_node.png" }, // ID 12
+             { name: "Echo Coin", qty: nextLv, img: "r_echo_coin.png" } // ID 11
           ]
       };
   }
 
+  // Logic Normal Enhance (+1 -> +30)
   const nextLv = item.enhanceLevel + 1;
   let gold = 0;
   let mats = [];
@@ -807,21 +769,25 @@ const upgradeCost = computed(() => {
       gold = nextLv * 1000;
       const mainQty = nextLv * 15;
       const subQty = nextLv * 5;
-      if (type === 'WEAPON') mats.push({ name: "Quặng Đồng", qty: mainQty, img: "r_copper_node.png" });
-      else mats.push({ name: "Đá", qty: mainQty, img: "stone_1.png" });
-      mats.push({ name: "Gỗ Sồi", qty: subQty, img: "r_wood.png" });
+      
+      // Mat 1 (Chính)
+      if (type === 'WEAPON') mats.push({ name: "Quặng Đồng", qty: mainQty, img: "r_copper_node.png" }); // ID 6
+      else mats.push({ name: "Đá", qty: mainQty, img: "stone_1.png" }); // ID 5
+      
+      // Mat 2 (Phụ)
+      mats.push({ name: "Gỗ Sồi", qty: subQty, img: "r_wood.png" }); // ID 1
   } 
   else if (nextLv <= 20) {
       gold = nextLv * 3000;
       const scale = nextLv - 10;
-      mats.push({ name: "Sắt", qty: scale * 15, img: "r_silver_bar.png" });
-      mats.push({ name: "Gỗ Khô", qty: scale * 5, img: "r_red_wood.png" });
+      mats.push({ name: "Sắt", qty: scale * 15, img: "r_silver_bar.png" }); // ID 7
+      mats.push({ name: "Gỗ Khô", qty: scale * 5, img: "r_red_wood.png" }); // ID 2
   } 
   else { // 21 - 30
       gold = nextLv * 10000;
       const scale = nextLv - 20;
-      mats.push({ name: "Bạch Kim", qty: scale * 20, img: "r_mystrile_bar.png" });
-      mats.push({ name: "Gỗ Lạnh", qty: scale * 10, img: "r_white_wood.png" });
+      mats.push({ name: "Bạch Kim", qty: scale * 20, img: "r_mystrile_bar.png" }); // ID 8
+      mats.push({ name: "Gỗ Lạnh", qty: scale * 10, img: "r_white_wood.png" }); // ID 3
   }
 
   return { gold, materials: mats };
@@ -844,18 +810,6 @@ const handleUpgrade = async () => {
   isForging.value = true;
   errorMessage.value = "";
 
-  // [RANDOM LOGIC] Check may mắn
-  const roll = Math.random() * 100;
-  
-  // So sánh với tỷ lệ hiện tại (đã được sửa thành giảm dần từ Lv 1)
-  if (roll > currentSuccessRate.value) {
-      setTimeout(() => {
-          showResultModal("fail", "CƯỜNG HÓA THẤT BẠI", "Rất tiếc! Lần này thần may mắn không mỉm cười.");
-          isForging.value = false;
-      }, 1500);
-      return; 
-  }
-
   try {
     const url = `/equipment/enhance/${selectedItem.value.userItemId}`;
     await axiosClient.post(url);
@@ -870,15 +824,10 @@ const handleUpgrade = async () => {
     const updatedItem = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId);
     selectedItem.value = updatedItem || null;
 
-    showResultModal("success", "THÀNH CÔNG!", `Cường hóa lên +${selectedItem.value.enhanceLevel} thành công!`);
+    showResultModal(`Cường hóa lên +${selectedItem.value.enhanceLevel} thành công!`);
   } catch (err) {
     console.error(err);
-    const msg = err.response?.data?.message || err.response?.data || "";
-    if (msg.includes("Failed") || msg.includes("thất bại")) {
-        showResultModal("fail", "THẤT BẠI...", "Tiếc quá! Cường hóa thất bại.");
-    } else {
-        errorMessage.value = msg || "Thiếu nguyên liệu hoặc lỗi hệ thống.";
-    }
+    errorMessage.value = err.response?.data?.message || err.response?.data || "Thiếu nguyên liệu hoặc lỗi hệ thống.";
   } finally {
     isForging.value = false;
   }
@@ -901,19 +850,16 @@ const handleMythicUpgrade = async () => {
       const updatedItem = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId);
       selectedItem.value = updatedItem || null;
 
-      showResultModal("success", "LINH KHÍ TRÀN ĐẦY", "Thăng cấp Thần thoại thành công!");
+      showResultModal("Thăng cấp Thần thoại thành công!");
   } catch (err) {
       console.error(err);
-      errorMessage.value = err.response?.data?.message || "Thất bại.";
-      showResultModal("fail", "THẤT BẠI", "Năng lượng không đủ để đột phá.");
+      errorMessage.value = err.response?.data?.message || err.response?.data || "Thất bại.";
   } finally {
       isForging.value = false;
   }
 };
 
-const showResultModal = (status, title, msg) => {
-  resultStatus.value = status;
-  resultTitle.value = title;
+const showResultModal = (msg) => {
   resultMessage.value = msg;
   showResult.value = true;
 };
@@ -929,7 +875,7 @@ const getPredictedMainStat = (item) => {
   if (!item) return 0;
   const base = item.originalMainStatValue || item.mainStatValue;
   const currentLv = item.isMythic ? item.mythicLevel : item.enhanceLevel;
-  return Math.floor(base * (1 + (currentLv + 1) * 0.1));
+  return Math.floor(base * (1 + (currentLv + 1) * 0.1)); // Ước lượng hiển thị
 };
 const getStatLabel = (code) => {
   const map = { ATK_FLAT: "Công", ATK_PERCENT: "Công %", HP_FLAT: "Máu", CRIT_RATE: "Chí Mạng", CRIT_DMG: "ST.Chí Mạng", SPEED: "Tốc Độ", DEF_FLAT: "Thủ", DEF_PERCENT: "Thủ %" };
@@ -982,67 +928,160 @@ const fetchInventory = async () => { await inventoryStore.fetchInventory(); };
 .level-badge { position: absolute; bottom: 2px; right: 2px; background: rgba(0, 0, 0, 0.8); color: #fff; font-size: 0.7rem; padding: 1px 4px; border-radius: 4px; border: 1px solid #555; }
 .empty-msg { grid-column: 1 / -1; text-align: center; color: #666; margin-top: 50px; }
 
-/* --- KHU VỰC RÈN --- */
-.anvil-panel { flex: 1; position: relative; overflow-y: auto; display: flex; flex-direction: column; }
-.anvil-zone { min-height: 100%; height: auto; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px 10px; }
-.main-slot-container { width: 100px; height: 100px; border: 3px double #8d6e63; border-radius: 12px; background: radial-gradient(circle, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.9) 100%); display: flex; align-items: center; justify-content: center; margin-bottom: 15px; position: relative; transition: 0.3s; flex-shrink: 0; }
+/* --- KHU VỰC RÈN (COMPACT & SCROLLABLE) --- */
+.anvil-panel { 
+  flex: 1; 
+  position: relative; 
+  overflow-y: auto; /* Cho phép cuộn */
+  display: flex;
+  flex-direction: column;
+}
+
+.anvil-zone { 
+  min-height: 100%; 
+  height: auto;
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: flex-start; /* Nội dung bắt đầu từ trên */
+  padding: 20px 10px; 
+}
+
+.main-slot-container { 
+  width: 100px; /* Nhỏ gọn */
+  height: 100px; 
+  border: 3px double #8d6e63; 
+  border-radius: 12px; 
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.9) 100%); 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  margin-bottom: 15px; 
+  position: relative; 
+  transition: 0.3s; 
+  flex-shrink: 0; 
+}
+
 .main-slot-container.shaking { animation: shake 0.2s infinite; border-color: #ff5722; box-shadow: 0 0 20px #ff5722; }
 .main-slot img { width: 70px; height: 70px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5)); }
 .empty-anvil { color: #5d4037; text-align: center; font-size: 0.8rem; }
 .empty-anvil i { font-size: 2rem !important; margin-bottom: 5px; display: block; }
 
-/* --- BẢNG THÔNG TIN --- */
-.upgrade-info { width: 100%; max-width: 380px; background: rgba(0, 0, 0, 0.6); border: 1px solid #5d4037; padding: 15px; border-radius: 8px; }
-.item-title-large { text-align: center; font-size: 1.1rem; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.rank-badge { font-size: 0.6rem; background: #333; padding: 1px 5px; border-radius: 3px; color: #fff; border: 1px solid #555; }
-.level-compare { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 10px; background: rgba(255, 255, 255, 0.03); padding: 8px; border-radius: 6px; }
+/* --- BẢNG THÔNG TIN NÂNG CẤP (COMPACT VERSION) --- */
+.upgrade-info { 
+  width: 100%; 
+  max-width: 380px; /* Thu hẹp chiều ngang */
+  background: rgba(0, 0, 0, 0.6); 
+  border: 1px solid #5d4037; 
+  padding: 15px; 
+  border-radius: 8px; 
+}
+
+.item-title-large { 
+  text-align: center; 
+  font-size: 1.1rem; 
+  margin-bottom: 10px; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  gap: 8px; 
+}
+
+.rank-badge { 
+  font-size: 0.6rem; 
+  background: #333; 
+  padding: 1px 5px; 
+  border-radius: 3px; 
+  color: #fff; 
+  border: 1px solid #555; 
+}
+
+.level-compare { 
+  display: flex; 
+  justify-content: center; 
+  align-items: center; 
+  gap: 15px; 
+  margin-bottom: 10px; 
+  background: rgba(255, 255, 255, 0.03); 
+  padding: 8px; 
+  border-radius: 6px; 
+}
+
 .lv-box { display: flex; flex-direction: column; align-items: center; }
 .lv-box .label { font-size: 0.65rem; color: #888; text-transform: uppercase; }
 .lv-box .val { font-size: 1.4rem; font-weight: bold; color: #bbb; }
 .lv-box .val.highlight { color: #4caf50; text-shadow: 0 0 5px rgba(76, 175, 80, 0.5); }
+
 .arrow-anim { color: #666; font-size: 0.8rem; animation: slide-right 1s infinite; }
-.stats-preview { max-height: 120px; overflow-y: auto; margin-bottom: 10px; }
+
+.stats-preview { 
+    max-height: 120px; 
+    overflow-y: auto;
+    margin-bottom: 10px;
+}
+
 .stat-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed #333; font-size: 0.85rem; }
 .stat-row.main-stat { font-size: 0.95rem; color: #ffd700; border-bottom: 1px solid #5d4037; margin-bottom: 5px; }
 .stat-change { display: flex; gap: 5px; align-items: center; }
 .stat-change .new { color: #4caf50; font-weight: bold; }
 .sub-dot { margin-right: 5px; color: #666; }
-.cost-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-.resource-row { display: flex; align-items: center; gap: 4px; background: #222; padding: 3px 8px; border-radius: 15px; border: 1px solid #444; font-size: 0.8rem; }
+
+.cost-section { 
+  margin-top: 10px; 
+  padding-top: 10px; 
+  border-top: 1px solid #333; 
+  display: flex; 
+  flex-wrap: wrap; 
+  gap: 8px; 
+  justify-content: center; 
+}
+
+.resource-row { 
+  display: flex; 
+  align-items: center; 
+  gap: 4px; 
+  background: #222; 
+  padding: 3px 8px; 
+  border-radius: 15px; 
+  border: 1px solid #444; 
+  font-size: 0.8rem; 
+}
+
 .resource-row.not-enough { border-color: #f44336; color: #f44336; }
 .mat-icon { width: 16px; height: 16px; }
 
-/* Rate Colors */
-.rate-row { width: 100%; text-align: center; margin-top: 8px; font-size: 0.9rem; color: #ccc; }
-.rate-high { color: #4caf50; font-weight: bold; text-shadow: 0 0 5px rgba(76, 175, 80, 0.5); }
-.rate-mid { color: #ffeb3b; font-weight: bold; text-shadow: 0 0 5px rgba(255, 235, 59, 0.5); }
-.rate-low { color: #f44336; font-weight: bold; text-shadow: 0 0 5px rgba(244, 67, 54, 0.5); }
+.rate-row { width: 100%; text-align: center; margin-top: 5px; font-size: 0.8rem; color: #888; }
+.high-rate { color: #4caf50; font-weight: bold; }
 
 .actions-group { margin-top: 15px; }
-.btn-forge, .btn-mythic-upgrade { width: 100%; padding: 10px; font-family: "Cinzel", serif; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); position: relative; overflow: hidden; }
+
+.btn-forge, .btn-mythic-upgrade { 
+  width: 100%; 
+  padding: 10px; 
+  font-family: "Cinzel", serif; 
+  font-size: 1rem; 
+  font-weight: bold; 
+  cursor: pointer; 
+  transition: 0.2s; 
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); 
+  position: relative; 
+  overflow: hidden; 
+}
+
 .btn-forge { background: linear-gradient(180deg, #e65100, #bf360c); border: 1px solid #ff5722; color: white; }
 .btn-forge:hover:not(:disabled) { transform: scale(1.02); box-shadow: 0 0 20px rgba(255, 87, 34, 0.5); }
 .btn-forge:disabled { background: #444; border-color: #222; color: #888; cursor: not-allowed; }
+
 .btn-mythic-upgrade { background: #000; border: 1px solid #d50000; color: #d50000; }
 .btn-mythic-upgrade:hover { background: #d50000; color: #fff; box-shadow: 0 0 15px #d50000; }
+
 @keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 25% { transform: translate(-1px, -2px) rotate(-1deg); } 50% { transform: translate(-3px, 0px) rotate(1deg); } 75% { transform: translate(3px, 2px) rotate(0deg); } 100% { transform: translate(1px, -1px) rotate(-1deg); } }
 @keyframes slide-right { 0% { transform: translateX(0); opacity: 0.5; } 50% { transform: translateX(5px); opacity: 1; } 100% { transform: translateX(0); opacity: 0.5; } }
 
-/* RESULT OVERLAY UPDATED */
 .result-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
 .result-card { background: #1a1a1a; width: 400px; padding: 30px; border-radius: 12px; text-align: center; box-shadow: 0 0 50px rgba(0, 0, 0, 0.8); border: 1px solid #333; animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-
-/* Success Style */
 .result-card.success { border-color: #4caf50; box-shadow: 0 0 30px rgba(76, 175, 80, 0.3); }
-.result-card.success .result-icon-circle { color: #4caf50; border-color: #4caf50; }
-.result-card.success .result-title { color: #4caf50; }
-
-/* Fail Style */
-.result-card.fail { border-color: #f44336; box-shadow: 0 0 30px rgba(244, 67, 54, 0.3); }
-.result-card.fail .result-icon-circle { color: #f44336; border-color: #f44336; animation: shake 0.5s; }
-.result-card.fail .result-title { color: #f44336; }
-
-.result-icon-circle { width: 80px; height: 80px; border-radius: 50%; background: #000; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; border: 2px solid #555; }
+.result-icon-circle { width: 80px; height: 80px; border-radius: 50%; background: #000; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #4caf50; border: 2px solid #4caf50; }
 .result-title { font-family: "Cinzel", serif; font-size: 1.8rem; margin-bottom: 10px; }
 .btn-confirm { margin-top: 20px; padding: 10px 30px; background: transparent; border: 1px solid #fff; color: #fff; cursor: pointer; transition: 0.2s; }
 .btn-confirm:hover { background: #fff; color: #000; }
@@ -1053,4 +1092,4 @@ const fetchInventory = async () => { await inventoryStore.fetchInventory(); };
 @keyframes pulse-red { 0% { box-shadow: 0 0 10px #ff1744; } 50% { box-shadow: 0 0 25px #ff1744; } 100% { box-shadow: 0 0 10px #ff1744; } }
 .error-text { color: #ff5252; margin-top: 10px; font-size: 0.9rem; }
 .custom-scroll::-webkit-scrollbar { width: 6px; } .custom-scroll::-webkit-scrollbar-thumb { background: #5d4037; border-radius: 3px; } .custom-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
-</style> -->
+</style>
