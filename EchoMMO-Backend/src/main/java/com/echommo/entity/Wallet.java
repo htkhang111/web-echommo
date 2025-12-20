@@ -9,6 +9,7 @@ import java.math.BigDecimal;
 public class Wallet {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "wallet_id") // [FIX] Ánh xạ đúng vào cột wallet_id trong database
     private Long id;
 
     @OneToOne
