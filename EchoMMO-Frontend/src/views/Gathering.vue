@@ -108,21 +108,16 @@ const bgImage = getAssetUrl("b_mountain.jpg");
 
 const playerLevel = computed(() => charStore.character?.lv || 1);
 
-// Dùng resolveItemImage để lấy ảnh đúng từ github.io
+// Dữ liệu sự kiện mỏ
 const EVENT_TYPES = [
-  // Gỗ
   { id: "wood", rewardItemId: 1, name: "Cây Gỗ Sồi", image: resolveItemImage("r_wood.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Sồi" },
   { id: "dried_wood", rewardItemId: 2, name: "Cây Gỗ Khô", image: resolveItemImage("r_red_wood.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Khô" },
   { id: "cold_wood", rewardItemId: 3, name: "Cây Gỗ Lạnh", image: resolveItemImage("r_white_wood.png"), rarityClass: "uncommon", rarityText: "Ít Gặp", reqLevel: 10, reqTool: "Rìu Sắt", lootName: "Gỗ Lạnh" },
   { id: "strange_wood", rewardItemId: 4, name: "Cây Gỗ Lạ", image: resolveItemImage("r_black_wood.png"), rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Rìu Chiến", lootName: "Gỗ Lạ" },
-
-  // Khoáng sản
   { id: "stone", rewardItemId: 5, name: "Mỏ Đá", image: resolveItemImage("stone_1.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Búa", lootName: "Đá" },
   { id: "copper", rewardItemId: 6, name: "Mạch Đồng", image: resolveItemImage("r_copper_node.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 5, reqTool: "Cuốc", lootName: "Quặng Đồng" },
   { id: "iron", rewardItemId: 7, name: "Mỏ Sắt", image: resolveItemImage("r_silver_node.png"), rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Cuốc Sắt", lootName: "Quặng Sắt" },
   { id: "platinum", rewardItemId: 8, name: "Tinh Thể Bạch Kim", image: resolveItemImage("r_mystrile_node.png"), rarityClass: "epic", rarityText: "Cực Phẩm", reqLevel: 40, reqTool: "Găng Tay", lootName: "Bạch Kim" },
-
-  // Khác
   { id: "fish", rewardItemId: 9, name: "Hồ Cá", image: resolveItemImage("r_fish.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cần Câu", lootName: "Cá" },
   { id: "shark", rewardItemId: 10, name: "Vùng Nước Nguy Hiểm", image: resolveItemImage("r_shark.png"), rarityClass: "uncommon", rarityText: "Nguy Hiểm", reqLevel: 30, reqTool: "Cần Câu Máy", lootName: "Cá Mập" },
   { id: "coin", rewardItemId: 11, name: "Kho Báu Cổ", image: resolveItemImage("r_echo_coin.png"), rarityClass: "legendary", rarityText: "Huyền Thoại", reqLevel: 50, reqTool: "Tay Không", lootName: "Echo Coin" },
@@ -142,16 +137,19 @@ const initEvent = () => {
   const evt = EVENT_TYPES.find(e => e.rewardItemId === dbItemId);
   if (evt) {
     currentEvent.value = evt;
-    remainingNode.value = dbAmount || 0;
-    maxNode.value = Math.max(dbAmount, 10);
+    remainingNode.value = dbAmount !== undefined ? dbAmount : 10;
+    maxNode.value = Math.max(dbAmount || 10, 10);
   } else {
-    currentEvent.value = EVENT_TYPES[0]; // Fallback
+    currentEvent.value = EVENT_TYPES[0]; 
   }
 };
 
 const handleGather = async (times = 1) => {
   if (isGathering.value || remainingNode.value <= 0) return;
-  if ((charStore.character?.currentEnergy || 0) < times) {
+  
+  // Check nội năng kỹ hơn
+  const currentEnergy = charStore.character?.currentEnergy || 0;
+  if (currentEnergy < times) {
     feedbackMsg.value = "Không đủ nội năng!";
     return;
   }
@@ -160,13 +158,35 @@ const handleGather = async (times = 1) => {
   feedbackMsg.value = "Đang khai thác...";
 
   try {
+    // Delay giả lập hiệu ứng
     await new Promise(r => setTimeout(r, 800));
-    const charId = charStore.character.id || charStore.character.characterId;
-    const payload = { characterId: charId, itemId: currentEvent.value.rewardItemId, amount: times };
+    
+    // --- BẮT ĐẦU DEBUG 400 ERROR ---
+    // Kiểm tra xem ID nhân vật nằm ở đâu
+    const char = charStore.character;
+    const charId = char.id || char.characterId || char.userId;
 
-    await axiosClient.post("/exploration/gather", payload);
+    if (!charId) {
+      throw new Error("Không tìm thấy ID nhân vật (charId bị null)");
+    }
+
+    // Tạo payload
+    const payload = { 
+      characterId: charId, // LƯU Ý: Check lại DTO Java xem tên biến này đúng chưa?
+      itemId: currentEvent.value.rewardItemId, 
+      amount: times 
+    };
+
+    console.log("📦 [DEBUG] Đang gửi Payload:", payload); // <-- Xem dòng này trong F12
+
+    const response = await axiosClient.post("/exploration/gather", payload);
+    
+    // --- XỬ LÝ THÀNH CÔNG ---
+    console.log("✅ [DEBUG] Kết quả Server:", response.data);
 
     remainingNode.value -= times;
+    
+    // Cập nhật lại thông tin nhân vật (Nội năng, exp...)
     await charStore.fetchCharacter();
 
     feedbackMsg.value = `Thu hoạch thành công! (+${times} ${currentEvent.value.lootName})`;
@@ -175,9 +195,16 @@ const handleGather = async (times = 1) => {
       feedbackMsg.value = "Mỏ tài nguyên đã cạn!";
       setTimeout(() => router.push('/explore'), 1500);
     }
+
   } catch (e) {
-    console.error(e);
-    feedbackMsg.value = "Khai thác thất bại!";
+    console.error("🔥 [LỖI KHAI THÁC]:", e);
+    
+    // Hiển thị lỗi chi tiết hơn nếu server trả về message
+    if (e.response && e.response.data && e.response.data.message) {
+        feedbackMsg.value = "Lỗi: " + e.response.data.message;
+    } else {
+        feedbackMsg.value = "Khai thác thất bại (Lỗi 400/500)";
+    }
   } finally {
     isGathering.value = false;
   }
@@ -186,6 +213,7 @@ const handleGather = async (times = 1) => {
 const handleGatherAll = () => {
   const possible = Math.min(remainingNode.value, 10, charStore.character?.currentEnergy || 0);
   if (possible > 0) handleGather(possible);
+  else if ((charStore.character?.currentEnergy || 0) <= 0) feedbackMsg.value = "Hết nội năng!";
 };
 
 onMounted(() => {
@@ -199,6 +227,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Giữ nguyên CSS cũ của bạn vì nó đã đẹp rồi */
 .page-container {
   height: 100vh;
   overflow: hidden;
@@ -298,30 +327,11 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.bg-common {
-  background: #555;
-  color: #ccc;
-}
-
-.bg-uncommon {
-  background: #2e7d32;
-  color: #a5d6a7;
-}
-
-.bg-rare {
-  background: #1565c0;
-  color: #90caf9;
-}
-
-.bg-epic {
-  background: #6a1b9a;
-  color: #ce93d8;
-}
-
-.bg-legendary {
-  background: #e65100;
-  color: #ffcc80;
-}
+.bg-common { background: #555; color: #ccc; }
+.bg-uncommon { background: #2e7d32; color: #a5d6a7; }
+.bg-rare { background: #1565c0; color: #90caf9; }
+.bg-epic { background: #6a1b9a; color: #ce93d8; }
+.bg-legendary { background: #e65100; color: #ffcc80; }
 
 .node-name {
   font-size: 1.5rem;
@@ -330,25 +340,11 @@ onUnmounted(() => {
   text-shadow: 0 0 5px currentColor;
 }
 
-.text-common {
-  color: #ccc;
-}
-
-.text-uncommon {
-  color: #66bb6a;
-}
-
-.text-rare {
-  color: #42a5f5;
-}
-
-.text-epic {
-  color: #ab47bc;
-}
-
-.text-legendary {
-  color: #ffa726;
-}
+.text-common { color: #ccc; }
+.text-uncommon { color: #66bb6a; }
+.text-rare { color: #42a5f5; }
+.text-epic { color: #ab47bc; }
+.text-legendary { color: #ffa726; }
 
 .req-box {
   font-size: 0.9rem;
@@ -394,13 +390,8 @@ onUnmounted(() => {
   font-size: 0.95rem;
 }
 
-.gold-text {
-  color: #ffd700;
-}
-
-.text-red {
-  color: #ef5350;
-}
+.gold-text { color: #ffd700; }
+.text-red { color: #ef5350; }
 
 .progress-container {
   width: 100%;
@@ -483,28 +474,11 @@ onUnmounted(() => {
   filter: brightness(1.1);
 }
 
-.btn-wood {
-  background: #4e342e;
-  color: #fff;
-  border: 1px solid #6d4c41;
-}
+.btn-wood { background: #4e342e; color: #fff; border: 1px solid #6d4c41; }
+.btn-seal { background: #263238; color: #fff; border: 1px solid #37474f; }
 
-.btn-seal {
-  background: #263238;
-  color: #fff;
-  border: 1px solid #37474f;
-}
-
-.btn-main {
-  font-weight: bold;
-  font-size: 1.1rem;
-}
-
-.btn-sub {
-  font-size: 0.8rem;
-  opacity: 0.8;
-  margin-top: 3px;
-}
+.btn-main { font-weight: bold; font-size: 1.1rem; }
+.btn-sub { font-size: 0.8rem; opacity: 0.8; margin-top: 3px; }
 
 .feedback-text {
   color: #69f0ae;
@@ -512,25 +486,11 @@ onUnmounted(() => {
   min-height: 24px;
 }
 
-.shake-anim {
-  animation: shake 0.5s infinite;
-}
-
+.shake-anim { animation: shake 0.5s infinite; }
 @keyframes shake {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  25% {
-    transform: rotate(-5deg);
-  }
-
-  75% {
-    transform: rotate(5deg);
-  }
-
-  100% {
-    transform: rotate(0deg);
-  }
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+  100% { transform: rotate(0deg); }
 }
 </style>

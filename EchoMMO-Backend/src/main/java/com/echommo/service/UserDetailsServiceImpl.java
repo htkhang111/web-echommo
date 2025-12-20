@@ -27,20 +27,20 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User Not Found with username: " + username));
 
         // 2. Xử lý quyền (Role)
-        // Nếu role null thì mặc định là USER, ngược lại lấy tên role
         String roleName = (user.getRole() != null) ? user.getRole().name() : "USER";
         List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(roleName));
 
         // 3. Trả về đối tượng User của Spring Security
-        // [QUAN TRỌNG] Dùng user.getPasswordHash() thay vì getPassword()
-        // Vì passwordHash mới là chuỗi mã hóa BCrypt dùng để so sánh
+        // Cấu trúc: username, password, enabled, accountNonExpired, credentialsNonExpired, accountNonLocked, authorities
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
                 user.getPasswordHash(),
-                user.getIsActive() != null ? user.getIsActive() : true, // enabled (mặc định true nếu null)
-                true,                   // accountNonExpired
-                true,                   // credentialsNonExpired
-                user.getIsCaptchaLocked() == null || !user.getIsCaptchaLocked(), // accountNonLocked (không bị khóa captcha)
+                // [QUAN TRỌNG] isActive = false -> enabled = false (Bị Ban/Vô hiệu hóa)
+                (user.getIsActive() != null && user.getIsActive()),
+                true, // accountNonExpired
+                true, // credentialsNonExpired
+                // [QUAN TRỌNG] isCaptchaLocked = true -> accountNonLocked = false (Bị khóa Captcha tạm thời)
+                (user.getIsCaptchaLocked() == null || !user.getIsCaptchaLocked()),
                 authorities
         );
     }

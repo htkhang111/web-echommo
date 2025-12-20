@@ -27,20 +27,19 @@ public class CharacterController {
         }
     }
 
-    // 👇 API MỚI: Cộng điểm tiềm năng (STR, VIT, AGI)
-    // Body gửi lên: { "str": 1, "vit": 0, "agi": 2 }
+    // 👇 API: Cộng điểm tiềm năng
+    // Body mẫu: { "str": 1, "vit": 2, "agi": 0, "dex": 0, "int": 0, "luck": 0 }
     @PostMapping("/add-stats")
     public ResponseEntity<?> addStats(@RequestBody Map<String, Integer> stats) {
         try {
-            int str = stats.getOrDefault("str", 0);
-            int vit = stats.getOrDefault("vit", 0);
-            int agi = stats.getOrDefault("agi", 0);
-
-            // Bạn cần thêm hàm addStats vào CharacterService
-            // return ResponseEntity.ok(s.addStats(str, vit, agi));
-            return ResponseEntity.ok("API OK. Need Service Impl.");
+            // Gọi Service để xử lý logic cộng điểm và lưu DB
+            return ResponseEntity.ok(s.addStats(stats));
+        } catch (IllegalArgumentException e) {
+            // Lỗi do người dùng gửi số âm hoặc quá điểm
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            // Lỗi hệ thống khác
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 }

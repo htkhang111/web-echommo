@@ -6,6 +6,7 @@ export const useChatStore = defineStore('chat', {
     messages: [], 
     isConnected: false,
     isLoading: false,
+    error: null, // Thêm state lỗi
     
     // State quản lý Chat Widget (Chat riêng)
     isWidgetOpen: false,
@@ -16,19 +17,27 @@ export const useChatStore = defineStore('chat', {
     // --- CHAT THẾ GIỚI ---
     async fetchMessages() {
       this.isLoading = true;
+      this.error = null;
       try {
         const res = await axiosClient.get('/chat/recent');
-        if (res.data) {
+        // Phòng thủ: Nếu res.data null thì gán mảng rỗng
+        if (Array.isArray(res.data)) {
           this.messages = res.data;
+        } else {
+          console.warn("API Chat trả về dữ liệu không phải mảng:", res.data);
+          this.messages = [];
         }
       } catch (error) {
-        console.warn("Lỗi tải chat:", error);
+        console.error("🔥 Lỗi tải chat (Backend 500?):", error);
+        this.error = "Không thể kết nối kênh chat.";
       } finally {
         this.isLoading = false;
       }
     },
 
     addMessage(message) {
+      if (!message) return;
+      
       // Tránh trùng lặp tin nhắn
       const exists = this.messages.some(m => 
         m.timestamp === message.timestamp && 
@@ -46,19 +55,23 @@ export const useChatStore = defineStore('chat', {
     },
 
     // --- CHAT RIÊNG (WIDGET) ---
-    
     openChatWith(user) {
-      // B1: Gán thông tin người cần chat trước
       if (user) {
-        this.privateChatTarget = {
-          id: user.id || user.userId,
-          username: user.username || user.senderName,
-          avatarUrl: user.avatarUrl
-        };
+        // Tự động tìm ID đúng (id, userId, hoặc characterId)
+        const targetId = user.id || user.userId || user.characterId;
+        const targetName = user.username || user.senderName || user.name;
+        
+        if (targetId) {
+            this.privateChatTarget = {
+              id: targetId,
+              username: targetName || "Người lạ",
+              avatarUrl: user.avatarUrl
+            };
+            this.isWidgetOpen = true;
+        } else {
+            console.error("Không tìm thấy ID người dùng để chat:", user);
+        }
       }
-      
-      // B2: Mở Widget -> Watcher bên ChatWidget sẽ tự load hội thoại
-      this.isWidgetOpen = true;
     },
 
     openChat() {

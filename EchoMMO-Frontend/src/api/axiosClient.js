@@ -168,6 +168,7 @@ const axiosClient = axios.create({
   },
 });
 
+// Hàm kiểm tra Token hết hạn (client-side check)
 const isTokenExpired = (token) => {
   if (!token) return true;
   try {
@@ -178,15 +179,16 @@ const isTokenExpired = (token) => {
   }
 };
 
-// Request Interceptor
+// --- REQUEST INTERCEPTOR ---
 axiosClient.interceptors.request.use(
   (config) => {
     const authStore = useAuthStore();
     if (authStore.token) {
+      // Nếu token hết hạn thật sự (do thời gian), thì logout luôn
       if (isTokenExpired(authStore.token)) {
         authStore.logout();
         window.location.href = "/login";
-        return Promise.reject(new Error("Token expired"));
+        return Promise.reject(new Error("Token expired locally"));
       }
       config.headers.Authorization = `Bearer ${authStore.token}`;
     }
@@ -195,7 +197,7 @@ axiosClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor (XỬ LÝ BAN TẠI ĐÂY)
+// --- RESPONSE INTERCEPTOR (Xử lý Ban ở đây) ---
 axiosClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -204,31 +206,37 @@ axiosClient.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response;
 
-      // 1. Kiểm tra dấu hiệu bị Ban 
-      // Backend có thể trả về 403 Forbidden hoặc 401 kèm message "Ban" hoặc error code "BANNED"
-      const isBanned = (status === 403 || status === 401) && (
-         (data && data.error === 'BANNED') || 
-         (data && typeof data.message === 'string' && data.message.toLowerCase().includes('ban')) ||
-         (data && typeof data === 'string' && data.toLowerCase().includes('ban'))
-      );
+      // [ƯU TIÊN 1] KIỂM TRA BANNED
+      // Backend trả về 403 và JSON có chứa error="BANNED" hoặc message liên quan
+      const isBannedSignal = 
+        status === 403 && 
+        (
+          (data && data.error === 'BANNED') || 
+          (data && data.message && data.message.toLowerCase().includes('phong ấn'))
+        );
 
-      if (isBanned) {
-        // Lấy lý do từ response nếu có
-        const reason = data.message || data.reason || "Vi phạm quy định thiên phủ.";
+      if (isBannedSignal) {
+        console.error("⛔ TÀI KHOẢN ĐÃ BỊ BAN!");
         
-        // KÍCH HOẠT PHONG ẤN TRẬN
+        // Gọi action triggerBan trong store để hiện Popup
+        const reason = data.message || "Vi phạm quy định thiên phủ.";
         authStore.triggerBan(reason);
         
-        // Chặn luồng, không logout để giữ màn hình Popup
-        return Promise.reject(error); 
+        // Trả về reject nhưng KHÔNG logout ngay để giữ popup hiện trên màn hình
+        // AuthStore sẽ tự xử lý việc clear state hoặc chuyển hướng sau khi user đóng popup
+        return Promise.reject(error);
       }
 
-      // 2. Xử lý hết hạn Token thông thường (không phải ban)
-      if (status === 401 && !authStore.isBanned) {
+      // [ƯU TIÊN 2] HẾT HẠN PHIÊN (401)
+      // Chỉ chạy vào đây nếu KHÔNG phải là lỗi Ban
+      if (status === 401) {
+        console.warn("⚠️ Phiên đăng nhập hết hạn (401).");
         authStore.logout();
         window.location.href = "/login";
+        return Promise.reject(error);
       }
     }
+    
     return Promise.reject(error);
   }
 );
