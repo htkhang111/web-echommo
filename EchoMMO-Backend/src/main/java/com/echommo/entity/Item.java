@@ -4,48 +4,63 @@ import com.echommo.enums.Rarity;
 import com.echommo.enums.SlotType;
 import jakarta.persistence.*;
 import lombok.Data;
-import lombok.NoArgsConstructor; // <--- Cần thêm NoArgsConstructor
-import lombok.AllArgsConstructor; // <--- Cần thêm AllArgsConstructor
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
-@Data
-@NoArgsConstructor // Thêm annotation này
-@AllArgsConstructor // Thêm annotation này
 @Table(name = "items")
+@Data
 public class Item {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    // Map tự động với cột 'item_id' trong SQL mới
     private Integer itemId;
 
+    @Column(nullable = false, unique = true)
+    private String code;
+
+    @Column(nullable = false)
     private String name;
-
-    private String type; // MATERIAL, WEAPON, ARMOR, CONSUMABLE
-
-    @Enumerated(EnumType.STRING)
-    private Rarity rarity; // COMMON, RARE, EPIC...
-
-    private Integer tier; // Cấp bậc (1, 2, 3...)
-
-    @Column(name = "image_url")
-    private String imageUrl;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "slot_type")
-    private SlotType slotType; // NONE, WEAPON, HELMET, ARMOR...
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // 👇 [FIX] Thêm giá cơ bản để MarketplaceService không báo lỗi
-    @Column(name = "base_price", columnDefinition = "int default 10")
-    private Integer basePrice = 10;
+    @Column(nullable = false)
+    private String type; // Giữ String để tương thích với DataInitializer cũ
 
-    // Chỉ số cơ bản (nếu là trang bị)
-    private Integer attack;
-    private Integer defense;
-    private Integer hp;
-    private Integer speed;
+    @Enumerated(EnumType.STRING)
+    private SlotType slotType;
 
-    // public Item() {} <--- Có thể xóa constructor thủ công này
+    private Integer tier;
+
+    // [FIX LỖI COMPILER]
+    // Dùng Enum Rarity để khớp với DataInitializer.java (item.setRarity(...))
+    // Map vào cột 'base_rarity' trong Database
+    @Enumerated(EnumType.STRING)
+    @Column(name = "base_rarity")
+    private Rarity rarity;
+
+    @Column(name = "base_price")
+    private BigDecimal basePrice;
+
+    @Column(name = "image_url")
+    private String imageUrl;
+
+    @Column(name = "is_system_item")
+    private Boolean isSystemItem;
+
+    @Column(name = "atk_bonus")
+    private Integer atkBonus;
+
+    @Column(name = "def_bonus")
+    private Integer defBonus;
+
+    @Column(name = "hp_bonus")
+    private Integer hpBonus;
+
+    @Column(name = "speed_bonus")
+    private Integer speedBonus;
+
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private LocalDateTime createdAt;
 }
-

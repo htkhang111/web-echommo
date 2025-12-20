@@ -3,7 +3,7 @@
       <div class="auth-container">
         <div class="auth-header">
           <img :src="appLogo" alt="Logo" class="logo" />
-          <h2>ĐĂNG NHẬP</h2>
+          <h2>Đăng Nhập</h2>
           <p>Mừng đại hiệp quay trở lại</p>
         </div>
 
@@ -20,7 +20,7 @@
 
           <button type="submit" class="btn-submit" :disabled="authStore.isLoading">
             <span v-if="authStore.isLoading"><i class="fas fa-spinner fa-spin"></i> Đang đăng nhập...</span>
-            <span v-else>VÀO GIANG HỒ</span>
+            <span v-else>Vào Giang Hồ</span>
           </button>
         </form>
 

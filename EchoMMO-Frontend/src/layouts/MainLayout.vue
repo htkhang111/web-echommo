@@ -1,4 +1,4 @@
-<template>
+<!-- <template>
   <div class="app-layout wuxia-theme" :style="{ '--sidebar-width': isCollapsed ? '80px' : '260px' }">
     <div class="ink-bg-layer">
       <div class="mountain-bg" :style="{ backgroundImage: `url(${bgImage})` }"></div>
@@ -187,4 +187,195 @@ const handleLogout = () => {
 .custom-scroll::-webkit-scrollbar { width: 4px; }
 .custom-scroll::-webkit-scrollbar-thumb { background: var(--sidebar-border); border-radius: 2px; }
 .custom-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+</style> -->
+<template>
+  <div class="app-layout wuxia-theme" :style="{ '--sidebar-width': isCollapsed ? '80px' : '260px' }">
+    <div class="ink-bg-layer">
+      <div class="mountain-bg" :style="{ backgroundImage: `url(${bgImage})` }"></div>
+      <div class="fog-overlay"></div>
+    </div>
+
+    <div class="sidebar-backdrop mobile-only" v-if="isMobileMenuOpen" @click="toggleMobileMenu"></div>
+
+    <aside class="sidebar" :class="{ 'collapsed': isCollapsed, 'mobile-open': isMobileMenuOpen }">
+      <div class="logo-area">
+        <div class="logo-seal">
+          <img :src="appLogo" alt="Logo" class="seal-image" />
+        </div>
+        <transition name="fade">
+          <div v-if="!isCollapsed" class="logo-text">
+            <span class="brand-text">ECHOMMO</span>
+          </div>
+        </transition>
+        <button class="close-sidebar-btn mobile-only" @click="toggleMobileMenu">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <nav class="nav-links custom-scroll">
+        <router-link to="/" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-dungeon"></i></div>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">SẢNH CHÍNH</span></transition>
+          <div class="active-glow"></div>
+        </router-link>
+
+        <div class="nav-group-label" v-if="!isCollapsed">GIANG HỒ</div>
+        
+        <router-link to="/explore" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-map-marked-alt"></i></div>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">HÀNH TẨU</span></transition>
+          <div class="active-glow"></div>
+        </router-link>
+        
+        <router-link to="/village" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-campground"></i></div>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">DOANH TRẠI</span></transition>
+          <div class="active-glow"></div>
+        </router-link>
+
+        <router-link to="/pvp" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-fist-raised"></i></div>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">LÔI ĐÀI</span></transition>
+          <div class="active-glow"></div>
+        </router-link>
+
+        <div class="nav-group-label" v-if="!isCollapsed">HÀNH TRANG</div>
+        
+        <router-link to="/inventory" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-suitcase"></i></div>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">TÚI ĐỒ</span></transition>
+          <div class="active-glow"></div>
+        </router-link>
+
+        <router-link to="/character" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-user-shield"></i></div>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">TRANG BỊ</span></transition>
+          <div class="active-glow"></div>
+        </router-link>
+
+        <router-link to="/marketplace" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-coins"></i></div>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">THƯƠNG HỘI</span></transition>
+          <div class="active-glow"></div>
+        </router-link>
+
+        <router-link to="/leaderboard" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-crown"></i></div>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">THIÊN THƯ</span></transition>
+          <div class="active-glow"></div>
+        </router-link>
+
+        <template v-if="authStore.user?.role === 'ADMIN'">
+          <div class="nav-group-label admin" v-if="!isCollapsed">TRIỀU ĐÌNH</div>
+          <router-link to="/admin" class="nav-item admin-link" @click="closeMobileMenu">
+            <div class="nav-icon"><i class="fas fa-dragon"></i></div>
+            <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">QUAN PHỦ</span></transition>
+            <div class="active-glow"></div>
+          </router-link>
+        </template>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="control-btn toggle desktop-only" @click="toggleSidebar">
+          <i :class="isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left'"></i>
+        </button>
+        <button class="control-btn logout" @click="handleLogout">
+          <i class="fas fa-power-off"></i>
+          <span v-if="!isCollapsed" class="btn-text">QUY ẨN</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="content-wrapper">
+      <GameHeader @toggle-sidebar="toggleMobileMenu" />
+      
+      <main class="main-view custom-scroll">
+        <div class="page-body">
+          <slot></slot> 
+        </div>
+        
+        <GameFooter />
+      </main>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../stores/authStore";
+import GameHeader from "../components/GameHeader.vue";
+import GameFooter from "../components/GameFooter.vue";
+import { getAppLogo, getAssetUrl } from "@/utils/assetHelper"; 
+
+const authStore = useAuthStore();
+const router = useRouter();
+const isCollapsed = ref(false);
+const isMobileMenuOpen = ref(false); // New State for Mobile
+
+const appLogo = getAppLogo();
+const bgImage = getAssetUrl("b_doanhtrai.png");
+
+const toggleSidebar = () => { isCollapsed.value = !isCollapsed.value; };
+const toggleMobileMenu = () => { isMobileMenuOpen.value = !isMobileMenuOpen.value; };
+const closeMobileMenu = () => { isMobileMenuOpen.value = false; };
+
+const handleLogout = () => {
+  if (confirm("Đại hiệp muốn quy ẩn giang hồ?")) {
+    authStore.logout();
+    router.push({ name: 'Login' });
+  }
+};
+</script>
+
+<style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Serif+TC:wght@500;700;900&family=Orbitron:wght@400;700&display=swap");
+
+.wuxia-theme { 
+  --sidebar-bg: #3e2723; --sidebar-border: #5d4037; --text-main: #fdf5e6; --text-dim: #d7ccc8; 
+  --accent-gold: #fbc02d; --accent-red: #b71c1c; --hover-bg: rgba(255, 255, 255, 0.08); 
+  display: flex; min-height: 100vh; background-color: #000; color: var(--text-main); font-family: "Noto Serif TC", serif; overflow: hidden; 
+}
+
+.ink-bg-layer { position: fixed; inset: 0; z-index: 0; background-color: #0a0706; }
+.mountain-bg { position: absolute; inset: 0; background-size: cover; filter: sepia(30%) grayscale(20%) brightness(0.3); opacity: 0.5; }
+.fog-overlay { position: absolute; inset: 0; background: linear-gradient(to right, rgba(10, 7, 6, 0.95), rgba(10, 7, 6, 0.5)); pointer-events: none; }
+
+/* Sidebar */
+.sidebar { 
+  position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-width); z-index: 1000; 
+  display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), width 0.3s;
+  background: var(--sidebar-bg); border-right: 2px solid var(--sidebar-border); box-shadow: 5px 0 20px rgba(0, 0, 0, 0.6); 
+}
+
+.logo-area { height: 60px; display: flex; align-items: center; padding: 0 15px; border-bottom: 2px solid var(--sidebar-border); gap: 12px; background: rgba(0, 0, 0, 0.2); }
+.seal-image { width: 100%; height: 100%; object-fit: contain; }
+.logo-text { flex: 1; overflow: hidden; white-space: nowrap; }
+.brand-text { font-family: "Cinzel", serif; font-size: 1.5em; font-weight: 800; color: #fff; text-shadow: 0 0 10px rgba(251, 192, 45, 0.4); }
+
+.nav-links { flex: 1; padding: 20px 10px; overflow-y: auto; overflow-x: hidden; }
+.nav-group-label { padding: 15px 15px 5px; font-size: 0.75em; color: #a1887f; font-weight: bold; letter-spacing: 1.5px; font-family: "Cinzel", serif; }
+.nav-item { position: relative; display: flex; align-items: center; gap: 15px; padding: 12px 15px; color: var(--text-dim); text-decoration: none; margin-bottom: 5px; border-radius: 6px; transition: 0.3s; font-weight: 700; }
+.nav-item:hover, .nav-item.router-link-active { background: var(--hover-bg); color: #fff; }
+.nav-item.router-link-active .nav-icon { color: var(--accent-gold); }
+.active-glow { position: absolute; left: 0; top: 15%; bottom: 15%; width: 3px; background: var(--accent-gold); transform: scaleY(0); transition: 0.3s; }
+.nav-item.router-link-active .active-glow { transform: scaleY(1); }
+
+.sidebar-footer { padding: 15px; border-top: 2px solid var(--sidebar-border); display: flex; flex-direction: column; gap: 10px; background: rgba(0, 0, 0, 0.2); }
+.control-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--sidebar-border); color: var(--text-dim); padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; font-family: "Cinzel", serif; }
+
+.content-wrapper { flex: 1; margin-left: var(--sidebar-width); transition: margin-left 0.3s; display: flex; flex-direction: column; position: relative; z-index: 1; height: 100vh; }
+.main-view { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
+.page-body { flex: 1 0 auto; width: 100%; position: relative; }
+
+/* Mobile CSS */
+.close-sidebar-btn { background: transparent; border: none; color: #999; font-size: 1.2rem; cursor: pointer; margin-left: auto; }
+.sidebar-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 999; backdrop-filter: blur(2px); }
+
+@media (max-width: 1024px) {
+  .sidebar { width: 260px; transform: translateX(-100%); }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .content-wrapper { margin-left: 0; }
+  .nav-label { display: inline-block !important; }
+}
 </style>

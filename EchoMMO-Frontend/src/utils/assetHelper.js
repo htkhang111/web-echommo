@@ -1,76 +1,115 @@
 import { reactive } from "vue";
 
-const GITHUB_BASE = "https://htkhang111.github.io/htkhang111.github.io-090930560d7afcdfd861f381f82aed2575cb925f";
+// URL gốc trỏ vào GitHub Pages
+const GITHUB_BASE = "https://htkhang111.github.io";
 
-export const resolveItemImage = (imgCode) => {
-  if (!imgCode) return `${GITHUB_BASE}/resources/material/o_coalOre.png`; // Fallback mặc định
-  if (imgCode.startsWith("http")) return imgCode;
+export const resolveItemImage = (itemCode) => {
+  // 1. Fallback nếu không có code (Mặc định trả về Than)
+  if (!itemCode) return `${GITHUB_BASE}/resources/material/o_coalOre.png`; 
+  
+  // 2. Nếu server trả về link full (http...) thì giữ nguyên
+  if (itemCode.includes("http")) return itemCode;
 
-  let fileName = imgCode.trim();
-  if (!fileName.match(/\.(png|jpg|jpeg|gif|webp)$/i)) fileName += ".png";
-  const lowerName = fileName.toLowerCase();
+  const code = itemCode.trim();
+  const lowerCode = code.toLowerCase();
 
-  // --- UI & SPECIAL ---
-  if (lowerName.includes("logo")) return `${GITHUB_BASE}/logo/Logo.png`;
-  if (lowerName.startsWith("b_")) return `${GITHUB_BASE}/background/${fileName}`;
-  if (lowerName.includes("coin")) {
-      if (lowerName.includes("echo")) return `${GITHUB_BASE}/resources/coin/r_coinEcho.png`;
+  // --- UI & LOGO ---
+  if (lowerCode === "logo") return `${GITHUB_BASE}/logo/Logo.png`;
+  
+  // --- COIN (Tiền tệ) ---
+  if (lowerCode.includes("coin")) {
+      if (lowerCode.includes("echo")) return `${GITHUB_BASE}/resources/coin/r_coinEcho.png`;
       return `${GITHUB_BASE}/resources/coin/r_coin.png`;
   }
 
-  // --- RESOURCES ---
-  if (lowerName === "w_wood.png") return `${GITHUB_BASE}/resources/material/w_wood.png`;
-  if (lowerName === "w_woodred.png") return `${GITHUB_BASE}/resources/material/w_woodRed.png`;
-  if (lowerName === "w_woodwhite.png") return `${GITHUB_BASE}/resources/material/w_woodWhite.png`;
-  if (lowerName === "w_woodblack.png") return `${GITHUB_BASE}/resources/material/w_woodBlack.png`;
+  // --- EQUIPMENT (Trang bị) ---
+  // Kiểm tra tiền tố để trỏ vào đúng thư mục con
+  if (lowerCode.startsWith("s_")) return `${GITHUB_BASE}/resources/equipment/sword/${code}.png`;
+  if (lowerCode.startsWith("a_")) return `${GITHUB_BASE}/resources/equipment/armor/${code}.png`;
+  if (lowerCode.startsWith("h_")) return `${GITHUB_BASE}/resources/equipment/helmet/${code}.png`;
+  
+  // Riêng giày (Boots) bắt đầu bằng b_ nên cần check kỹ để không nhầm với Background
+  if (lowerCode.startsWith("b_") && lowerCode.includes("boot")) {
+      return `${GITHUB_BASE}/resources/equipment/boots/${code}.png`;
+  }
+  
+  if (lowerCode.startsWith("ri_")) return `${GITHUB_BASE}/resources/equipment/ring/${code}.png`;
+  if (lowerCode.startsWith("n_")) return `${GITHUB_BASE}/resources/equipment/necklace/${code}.png`;
 
-  if (lowerName === "o_coalore.png") return `${GITHUB_BASE}/resources/material/o_coalOre.png`;
-  if (lowerName === "o_copperore.png") return `${GITHUB_BASE}/resources/material/o_copperOre.png`;
-  if (lowerName === "o_ironore.png") return `${GITHUB_BASE}/resources/material/o_ironOre.png`;
-  if (lowerName === "o_platinumore.png") return `${GITHUB_BASE}/resources/material/o_platinumOre.png`;
-  if (lowerName === "o_strangeore.png") return `${GITHUB_BASE}/resources/material/o_strangeOre.png`;
-  if (lowerName === "o_goldore.png") return `${GITHUB_BASE}/resources/material/o_goldOre.png`;
+  // --- BACKGROUND (Ảnh nền) ---
+  // Nếu bắt đầu bằng b_ mà KHÔNG PHẢI giày -> Là Background
+  if (lowerCode.startsWith("b_")) {
+      // Fix cứng extension cho background vì trên git có thể là jpg hoặc png
+      if (lowerCode.includes("doanhtrai")) return `${GITHUB_BASE}/background/${code}.png`;
+      return `${GITHUB_BASE}/background/${code}.jpg`;
+  }
 
-  if (lowerName === "f_fish.png" || lowerName === "r_fish.png") return `${GITHUB_BASE}/resources/material/r_fish.png`;
-  if (lowerName === "f_fishshark.png" || lowerName === "r_fishshark.png") return `${GITHUB_BASE}/resources/material/r_fishShark.png`;
-  if (lowerName === "f_fishmegalodon.png") return `${GITHUB_BASE}/resources/material/f_fishMegalodon.png`;
-  if (lowerName === "r_potion.png") return `${GITHUB_BASE}/resources/material/r_potion.png`;
+  // --- RESOURCES / MATERIALS (Mặc định) ---
+  // Các code như: w_wood, o_ironOre, f_fish, r_potion... nằm thẳng trong folder material
+  // (Lưu ý: r_potion.png cũng nằm trong resources hoặc resources/material tùy cách bro up, 
+  // code dưới đây ưu tiên tìm trong material)
+  
+  // Xử lý riêng potion nếu nó nằm ngoài (tùy cấu trúc git của bro, nhưng safe nhất là cứ trỏ vào material nếu bro đã quy hoạch)
+  if (lowerCode === "r_potion") return `${GITHUB_BASE}/resources/r_potion.png`;
 
-  // --- EQUIPMENT ---
-  if (lowerName.startsWith("s_")) return `${GITHUB_BASE}/resources/equipment/sword/${fileName}`;
-  if (lowerName.startsWith("a_")) return `${GITHUB_BASE}/resources/equipment/armor/${fileName}`;
-  if (lowerName.startsWith("h_")) return `${GITHUB_BASE}/resources/equipment/helmet/${fileName}`;
-  if (lowerName.startsWith("b_")) return `${GITHUB_BASE}/resources/equipment/boots/${fileName}`;
-  if (lowerName.startsWith("ri_")) return `${GITHUB_BASE}/resources/equipment/ring/${fileName}`;
-  if (lowerName.startsWith("n_")) return `${GITHUB_BASE}/resources/equipment/necklace/${fileName}`;
-
-  return `${GITHUB_BASE}/resources/material/${fileName}`;
+  return `${GITHUB_BASE}/resources/material/${code}.png`;
 };
 
+// --- EXPORTS CẦN THIẾT CHO VUE COMPONENT ---
 export const getAppLogo = () => `${GITHUB_BASE}/logo/Logo.png`;
 export const getAssetUrl = resolveItemImage;
+export const getItemImage = resolveItemImage;
+export const getResourceImage = resolveItemImage; // Giữ alias này để code cũ không bị lỗi
 
+// --- CHARACTER & ENEMY HELPERS ---
 const getCharImg = (name) => `${GITHUB_BASE}/character/${name}`;
 const getEnemyImg = (name) => `${GITHUB_BASE}/enemy/${name}`;
 
 export const CHARACTER_SKINS = reactive({
-  skin_yasou: { id: "skin_yasou", name: "Yasuo", sprites: { idle: getCharImg("idle_yasou.png"), run: getCharImg("run_yasou.png"), attack: getCharImg("atk_yasou.png") } },
-  skin_demon: { id: "skin_demon", name: "Huyết Quỷ", sprites: { idle: getCharImg("idle_demon1.png"), run: getCharImg("run_demon1.png"), attack: getCharImg("atk_demon1.png") } },
-  skin_langkhach: { id: "skin_langkhach", name: "Lãng Khách", sprites: { idle: getCharImg("idle_langkhach1.png"), run: getCharImg("run_langkhach1.png"), attack: getCharImg("atk_langkhach1.png") } },
+  skin_yasou: { 
+    id: "skin_yasou", 
+    name: "Yasuo", 
+    sprites: { 
+      idle: getCharImg("idle_yasou.png"), 
+      run: getCharImg("run_yasou.png"), 
+      attack: getCharImg("atk_yasou.png") 
+    } 
+  },
+  skin_demon: { 
+    id: "skin_demon", 
+    name: "Huyết Quỷ", 
+    sprites: { 
+      idle: getCharImg("idle_demon1.png"), 
+      run: getCharImg("run_demon1.png"), 
+      attack: getCharImg("atk_demon1.png") 
+    } 
+  },
+  skin_langkhach: { 
+    id: "skin_langkhach", 
+    name: "Lãng Khách", 
+    sprites: { 
+      idle: getCharImg("idle_langkhach1.png"), 
+      run: getCharImg("run_langkhach1.png"), 
+      attack: getCharImg("atk_langkhach1.png") 
+    } 
+  },
 });
 
 export const getCurrentSkin = (avatarUrl) => CHARACTER_SKINS[avatarUrl] || CHARACTER_SKINS["skin_yasou"];
 
 export const getEnemyImage = (name, state = "idle") => {
   if (!name) return getEnemyImg("idle_goblin.png");
-  const normalizedName = name.toLowerCase().replace(/\s+/g, '');
-  const prefix = state === 'attack' ? 'atk_' : 'idle_';
-  let fileName = "goblin"; 
   
+  // Chuẩn hóa tên enemy (xóa dấu, lowercase) để map file
+  const normalizedName = name.toLowerCase(); 
+  const prefix = state === 'attack' ? 'atk_' : 'idle_';
+  
+  let fileName = "goblin"; 
   if (normalizedName.includes("xuong") || normalizedName.includes("skeleton")) fileName = "skeleton";
   else if (normalizedName.includes("nam") || normalizedName.includes("mushroom")) fileName = "mushroom";
+  else if (normalizedName.includes("ac quy") || normalizedName.includes("demon")) fileName = "demon1";
+  else if (normalizedName.includes("lang khach") || normalizedName.includes("langkhach")) fileName = "langkhach1";
+  else if (normalizedName.includes("kiem si") || normalizedName.includes("yasou")) fileName = "yasou";
   
   return getEnemyImg(`${prefix}${fileName}.png`);
 };
-
-export const getItemImage = resolveItemImage;

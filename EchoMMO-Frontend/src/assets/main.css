@@ -1,4 +1,4 @@
-/* --- IMPORTS --- */
+/* --- IMPORTS ---
 @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap");
 
 /* --- KHAI BÁO FONT (Bước 3) --- */
@@ -411,4 +411,4 @@ button {
   color: var(--neon-s) !important;
   text-shadow: 0 0 15px var(--neon-s);
   font-weight: 800;
-}
+} 
