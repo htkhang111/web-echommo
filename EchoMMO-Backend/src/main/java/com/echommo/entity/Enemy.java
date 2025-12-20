@@ -13,7 +13,6 @@ public class Enemy {
 
     private String name;
 
-    // [FIX] Thêm trường Level vào đây để Repository không bị lỗi
     @Column(columnDefinition = "int default 1")
     private Integer level = 1;
 
@@ -34,4 +33,13 @@ public class Enemy {
     private String imageUrl;
 
     public Enemy() {}
+
+    // [FIX] Thêm getter thủ công cho chắc chắn
+    public Integer getEnemyId() {
+        return enemyId;
+    }
+
+    public void setEnemyId(Integer enemyId) {
+        this.enemyId = enemyId;
+    }
 }

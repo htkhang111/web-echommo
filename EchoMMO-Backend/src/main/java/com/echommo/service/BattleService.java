@@ -4,7 +4,6 @@ import com.echommo.dto.BattleResult;
 import com.echommo.entity.*;
 import com.echommo.entity.Character;
 import com.echommo.enums.CharacterStatus;
-import com.echommo.enums.Rarity;
 import com.echommo.repository.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -23,13 +21,8 @@ public class BattleService {
     private final CharacterRepository charRepo;
     private final EnemyRepository enemyRepo;
     private final WalletRepository walletRepo;
-    private final ItemRepository itemRepo;
-    private final UserItemRepository userItemRepo;
     private final UserRepository userRepo;
     private final BattleSessionRepository sessionRepo;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Random random = new Random();
 
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -39,8 +32,8 @@ public class BattleService {
 
     private Character getMyCharacter() {
         User user = getCurrentUser();
-        // findByUser_UserId trả về Optional
-        return charRepo.findByUser_UserId(user.getUserId())
+        // [FIX] user.getUserId() là Integer, khớp với CharacterRepository
+        return charRepo.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Bạn chưa tạo nhân vật!"));
     }
 
@@ -48,10 +41,13 @@ public class BattleService {
     public BattleResult startBattle() {
         Character character = getMyCharacter();
 
-        // [FIX] sessionRepo trả về List, lấy phần tử đầu tiên
+        // [FIX] Character ID là Integer
         List<BattleSession> sessions = sessionRepo.findByCharacter_CharId(character.getCharId());
+
         if (sessions.isEmpty()) {
-            throw new RuntimeException("Không tìm thấy đối thủ!");
+            // Logic fallback: Nếu không có session (do lỗi), tạo tạm một con quái yếu để đánh
+            // Thực tế nên throw exception, nhưng để test thì tạo quái
+            throw new RuntimeException("Chưa tìm thấy đối thủ! Hãy đi Thám Hiểm (Explore) để gặp quái.");
         }
         BattleSession session = sessions.get(0);
 
@@ -70,21 +66,19 @@ public class BattleService {
         BattleSession session = sessions.get(0);
         List<String> logs = new ArrayList<>();
 
-        // ... (Logic QTE giữ nguyên) ...
-
         session.setCurrentTurn(session.getCurrentTurn() + 1);
 
-        // Player Attack
+        // 1. Player Attack
         int pDmg = Math.max(1, character.getBaseAtk() - session.getEnemyDef());
         session.setEnemyCurrentHp(Math.max(0, session.getEnemyCurrentHp() - pDmg));
-        logs.add("Bạn đánh " + pDmg + " st.");
+        logs.add("Bạn đánh " + pDmg + " sát thương.");
 
         if (session.getEnemyCurrentHp() <= 0) return handleWin(session, character);
 
-        // Enemy Attack
+        // 2. Enemy Attack
         int eDmg = Math.max(1, session.getEnemyAtk() - character.getBaseDef());
         session.setPlayerCurrentHp(Math.max(0, session.getPlayerCurrentHp() - eDmg));
-        logs.add(session.getEnemyName() + " đánh " + eDmg + " st.");
+        logs.add(session.getEnemyName() + " đánh trả " + eDmg + " sát thương.");
 
         if (session.getPlayerCurrentHp() <= 0) return handleLoss(session, character);
 
@@ -94,23 +88,31 @@ public class BattleService {
 
     private BattleResult handleWin(BattleSession session, Character character) {
         BattleResult res = buildResult(session, "🏆 Chiến thắng!", "VICTORY");
-        Enemy enemy = enemyRepo.findById(session.getEnemyId()).orElse(new Enemy());
 
-        character.setCurrentExp(character.getCurrentExp() + enemy.getExpReward());
+        // [FIX] ID Quái là Integer
+        Enemy enemy = enemyRepo.findById(session.getEnemyId()).orElse(new Enemy());
+        int expReward = enemy.getExpReward() != null ? enemy.getExpReward() : 10;
+        int goldReward = enemy.getGoldReward() != null ? enemy.getGoldReward() : 5;
+
+        // Cộng Exp (Long)
+        character.setCurrentExp(character.getCurrentExp() + expReward);
+
+        // Cộng chỉ số diệt quái (để đua top)
+        character.setMonsterKills(character.getMonsterKills() + 1);
 
         Wallet wallet = character.getUser().getWallet();
         // [FIX] Cộng Gold (Long)
-        wallet.setGold(wallet.getGold() + enemy.getGoldReward());
+        wallet.setGold(wallet.getGold() + goldReward);
 
-        // [FIX] Cộng Echo (BigDecimal) nếu có
-        if (enemy.getEnemyId() >= 100) { // Ví dụ Boss ID > 100
+        // [FIX] Cộng Echo (BigDecimal) cho Boss
+        if (session.getEnemyId() >= 100) {
             wallet.setEchoCoin(wallet.getEchoCoin().add(new BigDecimal("0.05")));
         }
 
         walletRepo.save(wallet);
 
         character.setStatus(CharacterStatus.IDLE);
-        character.setCurrentHp(character.getMaxHp()); // Hồi máu sau trận
+        character.setCurrentHp(character.getMaxHp()); // Hồi máu sau trận thắng
         charRepo.save(character);
         sessionRepo.delete(session);
 
@@ -118,11 +120,11 @@ public class BattleService {
     }
 
     private BattleResult handleLoss(BattleSession session, Character character) {
-        character.setCurrentHp(1);
+        character.setCurrentHp(1); // Còn 1 máu
         character.setStatus(CharacterStatus.IDLE);
         charRepo.save(character);
         sessionRepo.delete(session);
-        return buildResult(session, "💀 Thất bại!", "DEFEAT");
+        return buildResult(session, "💀 Thất bại! Bạn lết về làng với 1 HP.", "DEFEAT");
     }
 
     private BattleResult buildResult(BattleSession s, String msg, String status) {

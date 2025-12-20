@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "market_listings")
-@Data
+@Data // [QUAN TRỌNG] Tự sinh getter/setter (setStatus, setPrice...)
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,11 +21,8 @@ public class MarketListing {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer listingId;
 
-    // --- NGƯỜI BÁN (FIX LỖI 500 TẠI ĐÂY) ---
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "seller_id", nullable = false)
-    // LuNu chú ý: Tôi đã thêm "listings", "marketListings", "inventory", "userItems" vào dòng dưới
-    // Để khi lấy tên người bán, nó KHÔNG lôi theo cả kho đồ của họ nữa.
     @JsonIgnoreProperties({
             "password", "passwordHash", "wallet", "roles",
             "hibernateLazyInitializer", "handler",
@@ -33,32 +30,39 @@ public class MarketListing {
     })
     private User seller;
 
-    // --- VẬT PHẨM (UserItem) ---
     @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_item_id")
-    // Giữ nguyên cái này vì bạn đã làm đúng
     @JsonIgnoreProperties({"character", "user", "hibernateLazyInitializer", "handler"})
     private UserItem userItem;
 
-    // --- ITEM GỐC ---
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "item_id", nullable = false)
     private Item item;
 
     private Integer quantity;
+
+    // [FIX] Dùng BigDecimal để tránh lỗi incompatible types
     private BigDecimal price;
+
+    // [FIX] Dùng String cho status (ACTIVE, SOLD, CANCELLED)
     private String status;
+
+    // [FIX] Thêm trường này để phân loại tiền tệ (GOLD/ECHO)
+    @Builder.Default
+    @Column(name = "currency_type")
+    private String currencyType = "GOLD";
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    // Trường ảo để tránh lỗi code cũ nếu lỡ gọi
+    @Transient
+    private Integer enhanceLevel;
 
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = LocalDateTime.now();
         if (status == null) status = "ACTIVE";
-    }
-
-    // Hàm dummy để tránh lỗi code cũ nếu có gọi
-    public void setEnhanceLevel(int i) {
+        if (currencyType == null) currencyType = "GOLD";
     }
 }

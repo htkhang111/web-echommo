@@ -23,37 +23,46 @@ public class SpaService {
     public SpaStatusResponse useSpa(User user, String packageType) {
         Character character = characterRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Character not found"));
+
         Wallet wallet = walletRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
-        SpaPackage pack = SpaPackage.valueOf(packageType.toUpperCase());
+        SpaPackage pack;
+        try {
+            pack = SpaPackage.valueOf(packageType.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Gói Spa không hợp lệ: " + packageType);
+        }
+
+        BigDecimal cost = pack.getCost();
 
         if (pack == SpaPackage.VIP) {
-            // [FIX] Xử lý BigDecimal
-            BigDecimal cost = BigDecimal.valueOf(pack.getPrice());
+            // Gói VIP trừ Echo Coin (BigDecimal)
             if (wallet.getEchoCoin().compareTo(cost) < 0) {
-                throw new RuntimeException("Không đủ Echo Coin!");
+                throw new RuntimeException("Không đủ Echo Coin! Cần: " + cost);
             }
             wallet.setEchoCoin(wallet.getEchoCoin().subtract(cost));
         } else {
-            // [FIX] Xử lý Long
-            Long cost = (long) pack.getPrice();
-            if (wallet.getGold() < cost) {
-                throw new RuntimeException("Không đủ Vàng!");
+            // Gói thường trừ Vàng (Long)
+            // [FIX] cost là BigDecimal, wallet.gold là Long -> Cần chuyển đổi
+            long goldCost = cost.longValue();
+            if (wallet.getGold() < goldCost) {
+                throw new RuntimeException("Không đủ Vàng! Cần: " + goldCost);
             }
-            wallet.setGold(wallet.getGold() - cost);
+            wallet.setGold(wallet.getGold() - goldCost);
         }
 
+        // Hồi phục
         character.setCurrentHp(character.getMaxHp());
         character.setCurrentEnergy(character.getMaxEnergy());
         characterRepository.save(character);
         walletRepository.save(wallet);
 
         return new SpaStatusResponse(
-                "Hồi phục thành công!",
+                "Hồi phục thành công (" + pack.getName() + ")!",
                 character.getCurrentHp(),
                 character.getCurrentEnergy(),
-                wallet.getGold(),
+                new BigDecimal(wallet.getGold()), // Convert Long -> BigDecimal cho DTO
                 wallet.getEchoCoin()
         );
     }

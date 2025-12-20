@@ -11,25 +11,22 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 public class ExplorationResponse {
-    // === CÁC TRƯỜNG CŨ (BẮT BUỘC GIỮ) ===
+    // --- LEGACY ---
     private String message;
     private String type;
-    private BigDecimal goldGained; // FE cũ vẫn đọc được BigDecimal như số
-
+    private BigDecimal goldGained; // Changed type, logic compatible
     private Long currentExp;
     private Integer currentLv;
     private Integer currentEnergy;
     private Integer maxEnergy;
     private Integer newLevel;
-
     private String rewardName;
     private Integer rewardAmount;
     private Integer rewardItemId;
-
     private String itemReceived;
     private int quantity;
 
-    // === CÁC TRƯỜNG MỚI ===
+    // --- NEW ---
     private String log;
     private String rewardType;
     private String rewardValue;

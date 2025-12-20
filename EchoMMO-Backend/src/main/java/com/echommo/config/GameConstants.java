@@ -5,27 +5,26 @@ import java.util.Map;
 import static java.util.Map.entry;
 
 public class GameConstants {
-
-    // --- 1. GENERAL CONFIG ---
+    // --- GENERAL ---
     public static final int MAX_LEVEL = 70;
     public static final int STAT_POINTS_PER_LEVEL = 5;
     public static final double CONVERSION_RATE = 10.0;
 
-    // --- 2. MATERIAL IDS ---
+    // --- IDS ---
     public static final int MAT_WOOD_OAK = 1;
     public static final int MAT_WOOD_DRIED = 2;
     public static final int MAT_WOOD_COLD = 3;
     public static final int MAT_WOOD_BLACK = 4;
-    public static final int MAT_WOOD_STRANGE = MAT_WOOD_BLACK; // Alias
+    public static final int MAT_WOOD_STRANGE = MAT_WOOD_BLACK; // Alias code cũ
 
     public static final int MAT_COAL = 5;
-    public static final int MAT_STONE = MAT_COAL; // Alias: Stone giờ là Coal
+    public static final int MAT_STONE = MAT_COAL; // Alias code cũ (Đá -> Than)
 
     public static final int MAT_ORE_COPPER = 6;
     public static final int MAT_ORE_IRON = 7;
     public static final int MAT_ORE_PLATINUM = 8;
     public static final int MAT_ORE_STRANGE = 12;
-    public static final int MAT_UNKNOWN = MAT_ORE_STRANGE; // Alias
+    public static final int MAT_UNKNOWN = MAT_ORE_STRANGE; // Alias code cũ
 
     public static final int MAT_ORE_GOLD = 14;
 
@@ -35,18 +34,18 @@ public class GameConstants {
 
     public static final int MAT_ECHO_COIN = 11;
 
-    // --- 3. MAP CONFIG ---
+    // --- MAPS ---
     public static final int MAP_FOREST = 1;
     public static final int MAP_DESERT = 4;
     public static final int MAP_FINAL = 5;
 
-    // --- 4. GAME LOGIC ---
+    // --- NEW LOGIC ---
     public static final double ECHO_DROP_CHANCE = 0.05;
     public static final BigDecimal ECHO_MIN = new BigDecimal("0.001");
     public static final BigDecimal ECHO_MAX = new BigDecimal("0.500");
     public static final int GOLD_ORE_BASE = 50;
 
-    // --- 5. STATS ---
+    // --- STATS ---
     public static final Map<String, Integer> STAT_CAPS = Map.of(
             "ACCURACY", 800, "EVASION", 750, "CRIT_RATE", 850, "CRIT_DMG", 3000
     );

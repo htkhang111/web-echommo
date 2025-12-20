@@ -14,10 +14,10 @@ import java.util.Optional;
 public interface WalletRepository extends JpaRepository<Wallet, Long> {
     Optional<Wallet> findByUser(User user);
 
-    // [FIX] Method cho EquipmentService
-    Optional<Wallet> findByUser_UserId(Long userId);
+    // [FIX] User ID là Integer
+    Optional<Wallet> findByUser_UserId(Integer userId);
 
-    // [FIX] Method cho LeaderboardService
+    // BXH Tài phú
     @Query("SELECT w FROM Wallet w ORDER BY w.gold DESC")
     List<Wallet> findTopWealth(Pageable pageable);
 }

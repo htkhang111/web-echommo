@@ -1,11 +1,12 @@
 package com.echommo.security;
 
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+
 import java.security.Key;
 import java.util.Date;
 
@@ -14,39 +15,43 @@ public class JwtUtils {
     @Value("${app.jwtSecret}")
     private String jwtSecret;
 
-    @Value("${app.jwtExpirationInMs}")
+    @Value("${app.jwtExpirationMs}")
     private int jwtExpirationMs;
 
-    // Lấy Key mã hóa
-    private Key getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
-        return Keys.hmacShaKeyFor(keyBytes); // Dùng thuật toán HMAC-SHA
+    public String generateJwtToken(Authentication authentication) {
+        UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
+        return generateTokenFromUsername(userPrincipal.getUsername());
     }
 
-    // Tạo Token từ thông tin User
-    public String generateToken(UserDetails userDetails) {
+    public String generateTokenFromUsername(String username) {
         return Jwts.builder()
-                .setSubject(userDetails.getUsername())
+                .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date((new Date()).getTime() + jwtExpirationMs))
-                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .signWith(key(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    // Lấy Username từ Token
+    // Legacy method name support if needed
+    public String generateToken(UserDetails userDetails) {
+        return generateTokenFromUsername(userDetails.getUsername());
+    }
+
+    private Key key() {
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
+    }
+
     public String getUserNameFromJwtToken(String token) {
-        return Jwts.parserBuilder().setSigningKey(getSignInKey()).build()
+        return Jwts.parserBuilder().setSigningKey(key()).build()
                 .parseClaimsJws(token).getBody().getSubject();
     }
 
-    // Kiểm tra Token có hợp lệ không
     public boolean validateJwtToken(String authToken) {
         try {
-            Jwts.parserBuilder().setSigningKey(getSignInKey()).build().parseClaimsJws(authToken);
+            Jwts.parserBuilder().setSigningKey(key()).build().parseClaimsJws(authToken);
             return true;
         } catch (Exception e) {
-            System.out.println("Invalid JWT: " + e.getMessage());
+            return false;
         }
-        return false;
     }
 }

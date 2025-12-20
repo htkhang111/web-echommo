@@ -34,4 +34,24 @@ public class DailyQuest {
 
     @Column(name = "created_date")
     private LocalDate createdDate = LocalDate.now();
+
+    // --- [FIX] CÁC HÀM HELPER "MA" ĐÃ ĐƯỢC HỒI SINH ---
+    public boolean isCompleted() {
+        return this.progress >= this.target;
+    }
+
+    public void setCompleted(boolean completed) {
+        if (completed) {
+            this.progress = this.target;
+        }
+    }
+
+    public String getRewardType() {
+        // Mặc định quest thường thưởng Vàng
+        return "GOLD";
+    }
+
+    public Integer getRewardAmount() {
+        return this.rewardGold != null ? this.rewardGold : 0;
+    }
 }

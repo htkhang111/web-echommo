@@ -21,35 +21,35 @@ public class LeaderboardService {
     @Autowired
     private WalletRepository walletRepository;
 
-    // --- 1. LOGIC BXH LEVEL ---
+    // --- 1. BXH LEVEL ---
     public List<LeaderboardEntry> getLevelLeaderboard() {
+        // [FIX] Đã có hàm findTopLevels trong Repository
         List<Character> topChars = characterRepository.findTopLevels(PageRequest.of(0, 10));
         return mapCharacterToDto(topChars, "LEVEL");
     }
 
-    // --- 2. LOGIC BXH DIỆT QUÁI ---
+    // --- 2. BXH DIỆT QUÁI ---
     public List<LeaderboardEntry> getMonsterKillLeaderboard() {
+        // [FIX] Đã có hàm findTopMonsterKills trong Repository
         List<Character> topChars = characterRepository.findTopMonsterKills(PageRequest.of(0, 10));
         return mapCharacterToDto(topChars, "MONSTER");
     }
 
-    // --- 3. LOGIC BXH TÀI PHÚ ---
+    // --- 3. BXH TÀI PHÚ ---
     public List<LeaderboardEntry> getWealthLeaderboard() {
+        // [FIX] Đã có hàm findTopWealth trong Repository
         List<Wallet> topWallets = walletRepository.findTopWealth(PageRequest.of(0, 10));
 
         List<LeaderboardEntry> result = new ArrayList<>();
         for (int i = 0; i < topWallets.size(); i++) {
             Wallet w = topWallets.get(i);
+            if (w.getUser() == null) continue; // Skip nếu ví mồ côi
 
-            // Lấy thông tin từ User
             String username = w.getUser().getUsername();
             String avatar = w.getUser().getAvatarUrl();
 
-            // [FIX QUAN TRỌNG]
-            // 1. Dùng .getGold() thay vì .getBalance()
-            // 2. Chuyển BigDecimal sang longValue() để format số nguyên cho đẹp (bỏ .00)
-            String displayValue = String.format("%,d Vàng", w.getGold().longValue());
-
+            // [FIX] Wallet.gold là Long, không cần chuyển đổi phức tạp
+            String displayValue = String.format("%,d Vàng", w.getGold());
             String rank = String.valueOf(i + 1);
 
             result.add(new LeaderboardEntry(username, displayValue, rank, avatar));
@@ -62,6 +62,8 @@ public class LeaderboardService {
         List<LeaderboardEntry> result = new ArrayList<>();
         for (int i = 0; i < chars.size(); i++) {
             Character c = chars.get(i);
+            if (c.getUser() == null) continue;
+
             String username = c.getUser().getUsername();
             String avatar = c.getUser().getAvatarUrl();
 
@@ -71,6 +73,7 @@ public class LeaderboardService {
             if ("LEVEL".equals(type)) {
                 displayValue = "Lv " + c.getLevel();
             } else if ("MONSTER".equals(type)) {
+                // [FIX] Getter chuẩn monsterKills
                 displayValue = String.format("%,d Trảm", c.getMonsterKills());
             }
             result.add(new LeaderboardEntry(username, displayValue, rank, avatar));

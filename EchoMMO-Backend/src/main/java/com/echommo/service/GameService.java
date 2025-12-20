@@ -6,7 +6,6 @@ import com.echommo.entity.UserItem;
 import com.echommo.entity.Character;
 import com.echommo.enums.Rarity;
 import com.echommo.repository.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,26 +28,24 @@ public class GameService {
     @Autowired private CharacterRepository charRepo;
     @Autowired private UserItemRepository userItemRepo;
     @Autowired private ItemRepository itemRepo;
-    @Autowired private CharacterService characterService; // Đã có hàm createDefaultCharacter
+    @Autowired private CharacterService characterService; // Đã fix hàm này trả về Character
 
     private final Random random = new Random();
 
     // --- HELPER METHODS ---
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        if (username == null || username.equals("anonymousUser")) {
-            throw new RuntimeException("Lỗi xác thực: Người dùng chưa đăng nhập.");
-        }
         return userRepo.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Lỗi CSDL: Không tìm thấy người dùng [" + username + "]"));
+                .orElseThrow(() -> new RuntimeException("Lỗi xác thực: Người dùng chưa đăng nhập."));
     }
 
     private Character getCharacter(Integer userId) {
+        // [FIX] Dùng findByUser_UserId (Integer)
         return charRepo.findByUser_UserId(userId)
                 .orElseGet(() -> {
                     User user = userRepo.findById(userId)
                             .orElseThrow(() -> new EntityNotFoundException("User not found"));
-                    // Gọi hàm vừa thêm vào CharacterService
+                    // Tạo nhân vật mặc định nếu chưa có
                     return characterService.createDefaultCharacter(user);
                 });
     }
@@ -68,8 +65,10 @@ public class GameService {
         List<String> logs = new ArrayList<>();
 
         int expGain = 15;
+        // [FIX] Dùng setter/getter chuẩn
         character.setCurrentExp(character.getCurrentExp() + expGain);
 
+        // Check lên cấp
         if (character.getCurrentExp() >= character.getLevel() * 100L) {
             character.setCurrentExp(0L);
             character.setLevel(character.getLevel() + 1);
@@ -79,12 +78,14 @@ public class GameService {
         }
         logs.add("Bạn đi thám hiểm... (+ " + expGain + " EXP)");
 
+        // 70% cơ hội nhặt đồ
         if (random.nextInt(100) < 70) {
             List<String> possibleDrops = getMapResources(character.getLevel());
             String dropName = possibleDrops.get(random.nextInt(possibleDrops.size()));
             Item matItem = itemRepo.findByName(dropName).orElse(null);
 
             if (matItem != null) {
+                // [FIX] Dùng findByCharacter_CharIdAndItem_ItemId
                 UserItem ui = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), matItem.getItemId())
                         .orElse(null);
 
@@ -118,6 +119,7 @@ public class GameService {
 
     public List<UserItem> getInventory(Integer userId) {
         Character character = getCharacter(userId);
+        // [FIX] Dùng charId
         return userItemRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(character.getCharId());
     }
 }

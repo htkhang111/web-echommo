@@ -1,76 +1,73 @@
 package com.echommo.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
-import java.time.LocalDateTime;
+import lombok.NoArgsConstructor;
+import java.util.ArrayList; // Fix lỗi List
+import java.util.List;
 
-@Data
 @Entity
+@Data
+@NoArgsConstructor
 @Table(name = "battle_sessions")
 public class BattleSession {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "char_id", unique = true, nullable = false)
-    @JsonIgnore
+    @OneToOne
+    @JoinColumn(name = "char_id")
     private Character character;
 
+    // --- Thông tin Quái (Snapshot) ---
+    // Lưu lại chỉ số quái lúc bắt đầu trận, tránh việc Admin sửa quái giữa chừng làm lỗi trận đấu
+    @Column(name = "enemy_id")
     private Integer enemyId;
+
+    @Column(name = "enemy_name")
     private String enemyName;
+
+    @Column(name = "enemy_max_hp")
     private Integer enemyMaxHp;
+
+    @Column(name = "enemy_current_hp")
     private Integer enemyCurrentHp;
+
+    @Column(name = "enemy_atk")
     private Integer enemyAtk;
+
+    @Column(name = "enemy_def")
     private Integer enemyDef;
+
+    @Column(name = "enemy_speed")
     private Integer enemySpeed;
 
-    private Integer playerCurrentHp;
+    // --- Thông tin Người chơi (Snapshot) ---
+    @Column(name = "player_max_hp")
     private Integer playerMaxHp;
+
+    @Column(name = "player_current_hp")
+    private Integer playerCurrentHp;
+
+    @Column(name = "player_current_energy")
     private Integer playerCurrentEnergy;
 
+    // --- Trạng thái trận đấu ---
+    @Column(name = "current_turn")
     private Integer currentTurn = 0;
 
-    private boolean isQteActive = false;
-    private LocalDateTime qteExpiryTime;
-
-    private LocalDateTime lastActionTime = LocalDateTime.now();
-    private Integer spamCount = 0;
-
     @Column(columnDefinition = "TEXT")
-    private String log;
+    private String log; // Lưu log trận đấu dạng JSON hoặc String dài
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt = LocalDateTime.now();
-
-    // Getter/Setter thủ công để tránh lỗi Lombok
-    public Character getCharacter() { return character; }
-    public void setCharacter(Character character) { this.character = character; }
-    public Integer getEnemyId() { return enemyId; }
-    public void setEnemyId(Integer enemyId) { this.enemyId = enemyId; }
-    public String getEnemyName() { return enemyName; }
-    public void setEnemyName(String enemyName) { this.enemyName = enemyName; }
-    public Integer getEnemyMaxHp() { return enemyMaxHp; }
-    public void setEnemyMaxHp(Integer enemyMaxHp) { this.enemyMaxHp = enemyMaxHp; }
-    public Integer getEnemyCurrentHp() { return enemyCurrentHp; }
-    public void setEnemyCurrentHp(Integer enemyCurrentHp) { this.enemyCurrentHp = enemyCurrentHp; }
-    public Integer getEnemyAtk() { return enemyAtk; }
-    public void setEnemyAtk(Integer enemyAtk) { this.enemyAtk = enemyAtk; }
-    public Integer getEnemyDef() { return enemyDef; }
-    public void setEnemyDef(Integer enemyDef) { this.enemyDef = enemyDef; }
-    public Integer getEnemySpeed() { return enemySpeed; }
-    public void setEnemySpeed(Integer enemySpeed) { this.enemySpeed = enemySpeed; }
-    public Integer getPlayerCurrentHp() { return playerCurrentHp; }
-    public void setPlayerCurrentHp(Integer playerCurrentHp) { this.playerCurrentHp = playerCurrentHp; }
-    public Integer getPlayerMaxHp() { return playerMaxHp; }
-    public void setPlayerMaxHp(Integer playerMaxHp) { this.playerMaxHp = playerMaxHp; }
-    public Integer getPlayerCurrentEnergy() { return playerCurrentEnergy; }
-    public void setPlayerCurrentEnergy(Integer playerCurrentEnergy) { this.playerCurrentEnergy = playerCurrentEnergy; }
-    public Integer getCurrentTurn() { return currentTurn; }
-    public void setCurrentTurn(Integer currentTurn) { this.currentTurn = currentTurn; }
-    public boolean isQteActive() { return isQteActive; }
-    public void setQteActive(boolean qteActive) { isQteActive = qteActive; }
-    public LocalDateTime getQteExpiryTime() { return qteExpiryTime; }
-    public void setQteExpiryTime(LocalDateTime qteExpiryTime) { this.qteExpiryTime = qteExpiryTime; }
+    // --- Helper Methods ---
+    // [FIX] Nếu code cũ có gọi hàm này thì giờ nó sẽ hoạt động
+    public void setEnemy(Enemy e) {
+        this.enemyId = e.getEnemyId(); // Gọi hàm alias vừa thêm
+        this.enemyName = e.getName();
+        this.enemyMaxHp = e.getHp();
+        this.enemyCurrentHp = e.getHp();
+        this.enemyAtk = e.getAtk();
+        this.enemyDef = e.getDef();
+        this.enemySpeed = e.getSpeed();
+    }
 }

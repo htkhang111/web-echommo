@@ -5,17 +5,24 @@ import com.echommo.entity.User;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface CharacterRepository extends JpaRepository<Character, Long> {
+// [FIX] ID là Integer (khớp với Entity Character)
+public interface CharacterRepository extends JpaRepository<Character, Integer> {
+
     Optional<Character> findByUser(User user);
 
-    // [FIX] Thêm method này vì CharacterService đang gọi nó
-    Optional<Character> findByUser_UserId(Long userId);
+    // [FIX] Thêm hàm này để Service gọi được findByUserId
+    @Query("SELECT c FROM Character c WHERE c.user.userId = :userId")
+    Optional<Character> findByUserId(@Param("userId") Integer userId);
+
+    // [FIX] Method dự phòng đúng chuẩn JPA
+    Optional<Character> findByUser_UserId(Integer userId);
 
     boolean existsByName(String name);
 
@@ -23,6 +30,7 @@ public interface CharacterRepository extends JpaRepository<Character, Long> {
     @Query("SELECT c FROM Character c ORDER BY c.level DESC, c.currentExp DESC")
     List<Character> findTopLevels(Pageable pageable);
 
-    @Query("SELECT c FROM Character c ORDER BY c.monstersKilled DESC") // Giả sử có field monstersKilled
+    // [FIX] Tên trường trong Entity là monsterKills (check lại Entity Character của bạn)
+    @Query("SELECT c FROM Character c ORDER BY c.monsterKills DESC")
     List<Character> findTopMonsterKills(Pageable pageable);
 }

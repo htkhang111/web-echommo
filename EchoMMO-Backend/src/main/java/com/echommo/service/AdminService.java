@@ -22,7 +22,7 @@ public class AdminService {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalUsers", userRepository.count());
 
-        // [FIX] Reduce đúng cho BigDecimal
+        // Reduce đúng cho BigDecimal
         BigDecimal totalEcho = walletRepository.findAll().stream()
                 .map(Wallet::getEchoCoin)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -37,14 +37,15 @@ public class AdminService {
     }
 
     @Transactional
-    public void giveReward(Long userId, String type, String amountStr) {
-        User user = userRepository.findById(userId).orElseThrow();
-        Wallet wallet = walletRepository.findByUser(user).orElseThrow();
+    // [FIX] userId phải là Integer để khớp với UserRepository
+    public void giveReward(Integer userId, String type, String amountStr) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        Wallet wallet = walletRepository.findByUser(user).orElseThrow(() -> new RuntimeException("Wallet not found"));
 
         if ("GOLD".equalsIgnoreCase(type)) {
             wallet.setGold(wallet.getGold() + Long.parseLong(amountStr));
         } else if ("ECHO".equalsIgnoreCase(type)) {
-            // [FIX] Add cho BigDecimal
+            // Add cho BigDecimal
             wallet.setEchoCoin(wallet.getEchoCoin().add(new BigDecimal(amountStr)));
         }
         walletRepository.save(wallet);

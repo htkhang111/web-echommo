@@ -2,7 +2,7 @@ package com.echommo.entity;
 
 import com.echommo.enums.Role;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties; // [QUAN TRỌNG] Nhớ import cái này
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,7 +20,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
-    private Integer userId;
+    private Integer userId; // [QUAN TRỌNG] Phải là Integer
 
     @Column(nullable = false, unique = true)
     private String username;
@@ -42,8 +42,6 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role = Role.USER;
 
-    // --- QUAN HỆ VÍ TIỀN (NGUYÊN NHÂN GÂY LỖI 500) ---
-    // [FIX] Thêm dòng này để khi lấy User thì lấy Wallet, nhưng trong Wallet KHÔNG lấy ngược lại User nữa
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JsonIgnoreProperties("user")
     private Wallet wallet;
@@ -56,7 +54,6 @@ public class User {
     @JsonIgnore
     private List<MarketListing> marketListings;
 
-    // --- CÁC TRƯỜNG PHỤ ---
     private Boolean isActive = true;
     private String banReason;
     private LocalDateTime bannedAt;
@@ -65,7 +62,10 @@ public class User {
     private LocalDateTime captchaLockedUntil;
     private String otpCode;
     private LocalDateTime otpExpiry;
+
+    @Column(name = "avatar_url")
     private String avatarUrl = "🐲";
+
     private LocalDateTime lastLogin;
     private LocalDateTime createdAt;
 

@@ -1,12 +1,9 @@
 package com.echommo.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 
-@Getter
-@Setter
 @Entity
 @Table(name = "wallet")
 public class Wallet {
@@ -16,6 +13,7 @@ public class Wallet {
 
     @OneToOne
     @JoinColumn(name = "user_id", referencedColumnName = "user_id")
+    @JsonIgnoreProperties("wallet")
     private User user;
 
     private Long gold = 0L;
@@ -24,6 +22,7 @@ public class Wallet {
     @Column(name = "echo_coin", precision = 20, scale = 8)
     private BigDecimal echoCoin = BigDecimal.ZERO;
 
+    // Nguyên liệu
     private Integer wood = 0;
     private Integer driedWood = 0;
     private Integer coldWood = 0;
@@ -35,4 +34,33 @@ public class Wallet {
     private Integer fish = 0;
     private Integer shark = 0;
     private Integer unknownMaterial = 0;
+
+    // --- GETTER & SETTER THỦ CÔNG ---
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
+
+    public Long getGold() { return gold != null ? gold : 0L; }
+    public void setGold(Long gold) { this.gold = gold; }
+
+    public Integer getDiamonds() { return diamonds != null ? diamonds : 0; }
+    public void setDiamonds(Integer diamonds) { this.diamonds = diamonds; }
+
+    public BigDecimal getEchoCoin() { return echoCoin != null ? echoCoin : BigDecimal.ZERO; }
+    public void setEchoCoin(BigDecimal echoCoin) { this.echoCoin = echoCoin; }
+
+    // Getter cho nguyên liệu (quan trọng cho EquipmentService)
+    public Integer getWood() { return wood; } public void setWood(Integer v) { this.wood = v; }
+    public Integer getDriedWood() { return driedWood; } public void setDriedWood(Integer v) { this.driedWood = v; }
+    public Integer getColdWood() { return coldWood; } public void setColdWood(Integer v) { this.coldWood = v; }
+    public Integer getStrangeWood() { return strangeWood; } public void setStrangeWood(Integer v) { this.strangeWood = v; }
+    public Integer getCoal() { return coal; } public void setCoal(Integer v) { this.coal = v; }
+    public Integer getCopperOre() { return copperOre; } public void setCopperOre(Integer v) { this.copperOre = v; }
+    public Integer getIronOre() { return ironOre; } public void setIronOre(Integer v) { this.ironOre = v; }
+    public Integer getPlatinum() { return platinum; } public void setPlatinum(Integer v) { this.platinum = v; }
+    public Integer getFish() { return fish; } public void setFish(Integer v) { this.fish = v; }
+    public Integer getShark() { return shark; } public void setShark(Integer v) { this.shark = v; }
+    public Integer getUnknownMaterial() { return unknownMaterial; } public void setUnknownMaterial(Integer v) { this.unknownMaterial = v; }
 }

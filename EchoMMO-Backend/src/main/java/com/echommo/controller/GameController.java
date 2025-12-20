@@ -32,10 +32,12 @@ public class GameController {
             User user = getCurrentUser();
 
             if (user.getCharacter() == null) {
+                // [QUAN TRỌNG] CharacterService.createDefaultCharacter phải trả về Character
                 return ResponseEntity.ok(characterService.createDefaultCharacter(user));
             }
 
-            return ResponseEntity.ok(user.getCharacter());
+            // Gọi hàm getMyCharacter để tính toán chỉ số ảo (StatPoints) trước khi trả về
+            return ResponseEntity.ok(characterService.getMyCharacter());
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("message", "Lỗi Server: " + e.getMessage()));
@@ -45,6 +47,7 @@ public class GameController {
     @PostMapping("/explore")
     public ResponseEntity<Map<String, Object>> explore() {
         try {
+            // [FIX] Truyền UserId (Integer)
             return ResponseEntity.ok(gameService.explore(getCurrentUser().getUserId()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

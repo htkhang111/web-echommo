@@ -1,35 +1,35 @@
 package com.echommo.dto;
 
-import com.echommo.entity.Enemy;
+import com.echommo.entity.BattleSession;
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import java.util.ArrayList;
+import lombok.NoArgsConstructor;
+
 import java.util.List;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class BattleResult {
-    // Thông tin hiển thị cơ bản
-    private Integer playerHp;
-    private Integer playerMaxHp;
-    private Integer playerEnergy;
-
-    private Integer enemyId; // [NEW] Chỉ trả về ID để FE render ảnh
     private String enemyName;
     private Integer enemyHp;
     private Integer enemyMaxHp;
+    private Integer playerHp;
+    private Integer playerMaxHp;
+    private List<String> combatLog;
+    private String status; // ONGOING, VICTORY, DEFEAT
 
-    private List<String> combatLog = new ArrayList<>();
-    private String status; // ONGOING, VICTORY, DEFEAT, QTE_ACTION
+    // [FIX] Constructor này giúp map từ Session mới sang Result nhanh gọn
+    public BattleResult(BattleSession session, String status, List<String> logs) {
+        // Map các trường "phẳng" từ BattleSession
+        this.enemyName = session.getEnemyName();
+        this.enemyHp = session.getEnemyCurrentHp();
+        this.enemyMaxHp = session.getEnemyMaxHp();
 
-    // [NEW] Cờ báo hiệu QTE
-    private boolean qteTriggered; // True: Hiện nút Đỡ đòn
-    private double qteDuration;   // Thời gian tồn tại nút (ms)
+        this.playerHp = session.getPlayerCurrentHp();
+        this.playerMaxHp = session.getPlayerMaxHp();
 
-    private Integer goldEarned = 0;
-    private Integer expEarned = 0;
-    private boolean levelUp = false;
-
-    // Item drop
-    private String droppedItemName;
-    private String droppedItemImage;
-    private String droppedItemRarity;
+        this.status = status;
+        this.combatLog = logs;
+    }
 }

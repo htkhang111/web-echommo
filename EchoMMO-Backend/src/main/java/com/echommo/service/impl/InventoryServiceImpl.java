@@ -1,65 +1,90 @@
 package com.echommo.service.impl;
 
+import com.echommo.entity.Character;
+import com.echommo.entity.Item;
+import com.echommo.entity.User;
 import com.echommo.entity.UserItem;
-import com.echommo.enums.SlotType;
+import com.echommo.enums.Rarity;
+import com.echommo.repository.CharacterRepository;
+import com.echommo.repository.ItemRepository;
 import com.echommo.repository.UserItemRepository;
+import com.echommo.service.EquipmentService;
 import com.echommo.service.InventoryService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Random;
+import java.util.Optional;
 
 @Service
+@RequiredArgsConstructor
 public class InventoryServiceImpl implements InventoryService {
 
-    @Autowired
-    private UserItemRepository userItemRepo;
+    private final UserItemRepository userItemRepo;
+    private final ItemRepository itemRepo;
+    private final CharacterRepository charRepo;
+    private final EquipmentService equipmentService; // Để cường hóa (nếu cần logic phức tạp)
 
     @Override
     public List<UserItem> getInventory(Integer charId) {
-        // Lấy danh sách vật phẩm, ưu tiên đồ mới nhặt lên đầu
         return userItemRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(charId);
     }
 
     @Override
+    @Transactional
     public void equipItem(Long charId, Long userItemId) {
-        // Logic mặc đồ (Đã xử lý ở EquipmentService/Controller, có thể để trống hoặc implement nếu cần)
+        // Logic mặc đồ (giữ nguyên hoặc implement sau nếu chưa có)
     }
 
     @Override
+    @Transactional
     public void unequipItem(Long charId, Long userItemId) {
-        // Logic tháo đồ (Đã xử lý ở EquipmentService/Controller)
+        // Logic tháo đồ
     }
 
     @Override
     @Transactional
     public UserItem enhanceItem(Long charId, Long userItemId) {
-        UserItem item = userItemRepo.findById(userItemId)
-                .orElseThrow(() -> new RuntimeException("Vật phẩm không tồn tại!"));
+        // Delegate sang EquipmentService cho gọn
+        return equipmentService.enhanceItem(userItemId);
+    }
 
-        // Kiểm tra chủ sở hữu (Convert charId sang int/long cho khớp type DB)
-        if (item.getCharacter().getCharId().longValue() != charId) {
-            throw new RuntimeException("Vật phẩm không thuộc về bạn!");
-        }
+    // [FIX] Implement hàm thêm đồ
+    @Override
+    @Transactional
+    public void addItemToInventory(User user, Integer itemId, int quantity) {
+        Character character = charRepo.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Character not found"));
 
-        SlotType type = item.getItem().getSlotType();
-        if (type == SlotType.CONSUMABLE || type == SlotType.MATERIAL || type == SlotType.NONE) {
-            throw new RuntimeException("Vật phẩm này không thể cường hóa!");
-        }
+        Item item = itemRepo.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("Item not found: " + itemId));
 
-        // Logic cường hóa: Tỉ lệ thành công = 100 - (Level * 10), min 10%
-        int currentLevel = item.getEnhanceLevel() != null ? item.getEnhanceLevel() : 0;
-        int successRate = 100 - (currentLevel * 10);
-        if (successRate < 10) successRate = 10;
+        // Kiểm tra xem đã có item này trong túi chưa (chỉ gộp nếu không phải đồ Equip hoặc logic game cho phép)
+        // Ở đây giả sử nguyên liệu (Material) thì gộp, còn trang bị thì tách riêng.
+        // Nhưng đơn giản nhất là tìm kiếm item cùng loại chưa equip.
 
-        Random random = new Random();
-        if (random.nextInt(100) < successRate) {
-            item.setEnhanceLevel(currentLevel + 1);
-            return userItemRepo.save(item);
+        Optional<UserItem> existingItem = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), itemId)
+                .stream()
+                .filter(ui -> !Boolean.TRUE.equals(ui.getIsEquipped())) // Chỉ gộp vào đồ chưa mặc
+                .findFirst();
+
+        if (existingItem.isPresent()) {
+            UserItem ui = existingItem.get();
+            ui.setQuantity(ui.getQuantity() + quantity);
+            userItemRepo.save(ui);
         } else {
-            throw new RuntimeException("Cường hóa thất bại! (Tỉ lệ: " + successRate + "%)");
+            UserItem ui = UserItem.builder()
+                    .character(character)
+                    .item(item)
+                    .quantity(quantity)
+                    .isEquipped(false)
+                    .enhancementLevel(0)
+                    .rarity(Rarity.COMMON) // Mặc định Common, logic rơi đồ xịn xử lý chỗ khác
+                    .acquiredAt(LocalDateTime.now())
+                    .build();
+            userItemRepo.save(ui);
         }
     }
 }

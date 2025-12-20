@@ -6,14 +6,12 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 @Data
-@AllArgsConstructor // [FIX] Tạo constructor có tham số
-@NoArgsConstructor  // [FIX] Tạo constructor mặc định
+@AllArgsConstructor
+@NoArgsConstructor
 public class SpaStatusResponse {
     private String message;
     private Integer currentHp;
-    private Integer maxHp;
     private Integer currentEnergy;
-    private Integer maxEnergy;
-    private BigDecimal remainingGold;
-    private Long secondsRemaining; // Thêm trường này để khớp với SpaService
+    private BigDecimal currentGold; // [FIX] Đồng bộ BigDecimal
+    private BigDecimal currentEcho; // [FIX] Đồng bộ BigDecimal
 }
