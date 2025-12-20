@@ -3,7 +3,7 @@
     <div class="auth-container">
       <div class="auth-header">
         <img :src="appLogo" alt="Logo" class="logo" />
-        <h2>GHI DANH</h2>
+        <h2>Ghi Danh</h2>
         <p>Gia nhập giang hồ, xưng bá võ lâm</p>
       </div>
 
