@@ -2,6 +2,7 @@ package com.echommo.service;
 
 import com.echommo.entity.Friendship;
 import com.echommo.entity.User;
+import com.echommo.enums.NotificationType; // [FIX] Import Enum
 import com.echommo.repository.FriendshipRepository;
 import com.echommo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +15,7 @@ public class FriendshipService {
 
     @Autowired private FriendshipRepository friendshipRepository;
     @Autowired private UserRepository userRepository;
-    @Autowired private NotificationService notificationService; // <--- Inject
+    @Autowired private NotificationService notificationService;
 
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -38,9 +39,9 @@ public class FriendshipService {
         f.setStatus("PENDING");
         friendshipRepository.save(f);
 
-        // Thông báo cho người nhận
+        // [FIX] Sử dụng NotificationType.INFO thay vì String "INFO"
         notificationService.sendNotification(target, "📩 Lời mời kết bạn",
-                me.getUsername() + " muốn kết bạn với bạn.", "INFO");
+                me.getUsername() + " muốn kết bạn với bạn.", NotificationType.INFO);
 
         return "Đã gửi lời mời tới " + targetUsername;
     }
@@ -54,9 +55,9 @@ public class FriendshipService {
         f.setStatus("ACCEPTED");
         friendshipRepository.save(f);
 
-        // Thông báo ngược lại cho người gửi
+        // [FIX] Sử dụng NotificationType.SUCCESS thay vì String "SUCCESS"
         notificationService.sendNotification(f.getRequester(), "🤝 Kết bạn thành công",
-                me.getUsername() + " đã chấp nhận lời mời của bạn!", "SUCCESS");
+                me.getUsername() + " đã chấp nhận lời mời của bạn!", NotificationType.SUCCESS);
 
         return "Đã trở thành bạn bè.";
     }

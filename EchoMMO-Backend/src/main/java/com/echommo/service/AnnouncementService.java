@@ -2,6 +2,7 @@ package com.echommo.service;
 
 import com.echommo.entity.Announcement;
 import com.echommo.entity.User;
+import com.echommo.enums.NotificationType; // [FIX] Import Enum
 import com.echommo.enums.Role;
 import com.echommo.repository.AnnouncementRepository;
 import com.echommo.repository.UserRepository;
@@ -17,7 +18,7 @@ public class AnnouncementService {
 
     @Autowired private AnnouncementRepository announcementRepository;
     @Autowired private UserRepository userRepository;
-    @Autowired private NotificationService notificationService; // <--- Inject thêm cái này
+    @Autowired private NotificationService notificationService;
 
     public List<Announcement> getActiveAnnouncements() {
         return announcementRepository.findByIsActiveTrueOrderByCreatedAtDesc();
@@ -30,20 +31,23 @@ public class AnnouncementService {
         Announcement saved = announcementRepository.save(req);
 
         // === LOGIC MỚI: GỬI THÔNG BÁO CHO TOÀN BỘ USER ===
-        // Lấy tất cả user đang hoạt động
-        List<User> allUsers = userRepository.findAll(); // Hoặc lọc findByIsActiveTrue() nếu muốn
+        List<User> allUsers = userRepository.findAll();
 
-        String notiType = "INFO";
-        if ("EVENT".equals(req.getType())) notiType = "SUCCESS"; // Icon quà
-        else if ("MAINTAIN".equals(req.getType())) notiType = "WARNING"; // Icon cảnh báo
+        // [FIX] Chuyển đổi logic String -> Enum NotificationType
+        NotificationType notiType = NotificationType.INFO;
+
+        if ("EVENT".equals(req.getType())) {
+            notiType = NotificationType.SUCCESS; // Hoặc REWARD tùy logic, ở đây giữ SUCCESS theo code cũ
+        } else if ("MAINTAIN".equals(req.getType())) {
+            notiType = NotificationType.WARNING;
+        }
 
         for (User user : allUsers) {
-            // Không cần gửi thông báo cho chính Admin vừa đăng (hoặc gửi cũng được)
             notificationService.sendNotification(
                     user,
-                    "📢 " + req.getTitle(), // Thêm icon loa cho nổi
+                    "📢 " + req.getTitle(),
                     req.getContent(),
-                    notiType
+                    notiType // [FIX] Truyền Enum vào đây
             );
         }
         // =================================================

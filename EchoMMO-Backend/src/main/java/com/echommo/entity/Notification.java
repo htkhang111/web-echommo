@@ -1,5 +1,6 @@
 package com.echommo.entity;
 
+import com.echommo.enums.NotificationType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -19,8 +20,13 @@ public class Notification {
     private User user;
 
     private String title;
+
+    // Có thể cân nhắc dùng @Column(columnDefinition = "TEXT") nếu nội dung dài
     private String message;
-    private String type; // INFO, SUCCESS, WARNING, REWARD
+
+    // [FIX] Chuyển đổi từ String sang Enum để khớp với AdminService
+    @Enumerated(EnumType.STRING)
+    private NotificationType type;
 
     @Column(name = "is_read")
     private Boolean isRead = false;

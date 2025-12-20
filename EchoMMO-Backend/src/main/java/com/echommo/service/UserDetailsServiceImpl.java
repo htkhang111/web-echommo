@@ -28,19 +28,19 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
         // 2. Xử lý quyền (Role)
         String roleName = (user.getRole() != null) ? user.getRole().name() : "USER";
-        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(roleName));
+
+        // [FIX QUAN TRỌNG] Thêm tiền tố "ROLE_" để khớp với hasRole('ADMIN') của Spring Security
+        // Kết quả sẽ là "ROLE_USER" hoặc "ROLE_ADMIN"
+        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + roleName));
 
         // 3. Trả về đối tượng User của Spring Security
-        // Cấu trúc: username, password, enabled, accountNonExpired, credentialsNonExpired, accountNonLocked, authorities
         return new org.springframework.security.core.userdetails.User(
                 user.getUsername(),
                 user.getPasswordHash(),
-                // [QUAN TRỌNG] isActive = false -> enabled = false (Bị Ban/Vô hiệu hóa)
-                (user.getIsActive() != null && user.getIsActive()),
+                (user.getIsActive() != null && user.getIsActive()), // enabled
                 true, // accountNonExpired
                 true, // credentialsNonExpired
-                // [QUAN TRỌNG] isCaptchaLocked = true -> accountNonLocked = false (Bị khóa Captcha tạm thời)
-                (user.getIsCaptchaLocked() == null || !user.getIsCaptchaLocked()),
+                (user.getIsCaptchaLocked() == null || !user.getIsCaptchaLocked()), // accountNonLocked
                 authorities
         );
     }

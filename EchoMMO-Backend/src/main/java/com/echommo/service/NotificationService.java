@@ -2,13 +2,14 @@ package com.echommo.service;
 
 import com.echommo.entity.Notification;
 import com.echommo.entity.User;
+import com.echommo.enums.NotificationType;
 import com.echommo.repository.NotificationRepository;
 import com.echommo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -31,8 +32,8 @@ public class NotificationService {
 
     public void markAsRead(Integer id) {
         Notification noti = notificationRepository.findById(id).orElseThrow();
-        // Check quyền sở hữu
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        // Check quyền sở hữu
         if(noti.getUser().getUsername().equals(username)) {
             noti.setIsRead(true);
             notificationRepository.save(noti);
@@ -51,13 +52,15 @@ public class NotificationService {
         }
     }
 
-    // Hàm nội bộ để các Service khác gọi (VD: AdminService)
-    public void sendNotification(User user, String title, String message, String type) {
+    // [FIX] Cập nhật tham số type thành Enum NotificationType
+    public void sendNotification(User user, String title, String message, NotificationType type) {
         Notification n = new Notification();
         n.setUser(user);
         n.setTitle(title);
         n.setMessage(message);
         n.setType(type);
+        n.setIsRead(false);
+        n.setCreatedAt(LocalDateTime.now());
         notificationRepository.save(n);
     }
 }
