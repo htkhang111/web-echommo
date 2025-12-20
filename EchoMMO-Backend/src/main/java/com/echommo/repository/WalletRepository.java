@@ -1,5 +1,6 @@
 package com.echommo.repository;
 
+import com.echommo.entity.User;
 import com.echommo.entity.Wallet;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,11 +11,13 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface WalletRepository extends JpaRepository<Wallet, Integer> {
+public interface WalletRepository extends JpaRepository<Wallet, Long> {
+    Optional<Wallet> findByUser(User user);
 
-    Optional<Wallet> findByUser_UserId(Integer userId);
+    // [FIX] Method cho EquipmentService
+    Optional<Wallet> findByUser_UserId(Long userId);
 
-    // [FIX] Sửa 'w.balance' thành 'w.gold' để khớp với Entity
-    @Query("SELECT w FROM Wallet w JOIN FETCH w.user ORDER BY w.gold DESC")
+    // [FIX] Method cho LeaderboardService
+    @Query("SELECT w FROM Wallet w ORDER BY w.gold DESC")
     List<Wallet> findTopWealth(Pageable pageable);
 }

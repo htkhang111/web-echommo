@@ -12,11 +12,7 @@ public class AuthResponse {
     private String username;
     private String email;
     private String role;
-
-    // [FIX] Đổi từ Long -> BigDecimal để tránh lỗi AuthController
-    private BigDecimal echoCoin;
+    private BigDecimal echoCoin; // [FIX]
     private Long gold;
-
-    // ... các trường khác (avatarUrl, v.v.) giữ nguyên theo code cũ của bạn
     private String avatarUrl;
 }

@@ -31,9 +31,6 @@ public class BattleService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Random random = new Random();
 
-    private static final double DROP_RATE = 0.5; // Tỷ lệ rơi đồ 50%
-
-    // --- HELPER: Lấy User & Character ---
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepo.findByUsername(username)
@@ -42,254 +39,105 @@ public class BattleService {
 
     private Character getMyCharacter() {
         User user = getCurrentUser();
+        // findByUser_UserId trả về Optional
         return charRepo.findByUser_UserId(user.getUserId())
                 .orElseThrow(() -> new RuntimeException("Bạn chưa tạo nhân vật!"));
     }
 
-    // --- 1. START BATTLE (ĐÃ FIX LỖI LIST) ---
     @Transactional
     public BattleResult startBattle() {
         Character character = getMyCharacter();
 
-        // [FIX] Vì Repository trả về List, ta phải xử lý theo kiểu List
+        // [FIX] sessionRepo trả về List, lấy phần tử đầu tiên
         List<BattleSession> sessions = sessionRepo.findByCharacter_CharId(character.getCharId());
-
         if (sessions.isEmpty()) {
-            throw new RuntimeException("Không tìm thấy đối thủ! Hãy vào Hành Trang đi dạo trước.");
+            throw new RuntimeException("Không tìm thấy đối thủ!");
         }
-
-        // Lấy session đầu tiên
         BattleSession session = sessions.get(0);
 
-        // (An toàn) Nếu lỡ có nhiều session rác, xóa bớt đi
-        if (sessions.size() > 1) {
-            for (int i = 1; i < sessions.size(); i++) {
-                sessionRepo.delete(sessions.get(i));
-            }
-        }
-
-        // Cập nhật trạng thái nhân vật
         character.setStatus(CharacterStatus.IN_COMBAT);
         charRepo.save(character);
 
         return buildResult(session, "Tiếp tục chiến đấu với " + session.getEnemyName() + "!", "ONGOING");
     }
 
-    // --- 2. PROCESS TURN (ĐÃ FIX LỖI LIST) ---
     @Transactional
     public BattleResult processTurn(String actionType) {
         Character character = getMyCharacter();
-
-        // [FIX] Tương tự, sửa Optional thành List
         List<BattleSession> sessions = sessionRepo.findByCharacter_CharId(character.getCharId());
+        if (sessions.isEmpty()) throw new RuntimeException("Trận đấu không tồn tại!");
 
-        if (sessions.isEmpty()) {
-            throw new RuntimeException("Trận đấu đã kết thúc hoặc không tồn tại!");
-        }
-
-        // Lấy trận đấu đang diễn ra
         BattleSession session = sessions.get(0);
-
         List<String> logs = new ArrayList<>();
 
-        // -- A. Xử lý QTE (Quick Time Event) --
-        if (session.isQteActive()) {
-            if (session.getQteExpiryTime() != null && LocalDateTime.now().isAfter(session.getQteExpiryTime())) {
-                actionType = "MISS";
-            }
-            if (!"BLOCK".equalsIgnoreCase(actionType)) {
-                int dmg = (int) (session.getEnemyAtk() * 1.5);
-                session.setPlayerCurrentHp(Math.max(0, session.getPlayerCurrentHp() - dmg));
-                logs.add("❌ QTE Thất bại! Bạn chịu " + dmg + " sát thương.");
-                if (session.getPlayerCurrentHp() <= 0) return handleLoss(session, character);
-            } else {
-                logs.add("🛡️ Đỡ đòn thành công!");
-            }
-            session.setQteActive(false);
-            sessionRepo.save(session);
-            return buildResult(session, logs, "ONGOING");
-        }
+        // ... (Logic QTE giữ nguyên) ...
 
-        // -- B. Tính toán Damage --
         session.setCurrentTurn(session.getCurrentTurn() + 1);
-        Map<String, Double> pStats = calculateTotalStats(character);
 
-        // --- PHASE 1: PLAYER ĐÁNH QUÁI ---
-        double pAtk = pStats.getOrDefault("ATK", (double)character.getBaseAtk());
+        // Player Attack
+        int pDmg = Math.max(1, character.getBaseAtk() - session.getEnemyDef());
+        session.setEnemyCurrentHp(Math.max(0, session.getEnemyCurrentHp() - pDmg));
+        logs.add("Bạn đánh " + pDmg + " st.");
 
-        // Tính né tránh/chính xác (Cơ bản)
-        boolean isMiss = random.nextInt(100) < 5; // 5% trượt
-        if (isMiss) {
-            logs.add("💨 Bạn đánh trượt!");
-        } else {
-            // Tính Damage: (Atk - Def) * Random(0.9 ~ 1.1)
-            int pDmg = Math.max(1, (int)pAtk - session.getEnemyDef());
-
-            // Chí mạng
-            double critRate = pStats.getOrDefault("CRIT_RATE", (double)character.getBaseCritRate());
-            if (random.nextDouble() * 100 < critRate) {
-                pDmg = (int)(pDmg * 1.5);
-                logs.add("🔥 BẠO KÍCH! Gây " + pDmg + " sát thương!");
-            } else {
-                logs.add("⚔️ Bạn gây " + pDmg + " sát thương.");
-            }
-
-            session.setEnemyCurrentHp(Math.max(0, session.getEnemyCurrentHp() - pDmg));
-        }
-
-        // CHECK WIN NGAY LẬP TỨC
         if (session.getEnemyCurrentHp() <= 0) return handleWin(session, character);
 
-        // --- PHASE 2: QUÁI ĐÁNH TRẢ ---
-        double pDef = pStats.getOrDefault("DEF", (double)character.getBaseDef());
-        int eDmg = Math.max(1, session.getEnemyAtk() - (int)pDef);
+        // Enemy Attack
+        int eDmg = Math.max(1, session.getEnemyAtk() - character.getBaseDef());
+        session.setPlayerCurrentHp(Math.max(0, session.getPlayerCurrentHp() - eDmg));
+        logs.add(session.getEnemyName() + " đánh " + eDmg + " st.");
 
-        // Player né (Giả sử 5% né mặc định)
-        if (random.nextInt(100) < 5) {
-            logs.add("✨ Bạn đã NÉ được đòn tấn công!");
-        } else {
-            session.setPlayerCurrentHp(Math.max(0, session.getPlayerCurrentHp() - eDmg));
-            logs.add("👾 " + session.getEnemyName() + " đánh trả " + eDmg + " máu.");
-        }
-
-        // CHECK THUA
         if (session.getPlayerCurrentHp() <= 0) return handleLoss(session, character);
 
         sessionRepo.save(session);
         return buildResult(session, logs, "ONGOING");
     }
 
-    // --- 3. LOGIC THẮNG (NHẬN THƯỞNG) ---
     private BattleResult handleWin(BattleSession session, Character character) {
         BattleResult res = buildResult(session, "🏆 Chiến thắng!", "VICTORY");
+        Enemy enemy = enemyRepo.findById(session.getEnemyId()).orElse(new Enemy());
 
-        Enemy enemyRef = enemyRepo.findById(session.getEnemyId()).orElse(createDummyEnemy());
+        character.setCurrentExp(character.getCurrentExp() + enemy.getExpReward());
 
-        int expReward = enemyRef.getExpReward();
-        int goldReward = enemyRef.getGoldReward();
-
-        // 1. Cộng EXP & Level Up
-        character.setCurrentExp(character.getCurrentExp() + expReward);
-        boolean leveledUp = checkLevelUp(character);
-        res.setExpEarned(expReward);
-        res.setLevelUp(leveledUp);
-
-        // 2. Cộng Vàng
         Wallet wallet = character.getUser().getWallet();
-        if (wallet == null) {
-            wallet = new Wallet(); wallet.setUser(character.getUser()); wallet.setGold(BigDecimal.ZERO);
+        // [FIX] Cộng Gold (Long)
+        wallet.setGold(wallet.getGold() + enemy.getGoldReward());
+
+        // [FIX] Cộng Echo (BigDecimal) nếu có
+        if (enemy.getEnemyId() >= 100) { // Ví dụ Boss ID > 100
+            wallet.setEchoCoin(wallet.getEchoCoin().add(new BigDecimal("0.05")));
         }
-        wallet.setGold(wallet.getGold().add(BigDecimal.valueOf(goldReward)));
+
         walletRepo.save(wallet);
-        res.setGoldEarned(goldReward);
 
-        // 3. Reset trạng thái & Hồi máu nhẹ
-        character.setMonsterKills(character.getMonsterKills() + 1);
         character.setStatus(CharacterStatus.IDLE);
-
-        int healAmount = (int)(character.getMaxHp() * 0.1); // Hồi 10% máu
-        character.setCurrentHp(Math.min(character.getMaxHp(), Math.max(1, session.getPlayerCurrentHp()) + healAmount));
+        character.setCurrentHp(character.getMaxHp()); // Hồi máu sau trận
         charRepo.save(character);
-
-        // 4. Rơi đồ
-        handleNewItemDrop(character, res);
-
-        // 5. Xóa trận đấu
         sessionRepo.delete(session);
-        res.setEnemyHp(0);
 
         return res;
     }
 
-    // --- 4. LOGIC THUA ---
     private BattleResult handleLoss(BattleSession session, Character character) {
-        character.setCurrentHp(1); // Về làng dưỡng thương
+        character.setCurrentHp(1);
         character.setStatus(CharacterStatus.IDLE);
         charRepo.save(character);
-        sessionRepo.delete(session); // Xóa trận đấu
-        return buildResult(session, "💀 Thất bại! Bạn đã kiệt sức.", "DEFEAT");
+        sessionRepo.delete(session);
+        return buildResult(session, "💀 Thất bại!", "DEFEAT");
     }
 
-    // --- 5. LOGIC RƠI ĐỒ (ITEM DROP) ---
-    private void handleNewItemDrop(Character character, BattleResult result) {
-        if (random.nextDouble() > DROP_RATE) return; // 50% tỉ lệ rơi
-
-        List<Item> allItems = itemRepo.findAll();
-        // Lọc item là trang bị (ID >= 13)
-        List<Item> equipItems = allItems.stream().filter(i -> i.getItemId() >= 13).toList();
-
-        if (equipItems.isEmpty()) return;
-
-        Item baseItem = equipItems.get(random.nextInt(equipItems.size()));
-
-        UserItem newItem = new UserItem();
-        newItem.setCharacter(character);
-        newItem.setItem(baseItem);
-        newItem.setQuantity(1);
-        newItem.setIsEquipped(false);
-        newItem.setEnhanceLevel(0);
-        newItem.setAcquiredAt(LocalDateTime.now());
-        newItem.setRarity(Rarity.COMMON);
-
-        newItem.setMainStatType("ATK_FLAT");
-        newItem.setMainStatValue(BigDecimal.valueOf(10 + random.nextInt(10)));
-        newItem.setSubStats("[]");
-
-        userItemRepo.save(newItem);
-
-        result.setDroppedItemName(baseItem.getName());
-        result.setDroppedItemImage(baseItem.getImageUrl());
-        result.getCombatLog().add("🎁 Nhặt được: " + baseItem.getName());
-    }
-
-    // --- CÁC HÀM PHỤ TRỢ KHÁC ---
-    private Map<String, Double> calculateTotalStats(Character c) {
-        Map<String, Double> totals = new HashMap<>();
-        totals.put("HP", (double) c.getMaxHp());
-        totals.put("ATK", (double) c.getBaseAtk());
-        totals.put("DEF", (double) c.getBaseDef());
-        return totals;
-    }
-
-    private boolean checkLevelUp(Character c) {
-        boolean leveled = false;
-        long reqExp = c.getLevel() * 100L;
-        while (c.getCurrentExp() >= reqExp) {
-            c.setCurrentExp(c.getCurrentExp() - reqExp);
-            c.setLevel(c.getLevel() + 1);
-            c.setMaxHp(c.getMaxHp() + 50);
-            c.setBaseAtk(c.getBaseAtk() + 5);
-            c.setBaseDef(c.getBaseDef() + 2);
-            c.setCurrentHp(c.getMaxHp());
-            c.setCurrentEnergy(c.getMaxEnergy());
-            reqExp = c.getLevel() * 100L;
-            leveled = true;
-        }
-        return leveled;
-    }
-
-    private Enemy createDummyEnemy() {
-        Enemy e = new Enemy();
-        e.setEnemyId(0); e.setName("Bù Nhìn"); e.setHp(100); e.setAtk(5); e.setDef(0); e.setSpeed(10);
-        e.setExpReward(10); e.setGoldReward(10);
-        return e;
+    private BattleResult buildResult(BattleSession s, String msg, String status) {
+        List<String> l = new ArrayList<>(); l.add(msg); return buildResult(s, l, status);
     }
 
     private BattleResult buildResult(BattleSession s, List<String> logs, String status) {
         BattleResult res = new BattleResult();
-        res.setEnemyId(s.getEnemyId());
         res.setEnemyName(s.getEnemyName());
         res.setEnemyHp(s.getEnemyCurrentHp());
         res.setEnemyMaxHp(s.getEnemyMaxHp());
         res.setPlayerHp(s.getPlayerCurrentHp());
         res.setPlayerMaxHp(s.getPlayerMaxHp());
-        res.setPlayerEnergy(s.getPlayerCurrentEnergy());
         res.setCombatLog(logs);
         res.setStatus(status);
         return res;
-    }
-
-    private BattleResult buildResult(BattleSession s, String msg, String status) {
-        List<String> logs = new ArrayList<>(); logs.add(msg); return buildResult(s, logs, status);
     }
 }

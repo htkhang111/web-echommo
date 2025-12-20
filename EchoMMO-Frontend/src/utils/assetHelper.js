@@ -1,9 +1,9 @@
 import { reactive } from "vue";
 
-const GITHUB_BASE = "https://htkhang111.github.io/htkhang111.github.io-2f01b0c63309bc6faf7c5589f3a6628b378c4ce8";
+const GITHUB_BASE = "https://htkhang111.github.io/htkhang111.github.io-090930560d7afcdfd861f381f82aed2575cb925f";
 
 export const resolveItemImage = (imgCode) => {
-  if (!imgCode) return `${GITHUB_BASE}/resources/material/o_coalOre.png`;
+  if (!imgCode) return `${GITHUB_BASE}/resources/material/o_coalOre.png`; // Fallback mặc định
   if (imgCode.startsWith("http")) return imgCode;
 
   let fileName = imgCode.trim();
@@ -14,19 +14,16 @@ export const resolveItemImage = (imgCode) => {
   if (lowerName.includes("logo")) return `${GITHUB_BASE}/logo/Logo.png`;
   if (lowerName.startsWith("b_")) return `${GITHUB_BASE}/background/${fileName}`;
   if (lowerName.includes("coin")) {
-    if (lowerName.includes("echo")) return `${GITHUB_BASE}/resources/coin/r_coinEcho.png`;
-    return `${GITHUB_BASE}/resources/coin/r_coin.png`;
+      if (lowerName.includes("echo")) return `${GITHUB_BASE}/resources/coin/r_coinEcho.png`;
+      return `${GITHUB_BASE}/resources/coin/r_coin.png`;
   }
 
-  // --- RESOURCES (Strict Mapping From Git) ---
-
-  // Gỗ
+  // --- RESOURCES ---
   if (lowerName === "w_wood.png") return `${GITHUB_BASE}/resources/material/w_wood.png`;
   if (lowerName === "w_woodred.png") return `${GITHUB_BASE}/resources/material/w_woodRed.png`;
   if (lowerName === "w_woodwhite.png") return `${GITHUB_BASE}/resources/material/w_woodWhite.png`;
   if (lowerName === "w_woodblack.png") return `${GITHUB_BASE}/resources/material/w_woodBlack.png`;
 
-  // Khoáng sản
   if (lowerName === "o_coalore.png") return `${GITHUB_BASE}/resources/material/o_coalOre.png`;
   if (lowerName === "o_copperore.png") return `${GITHUB_BASE}/resources/material/o_copperOre.png`;
   if (lowerName === "o_ironore.png") return `${GITHUB_BASE}/resources/material/o_ironOre.png`;
@@ -34,7 +31,6 @@ export const resolveItemImage = (imgCode) => {
   if (lowerName === "o_strangeore.png") return `${GITHUB_BASE}/resources/material/o_strangeOre.png`;
   if (lowerName === "o_goldore.png") return `${GITHUB_BASE}/resources/material/o_goldOre.png`;
 
-  // Thủy sản & Khác
   if (lowerName === "f_fish.png" || lowerName === "r_fish.png") return `${GITHUB_BASE}/resources/material/r_fish.png`;
   if (lowerName === "f_fishshark.png" || lowerName === "r_fishshark.png") return `${GITHUB_BASE}/resources/material/r_fishShark.png`;
   if (lowerName === "f_fishmegalodon.png") return `${GITHUB_BASE}/resources/material/f_fishMegalodon.png`;
@@ -54,7 +50,6 @@ export const resolveItemImage = (imgCode) => {
 export const getAppLogo = () => `${GITHUB_BASE}/logo/Logo.png`;
 export const getAssetUrl = resolveItemImage;
 
-// Helper Nhân vật & Quái
 const getCharImg = (name) => `${GITHUB_BASE}/character/${name}`;
 const getEnemyImg = (name) => `${GITHUB_BASE}/enemy/${name}`;
 
@@ -70,10 +65,10 @@ export const getEnemyImage = (name, state = "idle") => {
   if (!name) return getEnemyImg("idle_goblin.png");
   const normalizedName = name.toLowerCase().replace(/\s+/g, '');
   const prefix = state === 'attack' ? 'atk_' : 'idle_';
-  let fileName = "goblin";
-
+  let fileName = "goblin"; 
+  
   if (normalizedName.includes("xuong") || normalizedName.includes("skeleton")) fileName = "skeleton";
   else if (normalizedName.includes("nam") || normalizedName.includes("mushroom")) fileName = "mushroom";
-
+  
   return getEnemyImg(`${prefix}${fileName}.png`);
 };

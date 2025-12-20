@@ -1,62 +1,94 @@
 package com.echommo.controller;
 
-import com.echommo.entity.Item;
-import com.echommo.enums.Role;
+import com.echommo.dto.AuthRequest;
+import com.echommo.dto.AuthResponse;
+import com.echommo.entity.User;
+import com.echommo.entity.Wallet;
+import com.echommo.enums.Role; // Import Role enum
 import com.echommo.repository.UserRepository;
-import com.echommo.service.AdminService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.echommo.repository.WalletRepository;
+import com.echommo.security.JwtUtils;
+import com.echommo.service.UserService;
+import com.echommo.service.CharacterService; // Import
+import com.echommo.service.EmailService; // Import
+import com.echommo.dto.CharacterRequest; // Import
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus; // Import
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/admin")
-public class AdminController {
-    @Autowired private AdminService s;
-    @Autowired private UserRepository uRepo;
+@RequestMapping("/api/auth")
+@RequiredArgsConstructor
+public class AuthController { // [FIX] Tên class chuẩn
 
-    private void check() {
-        String un = SecurityContextHolder.getContext().getAuthentication().getName();
-        if(uRepo.findByUsername(un).get().getRole() != Role.ADMIN) throw new RuntimeException("Denied");
+    private final AuthenticationManager authenticationManager;
+    private final UserService userService;
+    private final JwtUtils jwtUtils;
+    private final UserRepository userRepository;
+    private final WalletRepository walletRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final CharacterService characterService; // Inject thêm service thiếu
+    private final EmailService emailService; // Inject thêm service thiếu
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody AuthRequest request) {
+        // [Logic Login cũ của ông]
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String jwt = jwtUtils.generateJwtToken(authentication);
+
+        User user = userRepository.findByUsername(request.getUsername())
+                .orElseThrow(() -> new RuntimeException("Error: User not found."));
+        Wallet wallet = walletRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Error: Wallet not found."));
+
+        // [FIX] Constructor AuthResponse
+        return ResponseEntity.ok(new AuthResponse(
+                jwt,
+                user.getUserId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getRole().name(),
+                wallet.getEchoCoin(),
+                wallet.getGold(),
+                user.getAvatarUrl()
+        ));
     }
 
-    @GetMapping("/stats") public ResponseEntity<?> stats() { check(); return ResponseEntity.ok(s.getServerStats()); }
-    @GetMapping("/users") public ResponseEntity<?> users() { check(); return ResponseEntity.ok(s.getAllUsers()); }
-    @GetMapping("/items") public ResponseEntity<?> items() { check(); return ResponseEntity.ok(s.getAllItems()); }
-    @GetMapping("/listings") public ResponseEntity<?> listings() { check(); return ResponseEntity.ok(s.getAllListings()); }
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody AuthRequest request) {
+        if (userRepository.existsByUsername(request.getUsername())) {
+            return ResponseEntity.badRequest().body("Error: Username is already taken!");
+        }
+        if (userRepository.existsByEmail(request.getEmail())) {
+            return ResponseEntity.badRequest().body("Error: Email is already in use!");
+        }
 
-    // [MỚI] API Ban User
-    @PostMapping("/user/ban/{id}")
-    public ResponseEntity<?> ban(@PathVariable Integer id, @RequestBody Map<String, String> body) {
-        check();
-        s.banUser(id, body.get("reason"));
-        return ResponseEntity.ok("Đã khóa");
-    }
+        User user = userService.registerUser(request);
+        String jwt = jwtUtils.generateTokenFromUsername(user.getUsername());
 
-    // [MỚI] API Unban User
-    @PostMapping("/user/unban/{id}")
-    public ResponseEntity<?> unban(@PathVariable Integer id) {
-        check();
-        s.unbanUser(id);
-        return ResponseEntity.ok("Đã mở khóa");
-    }
-
-    @PostMapping("/user/toggle/{id}") public ResponseEntity<?> toggle(@PathVariable Integer id) { check(); s.toggleUser(id); return ResponseEntity.ok().build(); }
-    @DeleteMapping("/user/{id}") public ResponseEntity<?> delUser(@PathVariable Integer id) { check(); s.deleteUser(id); return ResponseEntity.ok().build(); }
-
-    @PostMapping("/item/create") public ResponseEntity<?> createI(@RequestBody Item i) { check(); return ResponseEntity.ok(s.createItem(i)); }
-    @DeleteMapping("/item/{id}") public ResponseEntity<?> delItem(@PathVariable Integer id) { check(); s.deleteItem(id); return ResponseEntity.ok().build(); }
-    @DeleteMapping("/listing/{id}") public ResponseEntity<?> delList(@PathVariable Integer id) { check(); s.deleteListing(id); return ResponseEntity.ok().build(); }
-
-    @PostMapping("/grant-gold") public ResponseEntity<?> gold(@RequestBody Map<String,Object> b) { check(); return ResponseEntity.ok(s.grantGold((String)b.get("username"), new BigDecimal(b.get("amount").toString()))); }
-    @PostMapping("/grant-item") public ResponseEntity<?> item(@RequestBody Map<String,Object> b) { check(); return ResponseEntity.ok(s.grantItem((String)b.get("username"), (Integer)b.get("itemId"), (Integer)b.get("quantity"))); }
-
-    @PostMapping("/notification/create")
-    public ResponseEntity<?> sendNoti(@RequestBody Map<String, String> payload) {
-        check();
-        s.sendCustomNotification(payload);
-        return ResponseEntity.ok("Đã gửi");
+        return ResponseEntity.ok(new AuthResponse(
+                jwt,
+                user.getUserId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getRole().name(),
+                BigDecimal.ZERO,
+                0L,
+                user.getAvatarUrl()
+        ));
     }
 }

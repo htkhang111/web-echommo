@@ -1,10 +1,12 @@
 package com.echommo.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import java.math.BigDecimal;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "wallet")
 public class Wallet {
@@ -19,7 +21,6 @@ public class Wallet {
     private Long gold = 0L;
     private Integer diamonds = 0;
 
-    // [FIX] Decimal logic
     @Column(name = "echo_coin", precision = 20, scale = 8)
     private BigDecimal echoCoin = BigDecimal.ZERO;
 
@@ -27,10 +28,7 @@ public class Wallet {
     private Integer driedWood = 0;
     private Integer coldWood = 0;
     private Integer strangeWood = 0;
-
-    // [FIX] Renamed to coal
     private Integer coal = 0;
-
     private Integer copperOre = 0;
     private Integer ironOre = 0;
     private Integer platinum = 0;

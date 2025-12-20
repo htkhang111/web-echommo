@@ -11,10 +11,10 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 public class ExplorationResponse {
-    // --- CÁC TRƯỜNG CŨ (BẮT BUỘC GIỮ) ---
+    // === CÁC TRƯỜNG CŨ (BẮT BUỘC GIỮ) ===
     private String message;
-    private String type;       // GATHERING, ENEMY, ITEM, TEXT...
-    private BigDecimal goldGained; // Đổi sang BigDecimal cho đồng bộ, hoặc giữ Long nếu FE ép kiểu
+    private String type;
+    private BigDecimal goldGained; // FE cũ vẫn đọc được BigDecimal như số
 
     private Long currentExp;
     private Integer currentLv;
@@ -26,13 +26,12 @@ public class ExplorationResponse {
     private Integer rewardAmount;
     private Integer rewardItemId;
 
-    // Legacy fields (có thể giữ để tương thích ngược nếu code cũ gọi)
     private String itemReceived;
     private int quantity;
 
-    // --- CÁC TRƯỜNG MỚI (LOGIC ECHO/GOLD) ---
+    // === CÁC TRƯỜNG MỚI ===
     private String log;
-    private String rewardType;     // GOLD, ITEM, CURRENCY
+    private String rewardType;
     private String rewardValue;
     private String imageUrl;
     private boolean specialReward;

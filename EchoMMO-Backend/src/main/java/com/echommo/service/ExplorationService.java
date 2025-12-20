@@ -333,28 +333,29 @@ public class ExplorationService {
     public ExplorationResponse explore(User user, int mapId) {
         ExplorationResponse response = new ExplorationResponse();
 
-        // [FIX] Lấy data cũ để điền vào response tránh lỗi FE
         Character character = characterRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Character not found"));
         Wallet wallet = walletRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
+        // [FIX] Điền data cũ cho FE
         response.setCurrentLv(character.getLevel());
         response.setCurrentExp(character.getCurrentExp());
         response.setCurrentEnergy(character.getCurrentEnergy());
         response.setMaxEnergy(character.getMaxEnergy());
 
-        // Roll Item
-        int itemId = rollItemForMap(mapId);
-        Item item = itemRepository.findById((long) itemId).orElse(null);
+        int itemIdInt = rollItemForMap(mapId);
+        long itemId = (long) itemIdInt;
+
+        Item item = itemRepository.findById(itemId).orElse(null);
 
         if (item == null) {
             response.setMessage("Bạn tìm quanh nhưng không thấy gì.");
             return response;
         }
 
-        // --- 1. GOLD ORE ---
-        if (itemId == GameConstants.MAT_ORE_GOLD) {
+        // 1. GOLD
+        if (itemIdInt == GameConstants.MAT_ORE_GOLD) {
             long level = character.getLevel();
             double multiplier = 1 + (level / 10.0);
             double rng = ThreadLocalRandom.current().nextDouble(0.8, 1.2);
@@ -369,21 +370,27 @@ public class ExplorationService {
             response.setRewardType("GOLD");
             response.setRewardValue(String.valueOf(goldReward));
             response.setImageUrl(item.getImageUrl());
-            response.setGoldGained(BigDecimal.valueOf(goldReward)); // Cho FE cũ
+            response.setGoldGained(BigDecimal.valueOf(goldReward));
+            response.setType("GATHERING");
             return response;
         }
 
-        // --- 2. ITEM ---
-        inventoryService.addItemToInventory(user, itemId, 1);
+        // 2. ITEM
+        // [FIX] Cast int cho method addItemToInventory (giả sử nó nhận int)
+        inventoryService.addItemToInventory(user, (int)itemId, 1);
+
+        response.setMessage("Thu thập thành công: " + item.getName());
+        response.setRewardName(item.getName());
+        response.setRewardItemId((int)itemId);
+        response.setRewardAmount(1);
+        response.setType("ITEM");
 
         StringBuilder message = new StringBuilder("Bạn nhận được: " + item.getName());
-        response.setMessage("Thu thập thành công");
-        response.setRewardName(item.getName());
-        response.setRewardItemId(itemId);
 
-        boolean isRareDrop = (itemId == GameConstants.MAT_WOOD_BLACK ||
-                itemId == GameConstants.MAT_ORE_STRANGE ||
-                itemId == GameConstants.MAT_FISH_MEGALODON);
+        // 3. ECHO DROP
+        boolean isRareDrop = (itemIdInt == GameConstants.MAT_WOOD_BLACK ||
+                itemIdInt == GameConstants.MAT_ORE_STRANGE ||
+                itemIdInt == GameConstants.MAT_FISH_MEGALODON);
 
         if (isRareDrop) {
             if (random.nextDouble() < GameConstants.ECHO_DROP_CHANCE) {
