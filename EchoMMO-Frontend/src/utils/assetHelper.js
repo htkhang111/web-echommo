@@ -15,6 +15,7 @@ const PREFIX_MAP = {
 // Helper: Ghép Base URL với path
 const getUrl = (path) => {
   // Nếu path đã là full url (http) hoặc data base64 thì giữ nguyên
+  if (!path) return "";
   if (path.startsWith("http") || path.startsWith("data:")) return path;
   
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
@@ -61,6 +62,7 @@ export const resolveItemImage = (itemCode) => {
   }
 
   // --- MATERIALS ---
+  // Mặc định các code khác (r_, o_, f_, w_) nằm trong material
   return getUrl(`/resources/material/${lowerCode}.png`);
 };
 

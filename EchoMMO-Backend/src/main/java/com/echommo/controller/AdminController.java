@@ -9,13 +9,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')") // Apply security for all methods
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
     private final AdminService adminService;
@@ -71,12 +72,22 @@ public class AdminController {
     @PostMapping("/grant-gold")
     public ResponseEntity<?> grantGold(@RequestBody Map<String, Object> payload) {
         String username = (String) payload.get("username");
-        // Handle Integer/Long conversion safely
         Number amountNum = (Number) payload.get("amount");
         Long amount = amountNum.longValue();
 
         adminService.grantGold(username, amount);
         return ResponseEntity.ok("Gold granted successfully");
+    }
+
+    // [NEW] API Ban thưởng EchoCoin
+    @PostMapping("/grant-echo")
+    public ResponseEntity<?> grantEcho(@RequestBody Map<String, Object> payload) {
+        String username = (String) payload.get("username");
+        // Chuyển đổi an toàn sang BigDecimal
+        BigDecimal amount = new BigDecimal(payload.get("amount").toString());
+
+        adminService.grantEcho(username, amount);
+        return ResponseEntity.ok("EchoCoin granted successfully");
     }
 
     @PostMapping("/grant-item")
@@ -107,18 +118,8 @@ public class AdminController {
         return ResponseEntity.ok("Notification sent");
     }
 
-    // Old method for backward compatibility if needed, or can be removed if frontend fully switched
     @PostMapping("/give-reward")
     public ResponseEntity<?> giveReward(@RequestBody Map<String, String> payload) {
-        try {
-            Integer userId = Integer.parseInt(payload.get("userId"));
-            String type = payload.get("type"); // GOLD or ECHO
-            String amount = payload.get("amount");
-            // Mapping this simple old endpoint to direct logic if needed,
-            // but the new frontend seems to use grant-gold/grant-item
-            return ResponseEntity.ok("Use new endpoints /grant-gold or /grant-item");
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
-        }
+        return ResponseEntity.ok("Use new endpoints /grant-gold, /grant-echo or /grant-item");
     }
 }

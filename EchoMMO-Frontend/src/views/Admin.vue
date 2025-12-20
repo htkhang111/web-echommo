@@ -50,6 +50,13 @@
               <div class="number gold-text">{{ formatNumber(adminStore.stats.totalGold || 0) }}</div>
             </div>
           </div>
+          <div class="stat-card glass-panel highlight-echo">
+            <div class="icon-box echo"><i class="fas fa-gem"></i></div>
+            <div class="info">
+              <h3>Tổng EchoCoin</h3>
+              <div class="number echo-text">{{ formatNumber(adminStore.stats.totalEchoMined || 0) }}</div>
+            </div>
+          </div>
         </section>
 
         <section v-if="activeTab === 'users'" class="data-section">
@@ -152,10 +159,10 @@
                   <input v-model.number="itemForm.basePrice" type="number" placeholder="Giá trị (Vàng)" />
                   <input v-model="itemForm.imageUrl" placeholder="Linh Ảnh (URL)" class="full-col" />
                   <div class="form-actions full-col">
-                     <label class="checkbox-label">
-                       <input type="checkbox" v-model="itemForm.isSystemItem"> Vật phẩm Vô Hạn (Shop)
-                     </label>
-                     <button type="submit" class="btn-submit">Khai Lò (Tạo)</button>
+                      <label class="checkbox-label">
+                        <input type="checkbox" v-model="itemForm.isSystemItem"> Vật phẩm Vô Hạn (Shop)
+                      </label>
+                      <button type="submit" class="btn-submit">Khai Lò (Tạo)</button>
                   </div>
                </form>
             </div>
@@ -194,12 +201,21 @@
         <section v-if="activeTab === 'notify'" class="grid-2-col">
            <div class="glass-panel">
              <h3 class="panel-title"><i class="fas fa-gift"></i> Ban Thưởng Thiên Triều</h3>
+             
              <form @submit.prevent="handleGrantGold" class="simple-form">
                <input v-model="grantGoldForm.username" placeholder="Đạo hiệu người nhận" required />
                <input v-model.number="grantGoldForm.amount" type="number" placeholder="Số lượng vàng" required />
                <button type="submit" class="btn-action gold">Ban Ngân Lượng</button>
              </form>
+
+             <form @submit.prevent="handleGrantEcho" class="simple-form" style="margin-top: 15px;">
+                <input v-model="grantEchoForm.username" placeholder="Đạo hiệu người nhận" required />
+                <input v-model="grantEchoForm.amount" type="text" placeholder="Số lượng Echo (VD: 10.5)" required />
+                <button type="submit" class="btn-action cyan">Ban EchoCoin</button>
+             </form>
+
              <div class="divider-line"></div>
+
              <form @submit.prevent="handleGrantItem" class="simple-form">
                <input v-model="grantItemForm.username" placeholder="Đạo hiệu người nhận" required />
                <select v-model.number="grantItemForm.itemId" required>
@@ -279,7 +295,10 @@ const tabs = [
 const userFilters = reactive({ search: "", role: "", status: "" });
 const itemFilters = reactive({ search: "", type: "", rarity: "" });
 const itemForm = reactive({ name: "", description: "", type: "WEAPON", rarity: "C", basePrice: 100, imageUrl: "", isSystemItem: false });
+
+// Forms
 const grantGoldForm = reactive({ username: "", amount: 1000 });
+const grantEchoForm = reactive({ username: "", amount: "" }); // [NEW] Echo Form
 const grantItemForm = reactive({ username: "", itemId: 0, quantity: 1 });
 const notificationForm = reactive({ title: "", message: "", type: "INFO", recipientUsername: "" });
 
@@ -327,10 +346,24 @@ const createItem = async () => {
     try { await axiosClient.post("/admin/item/create", itemForm); notificationStore.showToast("Chế tác thành công!", "success"); adminStore.fetchItems(); showCreateItem.value = false; } catch(e) { notificationStore.showToast("Lỗi chế tác!", "error"); }
 };
 const handleGrantGold = async () => {
-    try { await adminStore.grantGold(grantGoldForm); notificationStore.showToast("Đã cấp ngân lượng!", "success"); } catch(e) { notificationStore.showToast("Lỗi!", "error"); }
+    try { await adminStore.grantGold(grantGoldForm.username, grantGoldForm.amount); notificationStore.showToast("Đã cấp ngân lượng!", "success"); } catch(e) { notificationStore.showToast("Lỗi!", "error"); }
 };
+
+// [NEW] Xử lý Ban EchoCoin
+const handleGrantEcho = async () => {
+    try { 
+        await adminStore.grantEcho(grantEchoForm.username, grantEchoForm.amount); 
+        notificationStore.showToast("Đã ban EchoCoin!", "success");
+        // Reset form
+        grantEchoForm.username = "";
+        grantEchoForm.amount = "";
+    } catch(e) { 
+        notificationStore.showToast("Lỗi ban thưởng Echo!", "error"); 
+    }
+};
+
 const handleGrantItem = async () => {
-    try { await adminStore.grantItem(grantItemForm); notificationStore.showToast("Đã ban bảo vật!", "success"); } catch(e) { notificationStore.showToast("Lỗi!", "error"); }
+    try { await adminStore.grantItem(grantItemForm.username, grantItemForm.itemId, grantItemForm.quantity); notificationStore.showToast("Đã ban bảo vật!", "success"); } catch(e) { notificationStore.showToast("Lỗi!", "error"); }
 };
 const handleSendNotification = async () => {
     try { await adminStore.sendNotification(notificationForm); notificationStore.showToast("Đã phát loa!", "success"); } catch(e) { notificationStore.showToast("Lỗi!", "error"); }
@@ -473,16 +506,13 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-/* --- [UPDATED] TABLE WRAPPER WITH SCROLL --- */
 .table-wrapper {
-  /* Giới hạn chiều cao để không bị trôi quá dài */
   max-height: 70vh; 
-  overflow-y: auto; /* Hiện thanh cuộn khi nội dung quá dài */
+  overflow-y: auto; 
   position: relative;
-  padding: 0; /* Để thanh cuộn sát lề đẹp hơn */
+  padding: 0;
 }
 
-/* Tùy chỉnh thanh cuộn cho bảng */
 .custom-scroll-panel::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -492,12 +522,12 @@ onMounted(() => {
   border-radius: 4px;
 }
 .custom-scroll-panel::-webkit-scrollbar-thumb {
-  background: #5d4037; /* Màu gỗ */
+  background: #5d4037;
   border-radius: 4px;
   border: 1px solid #3e2723;
 }
 .custom-scroll-panel::-webkit-scrollbar-thumb:hover {
-  background: #ffca28; /* Màu vàng kim khi hover */
+  background: #ffca28;
 }
 
 .wuxia-table {
@@ -505,7 +535,6 @@ onMounted(() => {
   border-collapse: collapse;
 }
 
-/* Sticky Header: Giữ tiêu đề bảng luôn hiển thị khi cuộn */
 .wuxia-table th {
   position: sticky;
   top: 0;
@@ -517,7 +546,6 @@ onMounted(() => {
   border-bottom: 2px solid rgba(255, 215, 0, 0.5);
   text-transform: uppercase;
   letter-spacing: 1px;
-  /* Màu nền đậm để che nội dung trôi phía sau */
   background: rgba(30, 20, 15, 0.98); 
   box-shadow: 0 2px 5px rgba(0,0,0,0.5);
 }
@@ -551,6 +579,9 @@ onMounted(() => {
   border-left: 4px solid #444;
 }
 .stat-card.highlight { border-left-color: #ffca28; }
+/* [NEW] Style cho thẻ EchoCoin */
+.stat-card.highlight-echo { border-left-color: #26c6da; }
+
 .icon-box {
   width: 80px; height: 80px;
   border-radius: 50%;
@@ -561,8 +592,13 @@ onMounted(() => {
 .user { color: #42a5f5; text-shadow: 0 0 10px #42a5f5; }
 .item { color: #ab47bc; text-shadow: 0 0 10px #ab47bc; }
 .gold { color: #ffca28; text-shadow: 0 0 10px #ffca28; }
+/* [NEW] Màu icon Echo */
+.echo { color: #26c6da; text-shadow: 0 0 10px #26c6da; }
+
 .info h3 { margin: 0; color: #888; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
 .info .number { font-size: 2.5rem; font-weight: bold; color: #eee; font-family: 'Cinzel', serif; }
+/* [NEW] Màu chữ số Echo */
+.echo-text { color: #26c6da; }
 
 /* Badges */
 .badge { padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; }
@@ -608,6 +644,8 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
   border-radius: 4px; text-transform: uppercase; transition: 0.3s; font-family: 'Cinzel', serif; letter-spacing: 1px;
 }
 .btn-action.gold { background: linear-gradient(45deg, #FFD700, #FFA000); color: #000; }
+/* [NEW] Button EchoCoin */
+.btn-action.cyan { background: linear-gradient(45deg, #26c6da, #00acc1); color: #fff; }
 .btn-action.blue { background: linear-gradient(45deg, #42a5f5, #1976d2); color: #fff; }
 .btn-action.red { background: linear-gradient(45deg, #ef5350, #c62828); color: #fff; }
 .btn-submit { background: #ffca28; color: #000; margin-top: 10px; font-weight: bold; }

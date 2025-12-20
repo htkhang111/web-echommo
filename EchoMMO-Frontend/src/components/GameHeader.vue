@@ -17,7 +17,7 @@
 
         <div class="res-module echo" title="Echo Coin">
           <img :src="getAssetUrl('r_coinEcho.png')" class="icon-img" />
-          <div class="res-val echo-val">{{ formatEcho(walletStore.wallet?.echoCoin || 0) }}</div>
+          <div class="res-val echo-val">{{ formatEcho(currentEcho) }}</div>
         </div>
 
         <div class="res-module energy" title="Chân Khí">
@@ -78,7 +78,7 @@ import { useChatStore } from "../stores/chatStore";
 import { getCurrentSkin, getAssetUrl } from "@/utils/assetHelper";
 import ChatWidget from "./ChatWidget.vue";
 
-// [FIX] Khai báo emits để tránh warning 'Extraneous non-emits event listeners'
+// [FIX] Khai báo emits để tránh warning trong Console
 const emit = defineEmits(['toggle-sidebar']);
 
 const authStore = useAuthStore();
@@ -88,6 +88,7 @@ const chatStore = useChatStore();
 
 const friendRequestCount = ref(0);
 
+// Helper truy cập wallet an toàn
 const walletStore = {
   wallet: computed(() => authStore.user?.wallet)
 };
@@ -105,7 +106,11 @@ const handleAvatarError = (e) => {
   e.target.src = fallbackUrl;
 }
 
+// [FIX] Computed cho Gold (Đã có sẵn)
 const currentGold = computed(() => walletStore.wallet.value?.gold || 0);
+
+// [FIX] Thêm Computed cho EchoCoin để lấy giá trị chính xác từ Ref
+const currentEcho = computed(() => walletStore.wallet.value?.echoCoin || 0);
 
 const formatNumber = (val) => {
   const num = Number(val);

@@ -1,85 +1,101 @@
-import { defineStore } from "pinia";
-import axiosClient from "../api/axiosClient";
+import { defineStore } from 'pinia';
+import axiosClient from '../api/axiosClient';
 
-export const useAdminStore = defineStore("admin", {
+export const useAdminStore = defineStore('admin', {
   state: () => ({
-    stats: {},
+    stats: {
+      totalUsers: 0,
+      totalItems: 0,
+      totalEchoMined: 0,
+      totalGold: 0
+    },
     users: [],
     items: [],
-    listings: [],
+    loading: false,
+    error: null
   }),
+
   actions: {
     async fetchStats() {
+      this.loading = true;
       try {
-        const res = await axiosClient.get("/admin/stats");
+        const res = await axiosClient.get('/admin/stats');
         this.stats = res.data;
-      } catch (e) {
-        console.error(e);
+      } catch (err) {
+        this.error = err.response?.data?.message || 'Lỗi tải thống kê';
+        console.error(err);
+      } finally {
+        this.loading = false;
       }
     },
+
     async fetchUsers() {
+      this.loading = true;
       try {
-        const res = await axiosClient.get("/admin/users");
+        const res = await axiosClient.get('/admin/users');
         this.users = res.data;
-      } catch (e) {
-        console.error(e);
+      } catch (err) {
+        this.error = "Lỗi tải Users";
+      } finally {
+        this.loading = false;
       }
     },
+
+    async banUser(userId, reason) {
+      await axiosClient.post(`/admin/user/ban/${userId}`, { reason });
+      await this.fetchUsers();
+    },
+
+    async unbanUser(userId) {
+      await axiosClient.post(`/admin/user/unban/${userId}`);
+      await this.fetchUsers();
+    },
+
+    async deleteUser(userId) {
+      if(!confirm("Xóa vĩnh viễn user này?")) return;
+      await axiosClient.delete(`/admin/user/${userId}`);
+      await this.fetchUsers();
+    },
+
     async fetchItems() {
+      this.loading = true;
       try {
-        const res = await axiosClient.get("/admin/items");
+        const res = await axiosClient.get('/admin/items');
         this.items = res.data;
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    async fetchListings() {
-      try {
-        const res = await axiosClient.get("/admin/listings");
-        this.listings = res.data;
-      } catch (e) {
-        console.error(e);
+      } catch (err) {
+        this.error = "Lỗi tải Items";
+      } finally {
+        this.loading = false;
       }
     },
 
-    // --- Logic Xử Lý User ---
-    async banUser(id, reason) {
-      // Để component xử lý try-catch và popup
-      await axiosClient.post(`/admin/user/ban/${id}`, { reason });
-      await this.fetchUsers();
-    },
-    async unbanUser(id) {
-      await axiosClient.post(`/admin/user/unban/${id}`);
-      await this.fetchUsers();
-    },
-    async deleteUser(id) {
-      // Bỏ confirm ở đây, Component đã lo vụ hỏi xác nhận rồi
-      await axiosClient.delete(`/admin/user/${id}`);
-      await this.fetchUsers();
-    },
-
-    // --- Logic Xử Lý Item/Listing ---
-    async deleteItem(id) {
-      await axiosClient.delete(`/admin/item/${id}`);
+    async createItem(itemData) {
+      await axiosClient.post('/admin/item/create', itemData);
       await this.fetchItems();
     },
-    async deleteListing(id) {
-      await axiosClient.delete(`/admin/listing/${id}`);
-      await this.fetchListings();
+
+    async deleteItem(itemId) {
+      if(!confirm("Xóa item này?")) return;
+      await axiosClient.delete(`/admin/item/${itemId}`);
+      await this.fetchItems();
     },
 
-    // --- Logic Ban Thưởng & Thông Báo ---
-    // Bỏ try-catch và alert, để lỗi bắn ra cho Admin.vue bắt lấy
-    async grantGold(payload) {
-      await axiosClient.post("/admin/grant-gold", payload);
+    // --- Rewards ---
+    async grantGold(username, amount) {
+      await axiosClient.post('/admin/grant-gold', { username, amount });
     },
 
-    async grantItem(payload) {
-      await axiosClient.post("/admin/grant-item", payload);
+    // [NEW] Action phát EchoCoin
+    async grantEcho(username, amount) {
+        await axiosClient.post('/admin/grant-echo', { username, amount });
     },
 
+    async grantItem(username, itemId, quantity) {
+      await axiosClient.post('/admin/grant-item', { username, itemId, quantity });
+    },
+    
     async sendNotification(payload) {
-      await axiosClient.post("/admin/notification/create", payload);
-    },
-  },
+        await axiosClient.post('/admin/notification/create', payload);
+    }
+  }
 });

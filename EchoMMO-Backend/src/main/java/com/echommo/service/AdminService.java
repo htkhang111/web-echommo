@@ -20,8 +20,8 @@ public class AdminService {
     private final WalletRepository walletRepository;
     private final ItemRepository itemRepository;
     private final UserItemRepository userItemRepository;
-    private final CharacterRepository characterRepository; // [NEW] Cần để tìm nhân vật
-    private final NotificationService notificationService; // [NEW] Dùng service thay vì repo trực tiếp
+    private final CharacterRepository characterRepository;
+    private final NotificationService notificationService;
 
     public Map<String, Object> getSystemStats() {
         Map<String, Object> stats = new HashMap<>();
@@ -98,25 +98,39 @@ public class AdminService {
                 "Bạn nhận được " + amount + " vàng từ ban quản trị.", NotificationType.REWARD);
     }
 
+    // [NEW] Hàm phát thưởng EchoCoin
+    @Transactional
+    public void grantEcho(String username, BigDecimal amount) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+        Wallet wallet = walletRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+
+        // Cộng dồn EchoCoin (xử lý null an toàn)
+        BigDecimal currentEcho = wallet.getEchoCoin() != null ? wallet.getEchoCoin() : BigDecimal.ZERO;
+        wallet.setEchoCoin(currentEcho.add(amount));
+        walletRepository.save(wallet);
+
+        createNotification(user.getUsername(), "Thưởng EchoCoin",
+                "Bạn nhận được " + amount + " EchoCoin từ ban quản trị.", NotificationType.REWARD);
+    }
+
     @Transactional
     public void grantItem(String username, Integer itemId, int quantity) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
 
-        // [FIX] Item phải được add vào Character, không phải User trực tiếp
         Character character = characterRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("User chưa tạo nhân vật, không thể nhận đồ!"));
 
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
-        // [FIX] Tìm item trong túi đồ của nhân vật (dùng CharId)
         UserItem userItem = userItemRepository.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), itemId)
                 .orElse(new UserItem());
 
-        // [FIX] Sử dụng đúng tên hàm getter/setter của UserItem entity
-        if (userItem.getUserItemId() == null) { // ID là userItemId, không phải Id
-            userItem.setCharacter(character);   // Set Character, không phải setUser
+        if (userItem.getUserItemId() == null) {
+            userItem.setCharacter(character);
             userItem.setItem(item);
             userItem.setQuantity(0);
             userItem.setIsEquipped(false);
