@@ -72,3 +72,5 @@ export const getEnemyImage = (name, state = "idle") => {
   
   return getEnemyImg(`${prefix}${fileName}.png`);
 };
+
+export const getItemImage = resolveItemImage;
