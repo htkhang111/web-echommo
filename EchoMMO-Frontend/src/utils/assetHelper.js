@@ -1,69 +1,83 @@
 import { reactive } from "vue";
 
-// URL gốc trỏ vào GitHub Pages
-const GITHUB_BASE = "https://htkhang111.github.io";
+// 1. Cấu hình Base URL động
+// Ưu tiên lấy từ biến môi trường VITE_ASSET_BASE_URL (Tạo file .env để config nếu cần)
+// Nếu không có -> Fallback về GitHub Pages như cũ
+const BASE_URL = import.meta.env.VITE_ASSET_BASE_URL || "https://htkhang111.github.io";
+
+// 2. Map tiền tố (Prefix) -> Thư mục assets tương ứng
+// Giúp code gọn hơn, dễ mở rộng thêm loại item mới
+const PREFIX_MAP = {
+  "s_":  "/resources/equipment/sword",
+  "a_":  "/resources/equipment/armor",
+  "h_":  "/resources/equipment/helmet",
+  "ri_": "/resources/equipment/ring",
+  "n_":  "/resources/equipment/necklace",
+};
+
+// Helper: Ghép Base URL với path (đảm bảo xử lý dấu / chuẩn)
+const getUrl = (path) => {
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${BASE_URL}${cleanPath}`;
+};
 
 export const resolveItemImage = (itemCode) => {
-  // 1. Fallback nếu không có code (Mặc định trả về Than)
-  if (!itemCode) return `${GITHUB_BASE}/resources/material/o_coalOre.png`; 
-  
-  // 2. Nếu server trả về link full (http...) thì giữ nguyên
+  // 1. Fallback mặc định nếu không có code (Trả về Than)
+  if (!itemCode) return getUrl("/resources/material/o_coalOre.png");
+
+  // 2. Nếu là link full (http...) thì giữ nguyên
   if (itemCode.includes("http")) return itemCode;
 
   const code = itemCode.trim();
-  const lowerCode = code.toLowerCase();
+  const lowerCode = code.toLowerCase(); // Chuẩn hóa toàn bộ về chữ thường để tránh lỗi 404 trên Linux/GitHub
 
-  // --- UI & LOGO ---
-  if (lowerCode === "logo") return `${GITHUB_BASE}/logo/Logo.png`;
+  // --- SPECIAL CASES ---
+  if (lowerCode === "logo") return getUrl("/logo/Logo.png");
   
+  // Xử lý riêng potion nếu user để nó nằm ngoài folder material
+  if (lowerCode === "r_potion") return getUrl("/resources/r_potion.png");
+
   // --- COIN (Tiền tệ) ---
   if (lowerCode.includes("coin")) {
-      if (lowerCode.includes("echo")) return `${GITHUB_BASE}/resources/coin/r_coinEcho.png`;
-      return `${GITHUB_BASE}/resources/coin/r_coin.png`;
+      const fileName = lowerCode.includes("echo") ? "r_coinEcho.png" : "r_coin.png";
+      return getUrl(`/resources/coin/${fileName}`);
   }
 
-  // --- EQUIPMENT (Trang bị) ---
-  // Kiểm tra tiền tố để trỏ vào đúng thư mục con
-  if (lowerCode.startsWith("s_")) return `${GITHUB_BASE}/resources/equipment/sword/${code}.png`;
-  if (lowerCode.startsWith("a_")) return `${GITHUB_BASE}/resources/equipment/armor/${code}.png`;
-  if (lowerCode.startsWith("h_")) return `${GITHUB_BASE}/resources/equipment/helmet/${code}.png`;
-  
-  // Riêng giày (Boots) bắt đầu bằng b_ nên cần check kỹ để không nhầm với Background
-  if (lowerCode.startsWith("b_") && lowerCode.includes("boot")) {
-      return `${GITHUB_BASE}/resources/equipment/boots/${code}.png`;
+  // --- EQUIPMENT (Check dựa trên Prefix Map) ---
+  for (const [prefix, folder] of Object.entries(PREFIX_MAP)) {
+    if (lowerCode.startsWith(prefix)) {
+      // Trả về đường dẫn với tên file đã lowercase
+      return getUrl(`${folder}/${lowerCode}.png`);
+    }
   }
-  
-  if (lowerCode.startsWith("ri_")) return `${GITHUB_BASE}/resources/equipment/ring/${code}.png`;
-  if (lowerCode.startsWith("n_")) return `${GITHUB_BASE}/resources/equipment/necklace/${code}.png`;
 
-  // --- BACKGROUND (Ảnh nền) ---
-  // Nếu bắt đầu bằng b_ mà KHÔNG PHẢI giày -> Là Background
+  // --- AMBIGUOUS: 'b_' (Boots vs Background) ---
   if (lowerCode.startsWith("b_")) {
-      // Fix cứng extension cho background vì trên git có thể là jpg hoặc png
-      if (lowerCode.includes("doanhtrai")) return `${GITHUB_BASE}/background/${code}.png`;
-      return `${GITHUB_BASE}/background/${code}.jpg`;
+      // Logic chặt chẽ hơn: Phải có chữ "boot" trong tên mới tính là Giày
+      if (lowerCode.includes("boot")) {
+          return getUrl(`/resources/equipment/boots/${lowerCode}.png`);
+      }
+      
+      // Còn lại là Background
+      // Giữ logic cũ: doanhtrai -> png, các background khác -> jpg
+      const ext = lowerCode.includes("doanhtrai") ? "png" : "jpg";
+      return getUrl(`/background/${lowerCode}.${ext}`);
   }
 
-  // --- RESOURCES / MATERIALS (Mặc định) ---
-  // Các code như: w_wood, o_ironOre, f_fish, r_potion... nằm thẳng trong folder material
-  // (Lưu ý: r_potion.png cũng nằm trong resources hoặc resources/material tùy cách bro up, 
-  // code dưới đây ưu tiên tìm trong material)
-  
-  // Xử lý riêng potion nếu nó nằm ngoài (tùy cấu trúc git của bro, nhưng safe nhất là cứ trỏ vào material nếu bro đã quy hoạch)
-  if (lowerCode === "r_potion") return `${GITHUB_BASE}/resources/r_potion.png`;
-
-  return `${GITHUB_BASE}/resources/material/${code}.png`;
+  // --- MATERIALS (Mặc định cho các case còn lại) ---
+  // w_wood, o_ironOre, f_fish... sẽ chạy vào đây
+  return getUrl(`/resources/material/${lowerCode}.png`);
 };
 
-// --- EXPORTS CẦN THIẾT CHO VUE COMPONENT ---
-export const getAppLogo = () => `${GITHUB_BASE}/logo/Logo.png`;
+// --- EXPORTS ALIAS (Giữ tương thích ngược) ---
+export const getAppLogo = () => getUrl("/logo/Logo.png");
 export const getAssetUrl = resolveItemImage;
 export const getItemImage = resolveItemImage;
-export const getResourceImage = resolveItemImage; // Giữ alias này để code cũ không bị lỗi
+export const getResourceImage = resolveItemImage;
 
 // --- CHARACTER & ENEMY HELPERS ---
-const getCharImg = (name) => `${GITHUB_BASE}/character/${name}`;
-const getEnemyImg = (name) => `${GITHUB_BASE}/enemy/${name}`;
+const getCharImg = (name) => getUrl(`/character/${name}`);
+const getEnemyImg = (name) => getUrl(`/enemy/${name}`);
 
 export const CHARACTER_SKINS = reactive({
   skin_yasou: { 
@@ -100,7 +114,7 @@ export const getCurrentSkin = (avatarUrl) => CHARACTER_SKINS[avatarUrl] || CHARA
 export const getEnemyImage = (name, state = "idle") => {
   if (!name) return getEnemyImg("idle_goblin.png");
   
-  // Chuẩn hóa tên enemy (xóa dấu, lowercase) để map file
+  // Chuẩn hóa tên enemy
   const normalizedName = name.toLowerCase(); 
   const prefix = state === 'attack' ? 'atk_' : 'idle_';
   

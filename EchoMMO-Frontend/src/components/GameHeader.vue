@@ -2,6 +2,9 @@
   <header class="game-header">
     <div class="header-texture"></div>
     <div class="header-border-bot"></div>
+    <button class="menu-toggle mobile-only" @click="$emit('toggle-sidebar')">
+      <i class="fas fa-bars"></i>
+    </button>
     <div class="spacer"></div>
 
     <div class="hud-container" v-if="authStore.token">
@@ -75,6 +78,9 @@ import { useChatStore } from "../stores/chatStore";
 import { getCurrentSkin, getAssetUrl } from "@/utils/assetHelper";
 import ChatWidget from "./ChatWidget.vue";
 
+// [FIX] Khai báo emits để tránh warning 'Extraneous non-emits event listeners'
+const emit = defineEmits(['toggle-sidebar']);
+
 const authStore = useAuthStore();
 const charStore = useCharacterStore();
 const notiStore = useNotificationStore();
@@ -110,7 +116,6 @@ const formatNumber = (val) => {
   return Math.floor(num).toString();
 };
 
-// Format số lẻ cho Echo Coin (Hiển thị 4 số sau dấu phẩy)
 const formatEcho = (val) => {
   const num = Number(val);
   if (!num || isNaN(num)) return "0.0000";
@@ -161,6 +166,16 @@ onMounted(() => {
 
 .spacer {
   flex: 1;
+}
+
+.menu-toggle {
+  background: transparent;
+  border: none;
+  color: #fbc02d;
+  font-size: 1.5rem;
+  cursor: pointer;
+  margin-right: 15px;
+  padding: 5px;
 }
 
 .hud-container {
