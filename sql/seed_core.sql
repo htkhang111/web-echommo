@@ -136,25 +136,33 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- =======================================================
 INSERT INTO items (item_id, code, name, type, slot_type, base_rarity, tier, base_price, description, image_url)
 VALUES (1, 'w_wood', 'Gỗ Sồi', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 10, 'Gỗ thông thường.', 'w_wood.png'),
-       (2, 'w_woodRed', 'Gỗ Khô', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 15, 'Gỗ đã qua xử lý.', 'w_woodRed.png'),
-       (3, 'w_woodWhite', 'Gỗ Lạnh', 'MATERIAL', 'MATERIAL', 'UNCOMMON', 2, 50, 'Gỗ từ vùng băng giá.', 'w_woodWhite.png'),
-       (4, 'w_woodBlack', 'Gỗ Hắc Ám', 'MATERIAL', 'MATERIAL', 'MYTHIC', 5, 500, 'Gỗ đen tuyền, cực hiếm.', 'w_woodBlack.png'),
+       (2, 'w_wood-red', 'Gỗ Khô', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 15, 'Gỗ đã qua xử lý.', 'w_wood-red.png'),
+       (3, 'w_wood-white', 'Gỗ Lạnh', 'MATERIAL', 'MATERIAL', 'UNCOMMON', 2, 50, 'Gỗ từ vùng băng giá.',
+        'w_wood-white.png'),
+       (4, 'w_wood-black', 'Gỗ Hắc Ám', 'MATERIAL', 'MATERIAL', 'MYTHIC', 5, 500, 'Gỗ đen tuyền, cực hiếm.',
+        'w_wood-black.png'),
        (5, 'o_coal', 'Than', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 5, 'Nhiên liệu đen.', 'o_coal.png'),
        (6, 'o_copper', 'Quặng Đồng', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 10, 'Nguyên liệu đúc đồng.', 'o_copper.png'),
        (7, 'o_iron', 'Sắt', 'MATERIAL', 'MATERIAL', 'RARE', 2, 50, 'Kim loại cứng cáp.', 'o_iron.png'),
        (8, 'o_platinum', 'Bạch Kim', 'MATERIAL', 'MATERIAL', 'EPIC', 3, 300, 'Kim loại quý hiếm.', 'o_platinum.png'),
        (9, 'f_fish', 'Cá', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 10, 'Cá sông tươi ngon.', 'f_fish.png'),
        (10, 'f_shark', 'Cá Mập', 'MATERIAL', 'MATERIAL', 'UNCOMMON', 2, 100, 'Thịt cá mập.', 'f_shark.png'),
-       (11, 'r_coinEcho', 'Echo Coin', 'MATERIAL', 'MATERIAL', 'LEGENDARY', 5, 1000, 'Đồng xu quyền năng.', 'r_coinEcho.png'),
-       (12, 'o_strange', 'Nguyên liệu lạ', 'MATERIAL', 'MATERIAL', 'MYTHIC', 5, 1000, 'Vật phẩm bí ẩn.', 'o_strange.png'),
-       (13, 'f_whiteshark', 'Cá Mập Trắng', 'MATERIAL', 'MATERIAL', 'RARE', 3, 500, 'Chúa tể vùng nước ngọt.', 'f_whiteshark.png'),
-       (14, 'f_megalodon', 'Megalodon', 'MATERIAL', 'MATERIAL', 'LEGENDARY', 5, 2000, 'Quái vật tiền sử.', 'f_megalodon.png');
+       (11, 'r_coinEcho', 'Echo Coin', 'MATERIAL', 'MATERIAL', 'LEGENDARY', 5, 1000, 'Đồng xu quyền năng.',
+        'r_coinEcho.png'),
+       (12, 'o_strange', 'Nguyên liệu lạ', 'MATERIAL', 'MATERIAL', 'MYTHIC', 5, 1000, 'Vật phẩm bí ẩn.',
+        'o_strange.png'),
+       (13, 'f_whiteshark', 'Cá Mập Trắng', 'MATERIAL', 'MATERIAL', 'RARE', 3, 500, 'Chúa tể vùng nước ngọt.',
+        'f_whiteshark.png'),
+       (14, 'f_megalodon', 'Megalodon', 'MATERIAL', 'MATERIAL', 'LEGENDARY', 5, 2000, 'Quái vật tiền sử.',
+        'f_megalodon.png');
 
 -- =======================================================
 -- 2. TRANG BỊ (EQUIPMENT)
 -- =======================================================
-INSERT INTO items (item_id, code, name, description, type, slot_type, tier, base_rarity, base_price, image_url, atk_bonus, def_bonus, hp_bonus, speed_bonus)
+INSERT INTO items (item_id, code, name, description, type, slot_type, tier, base_rarity, base_price, image_url,
+                   atk_bonus, def_bonus, hp_bonus, speed_bonus)
 VALUES (51, 's_sword_0', 'Kiếm Gỗ', 'Tập luyện.', 'WEAPON', 'WEAPON', 1, 'COMMON', 50, 's_sword_0.png', 5, 0, 0, 0),
        (52, 's_sword_1', 'Kiếm Sắt', 'Sắc bén.', 'WEAPON', 'WEAPON', 1, 'RARE', 200, 's_sword_1.png', 15, 0, 0, 0),
        (81, 'a_armor_0', 'Áo Vải', 'Thô sơ.', 'ARMOR', 'ARMOR', 1, 'COMMON', 40, 'a_armor_0.png', 0, 5, 10, 0),
-       (231, 'r_potion', 'Bình Máu Nhỏ', 'Hồi 50 HP', 'CONSUMABLE', 'CONSUMABLE', 1, 'COMMON', 20, 'r_potion.png', 0, 0, 0, 0);
+       (231, 'r_potion', 'Bình Máu Nhỏ', 'Hồi 50 HP', 'CONSUMABLE', 'CONSUMABLE', 1, 'COMMON', 20, 'r_potion.png', 0, 0,
+        0, 0);

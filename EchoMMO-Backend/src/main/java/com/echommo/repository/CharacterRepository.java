@@ -36,4 +36,5 @@ public interface CharacterRepository extends JpaRepository<Character, Integer> {
 
     @Query("SELECT c FROM Character c ORDER BY c.monsterKills DESC")
     List<Character> findTopMonsterKills(Pageable pageable);
+    List<Character> findTop10ByOrderByPvpWinsDesc();
 }

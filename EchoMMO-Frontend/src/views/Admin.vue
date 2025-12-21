@@ -138,9 +138,12 @@
             <div v-if="showCreateItem" class="create-panel glass-panel fade-in">
                <h3 class="panel-title-small">Lò Luyện Khí</h3>
                <form @submit.prevent="createItem" class="grid-form">
+                  <input v-model="itemForm.code" placeholder="Mã Vật Phẩm (Code - Duy nhất)" required />
+                  
                   <input v-model="itemForm.name" placeholder="Tên Pháp Bảo" required />
-                  <input v-model="itemForm.description" placeholder="Mô tả huyền năng" />
-                  <select v-model="itemForm.type">
+                  <input v-model="itemForm.description" placeholder="Mô tả huyền năng" class="full-col" />
+                  
+                  <select v-model="itemForm.type" @change="syncSlotType">
                     <option value="WEAPON">Binh Khí</option>
                     <option value="ARMOR">Y Phục</option>
                     <option value="HELMET">Mũ Giáp</option>
@@ -150,14 +153,26 @@
                     <option value="CONSUMABLE">Đan Dược</option>
                     <option value="MATERIAL">Thiên Tài Địa Bảo</option>
                   </select>
+
                   <select v-model="itemForm.rarity">
-                    <option value="C">Phàm Phẩm (C)</option>
-                    <option value="B">Linh Phẩm (B)</option>
-                    <option value="A">Tiên Phẩm (A)</option>
-                    <option value="S">Thần Phẩm (S)</option>
+                    <option value="COMMON">Thường (Common)</option>
+                    <option value="UNCOMMON">Phi Thường (Uncommon)</option>
+                    <option value="RARE">Hiếm (Rare)</option>
+                    <option value="EPIC">Sử Thi (Epic)</option>
+                    <option value="LEGENDARY">Huyền Thoại (Legendary)</option>
+                    <option value="MYTHIC">Thần Thoại (Mythic)</option>
                   </select>
+
                   <input v-model.number="itemForm.basePrice" type="number" placeholder="Giá trị (Vàng)" />
                   <input v-model="itemForm.imageUrl" placeholder="Linh Ảnh (URL)" class="full-col" />
+                  
+                  <div class="stats-inputs full-col">
+                      <input v-model.number="itemForm.atkBonus" type="number" placeholder="Tấn Công" />
+                      <input v-model.number="itemForm.defBonus" type="number" placeholder="Phòng Thủ" />
+                      <input v-model.number="itemForm.hpBonus" type="number" placeholder="Sinh Lực" />
+                      <input v-model.number="itemForm.speedBonus" type="number" placeholder="Tốc Độ" />
+                  </div>
+
                   <div class="form-actions full-col">
                       <label class="checkbox-label">
                         <input type="checkbox" v-model="itemForm.isSystemItem"> Vật phẩm Vô Hạn (Shop)
@@ -172,7 +187,7 @@
             <table class="wuxia-table">
               <thead>
                 <tr>
-                  <th>Mã (ID)</th>
+                  <th>Mã (Code)</th>
                   <th>Pháp Bảo</th>
                   <th>Chủng Loại</th>
                   <th>Phẩm Cấp</th>
@@ -182,7 +197,7 @@
               </thead>
               <tbody>
                 <tr v-for="i in filteredItems" :key="i.itemId">
-                  <td class="id-col">#{{ i.itemId }}</td>
+                  <td class="id-col">{{ i.code }}</td>
                   <td class="name-col">{{ i.name }}</td>
                   <td>{{ i.type }}</td>
                   <td :class="['rarity', 'rarity-' + i.rarity]">{{ i.rarity }}</td>
@@ -294,11 +309,27 @@ const tabs = [
 
 const userFilters = reactive({ search: "", role: "", status: "" });
 const itemFilters = reactive({ search: "", type: "", rarity: "" });
-const itemForm = reactive({ name: "", description: "", type: "WEAPON", rarity: "C", basePrice: 100, imageUrl: "", isSystemItem: false });
+
+// [FIX] Cập nhật itemForm để khớp với Entity Item
+const itemForm = reactive({
+    code: "", // Bắt buộc
+    name: "",
+    description: "",
+    type: "WEAPON",
+    slotType: "WEAPON", // Bắt buộc
+    rarity: "COMMON", // Giá trị mặc định chuẩn
+    basePrice: 100,
+    imageUrl: "",
+    isSystemItem: false,
+    atkBonus: 0,
+    defBonus: 0,
+    hpBonus: 0,
+    speedBonus: 0
+});
 
 // Forms
 const grantGoldForm = reactive({ username: "", amount: 1000 });
-const grantEchoForm = reactive({ username: "", amount: "" }); // [NEW] Echo Form
+const grantEchoForm = reactive({ username: "", amount: "" });
 const grantItemForm = reactive({ username: "", itemId: 0, quantity: 1 });
 const notificationForm = reactive({ title: "", message: "", type: "INFO", recipientUsername: "" });
 
@@ -341,20 +372,38 @@ const openAdminChat = (user) => {
   notificationStore.showToast(`Đang kết nối thần thức với ${user.username}`, "info");
 };
 
+// [NEW] Đồng bộ SlotType với Type (vì logic hiện tại chúng khá giống nhau)
+const syncSlotType = () => {
+    itemForm.slotType = itemForm.type;
+};
+
 // Actions
 const createItem = async () => {
-    try { await axiosClient.post("/admin/item/create", itemForm); notificationStore.showToast("Chế tác thành công!", "success"); adminStore.fetchItems(); showCreateItem.value = false; } catch(e) { notificationStore.showToast("Lỗi chế tác!", "error"); }
+    try { 
+        // Đảm bảo slotType có giá trị
+        if (!itemForm.slotType) itemForm.slotType = itemForm.type;
+        
+        await axiosClient.post("/admin/item/create", itemForm); 
+        notificationStore.showToast("Chế tác thành công!", "success"); 
+        adminStore.fetchItems(); 
+        showCreateItem.value = false;
+        
+        // Reset code để tránh trùng lặp cho lần tạo sau
+        itemForm.code = "";
+    } catch(e) { 
+        console.error(e);
+        notificationStore.showToast("Lỗi chế tác: " + (e.response?.data?.message || "Kiểm tra lại thông tin"), "error"); 
+    }
 };
+
 const handleGrantGold = async () => {
     try { await adminStore.grantGold(grantGoldForm.username, grantGoldForm.amount); notificationStore.showToast("Đã cấp ngân lượng!", "success"); } catch(e) { notificationStore.showToast("Lỗi!", "error"); }
 };
 
-// [NEW] Xử lý Ban EchoCoin
 const handleGrantEcho = async () => {
     try { 
         await adminStore.grantEcho(grantEchoForm.username, grantEchoForm.amount); 
         notificationStore.showToast("Đã ban EchoCoin!", "success");
-        // Reset form
         grantEchoForm.username = "";
         grantEchoForm.amount = "";
     } catch(e) { 
@@ -579,7 +628,6 @@ onMounted(() => {
   border-left: 4px solid #444;
 }
 .stat-card.highlight { border-left-color: #ffca28; }
-/* [NEW] Style cho thẻ EchoCoin */
 .stat-card.highlight-echo { border-left-color: #26c6da; }
 
 .icon-box {
@@ -592,12 +640,10 @@ onMounted(() => {
 .user { color: #42a5f5; text-shadow: 0 0 10px #42a5f5; }
 .item { color: #ab47bc; text-shadow: 0 0 10px #ab47bc; }
 .gold { color: #ffca28; text-shadow: 0 0 10px #ffca28; }
-/* [NEW] Màu icon Echo */
 .echo { color: #26c6da; text-shadow: 0 0 10px #26c6da; }
 
 .info h3 { margin: 0; color: #888; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
 .info .number { font-size: 2.5rem; font-weight: bold; color: #eee; font-family: 'Cinzel', serif; }
-/* [NEW] Màu chữ số Echo */
 .echo-text { color: #26c6da; }
 
 /* Badges */
@@ -634,8 +680,9 @@ onMounted(() => {
 select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15px; border-radius: 4px; outline: none; }
 
 .grid-form { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 15px; }
+.stats-inputs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .full-col { grid-column: span 2; }
-.simple-form input, .simple-form textarea, .grid-form input, .grid-form select {
+.simple-form input, .simple-form textarea, .grid-form input, .grid-form select, .stats-inputs input {
   width: 100%; padding: 12px; background: rgba(0,0,0,0.4); border: 1px solid #555;
   color: #fff; border-radius: 4px; box-sizing: border-box; margin-bottom: 10px; font-family: inherit;
 }
@@ -644,7 +691,6 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
   border-radius: 4px; text-transform: uppercase; transition: 0.3s; font-family: 'Cinzel', serif; letter-spacing: 1px;
 }
 .btn-action.gold { background: linear-gradient(45deg, #FFD700, #FFA000); color: #000; }
-/* [NEW] Button EchoCoin */
 .btn-action.cyan { background: linear-gradient(45deg, #26c6da, #00acc1); color: #fff; }
 .btn-action.blue { background: linear-gradient(45deg, #42a5f5, #1976d2); color: #fff; }
 .btn-action.red { background: linear-gradient(45deg, #ef5350, #c62828); color: #fff; }
@@ -680,10 +726,12 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
 .btn-confirm-ban { background: #ef5350; color: #fff; border: none; padding: 8px 25px; cursor: pointer; font-weight: bold; }
 
 /* --- RARITY COLORS --- */
-.rarity-C { color: #bdbdbd; }
-.rarity-B { color: #42a5f5; }
-.rarity-A { color: #ab47bc; }
-.rarity-S { color: #ffca28; text-shadow: 0 0 5px #ffca28; }
+.rarity-COMMON { color: #bdbdbd; }
+.rarity-UNCOMMON { color: #4caf50; }
+.rarity-RARE { color: #42a5f5; }
+.rarity-EPIC { color: #ab47bc; }
+.rarity-LEGENDARY { color: #ffca28; text-shadow: 0 0 5px #ffca28; }
+.rarity-MYTHIC { color: #ef5350; text-shadow: 0 0 8px #ef5350; font-weight: bold; }
 
 /* --- ANIMATIONS --- */
 .fade-in { animation: fadeIn 0.5s ease; }

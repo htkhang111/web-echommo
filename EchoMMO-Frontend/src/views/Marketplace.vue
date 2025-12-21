@@ -2102,4 +2102,4 @@ onMounted(() => {
 
 @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s ease; } .fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(10px); }
-</style>
+</style>  

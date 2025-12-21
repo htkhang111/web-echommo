@@ -10,7 +10,6 @@ export const useInventoryStore = defineStore("inventory", {
 
   getters: {
     equippedItems: (state) => {
-      // Khởi tạo các slot rỗng
       const slots = {
         WEAPON: null,
         ARMOR: null,
@@ -20,13 +19,10 @@ export const useInventoryStore = defineStore("inventory", {
         NECKLACE: null,
       };
 
-      // Duyệt qua inventory để map vào slot
       if (state.items && state.items.length > 0) {
         state.items.forEach((userItem) => {
-          // Kiểm tra null safety cho item
           if (userItem.isEquipped && userItem.item) {
-            const type = userItem.item.type;
-            // Chỉ gán nếu type đó có tồn tại trong slots định nghĩa ở trên
+            const type = userItem.item.type; // Backend trả về type (WEAPON, etc)
             if (Object.prototype.hasOwnProperty.call(slots, type)) {
               slots[type] = userItem;
             }
@@ -41,16 +37,11 @@ export const useInventoryStore = defineStore("inventory", {
     async fetchInventory() {
       this.isLoading = true;
       try {
-        const res = await axiosClient.get("/equipment/inventory");
+        // [FIX QUAN TRỌNG] Đổi đường dẫn API cho đúng với InventoryController
+        const res = await axiosClient.get("/inventory/items");
         this.items = res.data;
       } catch (error) {
         console.error("Lỗi lấy Inventory:", error);
-        if (
-          error.response &&
-          (error.response.status === 401 || error.response.status === 403)
-        ) {
-          // alert("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
-        }
       } finally {
         this.isLoading = false;
       }
@@ -59,7 +50,8 @@ export const useInventoryStore = defineStore("inventory", {
     async equipItem(id) {
       const charStore = useCharacterStore();
       try {
-        await axiosClient.post(`/equipment/equip/${id}`);
+        // [FIX] endpoint: /inventory/equip
+        await axiosClient.post(`/inventory/equip/${id}`);
         await Promise.all([this.fetchInventory(), charStore.fetchCharacter()]);
       } catch (e) {
         console.error(e);
@@ -70,7 +62,8 @@ export const useInventoryStore = defineStore("inventory", {
     async unequipItem(id) {
       const charStore = useCharacterStore();
       try {
-        await axiosClient.post(`/equipment/unequip/${id}`);
+        // [FIX] endpoint: /inventory/unequip
+        await axiosClient.post(`/inventory/unequip/${id}`);
         await Promise.all([this.fetchInventory(), charStore.fetchCharacter()]);
       } catch (e) {
         console.error(e);
@@ -81,7 +74,8 @@ export const useInventoryStore = defineStore("inventory", {
     async useItem(id) {
       const charStore = useCharacterStore();
       try {
-        const res = await axiosClient.post(`/equipment/use/${id}`);
+        // [FIX] endpoint: /inventory/use
+        const res = await axiosClient.post(`/inventory/use/${id}`);
         alert(res.data || "Sử dụng thành công");
         await Promise.all([this.fetchInventory(), charStore.fetchCharacter()]);
       } catch (e) {
@@ -89,5 +83,16 @@ export const useInventoryStore = defineStore("inventory", {
         alert(e.response?.data || "Lỗi sử dụng vật phẩm");
       }
     },
+    
+    async expandInventory() {
+        try {
+            // [FIX] endpoint: /inventory/expand
+            const res = await axiosClient.post("/inventory/expand");
+            alert(res.data);
+            await this.fetchInventory();
+        } catch (e) {
+            alert(e.response?.data || "Lỗi mở rộng kho");
+        }
+    }
   },
 });
