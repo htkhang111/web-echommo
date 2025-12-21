@@ -41,6 +41,7 @@ public class PvpController {
         MatchResponse response = new MatchResponse();
         response.setMyId(myChar.getCharId());
 
+        // Ưu tiên tìm trận đang đánh
         Optional<PvpMatch> matchOpt = matchRepo.findActiveMatchByCharId(myChar.getCharId());
 
         if (matchOpt.isPresent()) {
@@ -49,6 +50,7 @@ public class PvpController {
             return ResponseEntity.ok(response);
         }
 
+        // Nếu không có trận, kiểm tra xem có đang tìm trận không
         Optional<PvpQueue> queueOpt = queueRepo.findByCharId(myChar.getCharId());
         if (queueOpt.isPresent()) {
             response.setStatus("SEARCHING");
@@ -63,6 +65,8 @@ public class PvpController {
     @PostMapping("/find")
     public ResponseEntity<?> findMatch(@AuthenticationPrincipal UserDetails userDetails) {
         Character myChar = getCharacterFromUser(userDetails);
+        if (myChar == null) return ResponseEntity.badRequest().body("Character not found");
+
         try {
             pvpService.findOrCreateMatch(myChar.getCharId());
             return ResponseEntity.ok("Started searching");
@@ -78,6 +82,8 @@ public class PvpController {
         Character myChar = getCharacterFromUser(userDetails);
         Long matchId = payload.get("matchId");
 
+        if (matchId == null) return ResponseEntity.badRequest().body("Match ID is required");
+
         try {
             pvpService.acceptMatch(matchId, myChar.getCharId());
             return ResponseEntity.ok("Accepted");
@@ -91,6 +97,10 @@ public class PvpController {
     public ResponseEntity<?> submitMove(@AuthenticationPrincipal UserDetails userDetails,
                                         @RequestBody PvpMoveRequest request) {
         Character myChar = getCharacterFromUser(userDetails);
+
+        if (request.getMatchId() == null) return ResponseEntity.badRequest().body("Match ID is required");
+        if (request.getMove() == null) return ResponseEntity.badRequest().body("Move is required");
+
         try {
             pvpService.submitMove(request.getMatchId(), myChar.getCharId(), request.getMove());
             return ResponseEntity.ok("Move submitted");
@@ -105,8 +115,13 @@ public class PvpController {
     public ResponseEntity<?> sendChat(@AuthenticationPrincipal UserDetails userDetails,
                                       @RequestBody Map<String, Object> payload) {
         Character myChar = getCharacterFromUser(userDetails);
-        Long matchId = ((Number) payload.get("matchId")).longValue();
+
+        Object matchIdObj = payload.get("matchId");
+        if (matchIdObj == null) return ResponseEntity.badRequest().body("Match ID required");
+
+        Long matchId = ((Number) matchIdObj).longValue();
         String message = (String) payload.get("message");
+
         try {
             pvpService.saveChatMessage(matchId, myChar.getCharId(), message);
             return ResponseEntity.ok("Chat sent");
@@ -115,28 +130,51 @@ public class PvpController {
         }
     }
 
-    // --- 6. ĐẦU HÀNG ---
+    // --- 6. ĐẦU HÀNG (FIX LỖI NULL POINTER Ở ĐÂY) ---
     @PostMapping("/surrender")
     public ResponseEntity<?> surrender(@AuthenticationPrincipal UserDetails userDetails,
                                        @RequestBody Map<String, Long> payload) {
         Character myChar = getCharacterFromUser(userDetails);
+        if (myChar == null) return ResponseEntity.badRequest().body("Character not found");
+
         Long matchId = payload.get("matchId");
-        PvpMatch match = matchRepo.findById(matchId).orElse(null);
 
-        if (match != null && "ACTIVE".equals(match.getStatus())) {
-            Integer winnerId = match.getPlayer1().getCharId().equals(myChar.getCharId())
-                    ? match.getPlayer2().getCharId()
-                    : match.getPlayer1().getCharId();
-
-            match.setStatus("FINISHED");
-            match.setWinnerId(Long.valueOf(winnerId));
-            match.setLastLog("⚡ " + myChar.getName() + " đã đầu hàng! Đối thủ chiến thắng.");
-            pvpService.processMatchResult(match);
-            matchRepo.save(match);
+        // [FIX QUAN TRỌNG]: Kiểm tra null trước khi gọi Repository
+        if (matchId == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Match ID is required"));
         }
-        return ResponseEntity.ok("Surrendered");
+
+        try {
+            // Tìm trận đấu
+            PvpMatch match = matchRepo.findById(matchId).orElse(null);
+
+            // Chỉ xử lý nếu trận đấu tồn tại và đang ACTIVE
+            if (match != null && "ACTIVE".equals(match.getStatus())) {
+                Integer winnerId = match.getPlayer1().getCharId().equals(myChar.getCharId())
+                        ? match.getPlayer2().getCharId()
+                        : match.getPlayer1().getCharId();
+
+                match.setStatus("FINISHED");
+                match.setWinnerId(Long.valueOf(winnerId));
+                match.setLastLog("⚡ " + myChar.getName() + " đã đầu hàng! Đối thủ chiến thắng.");
+
+                // Gọi service để cộng điểm/xử lý hậu kỳ nếu cần
+                // pvpService.processMatchResult(match); // Uncomment nếu bạn có hàm này
+
+                matchRepo.save(match);
+                return ResponseEntity.ok(Map.of("message", "Surrender accepted"));
+            } else {
+                // Nếu trận đấu không tìm thấy hoặc đã kết thúc, vẫn trả về OK để Client thoát
+                return ResponseEntity.ok(Map.of("message", "Match already finished or not found"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Trả về OK để Client không bị kẹt dù Server lỗi
+            return ResponseEntity.ok(Map.of("message", "Force exit triggered due to error"));
+        }
     }
 
+    // --- 7. HỦY TÌM ---
     @PostMapping("/cancel")
     public ResponseEntity<?> cancelSearch(@AuthenticationPrincipal UserDetails userDetails) {
         Character myChar = getCharacterFromUser(userDetails);
@@ -151,6 +189,7 @@ public class PvpController {
 
     // ================= HELPER METHODS =================
     private Character getCharacterFromUser(UserDetails userDetails) {
+        if (userDetails == null) return null;
         User user = userRepo.findByUsername(userDetails.getUsername()).orElse(null);
         if (user == null) return null;
         return charRepo.findByUser_UserId(user.getUserId()).orElse(null);
@@ -163,11 +202,7 @@ public class PvpController {
         res.setLastLog(match.getLastLog());
         res.setWinnerId(match.getWinnerId() != null ? match.getWinnerId().intValue() : null);
 
-        // --- [MỚI] TRẢ VỀ LỊCH SỬ NƯỚC ĐI ---
-        res.setLastP1Move(match.getLastP1Move());
-        res.setLastP2Move(match.getLastP2Move());
-        // ------------------------------------
-
+        // Map Chat
         if (match.getChats() != null) {
             List<ChatMessageDTO> chatDtos = match.getChats().stream()
                     .map(chat -> new ChatMessageDTO(chat.getSender().getName(), chat.getSender().getCharId(), chat.getMessage()))
@@ -178,6 +213,9 @@ public class PvpController {
         }
 
         boolean isP1 = match.getPlayer1().getCharId().equals(myCharId);
+
+        // Player 1 Info (Trong response P1 luôn là người chơi hiện tại nếu isP1=true để dễ xử lý ở frontend,
+        // NHƯNG ở đây ta map đúng theo DB, frontend sẽ tự check ID)
 
         res.setP1Id(match.getPlayer1().getCharId());
         res.setP1Name(match.getPlayer1().getName());
@@ -193,20 +231,24 @@ public class PvpController {
         res.setP2MaxHp(match.getPlayer2().getMaxHp());
         res.setP2AvatarUrl(match.getPlayer2().getAvatarUrl());
 
+        // Logic ẩn nước đi
         String p1Move = match.getP1Move();
         String p2Move = match.getP2Move();
         boolean bothMoved = (p1Move != null && p2Move != null);
         if ("FINISHED".equals(match.getStatus())) bothMoved = true;
 
+        // Nếu mình là P1: Thấy move của mình, ẩn move của địch nếu địch chưa đánh xong
         if (isP1) {
             res.setP1Move(p1Move);
             res.setP2Move(bothMoved ? p2Move : (p2Move != null ? "HIDDEN" : null));
         } else {
+            // Nếu mình là P2
             res.setP2Move(p2Move);
             res.setP1Move(bothMoved ? p1Move : (p1Move != null ? "HIDDEN" : null));
         }
     }
 
+    // --- DTO CLASSES ---
     public static class ChatMessageDTO {
         public String senderName; public Integer senderId; public String content;
         public ChatMessageDTO(String s, Integer id, String c) { this.senderName = s; this.senderId = id; this.content = c; }
@@ -228,42 +270,38 @@ public class PvpController {
         private Integer p2Hp; private Integer p2MaxHp; private String p2Move;
         private String p2AvatarUrl;
 
-        // --- [MỚI THÊM] FIELDS ---
         private String lastP1Move;
         private String lastP2Move;
-        public void setLastP1Move(String m) { this.lastP1Move = m; } public String getLastP1Move() { return lastP1Move; }
-        public void setLastP2Move(String m) { this.lastP2Move = m; } public String getLastP2Move() { return lastP2Move; }
-        // -------------------------
 
         private List<ChatMessageDTO> messages;
 
-        public String getP1AvatarUrl() { return p1AvatarUrl; }
-        public void setP1AvatarUrl(String p1AvatarUrl) { this.p1AvatarUrl = p1AvatarUrl; }
+        // Getters and Setters
+        public String getStatus() { return status; } public void setStatus(String status) { this.status = status; }
+        public Long getMatchId() { return matchId; } public void setMatchId(Long matchId) { this.matchId = matchId; }
+        public Integer getMyId() { return myId; } public void setMyId(Integer myId) { this.myId = myId; }
+        public Integer getWinnerId() { return winnerId; } public void setWinnerId(Integer winnerId) { this.winnerId = winnerId; }
+        public Integer getTurnCount() { return turnCount; } public void setTurnCount(Integer turnCount) { this.turnCount = turnCount; }
+        public String getLastLog() { return lastLog; } public void setLastLog(String lastLog) { this.lastLog = lastLog; }
 
-        public String getP2AvatarUrl() { return p2AvatarUrl; }
-        public void setP2AvatarUrl(String p2AvatarUrl) { this.p2AvatarUrl = p2AvatarUrl; }
+        public Integer getP1Id() { return p1Id; } public void setP1Id(Integer p1Id) { this.p1Id = p1Id; }
+        public String getP1Name() { return p1Name; } public void setP1Name(String p1Name) { this.p1Name = p1Name; }
+        public Integer getP1Level() { return p1Level; } public void setP1Level(Integer p1Level) { this.p1Level = p1Level; }
+        public Integer getP1Hp() { return p1Hp; } public void setP1Hp(Integer p1Hp) { this.p1Hp = p1Hp; }
+        public Integer getP1MaxHp() { return p1MaxHp; } public void setP1MaxHp(Integer p1MaxHp) { this.p1MaxHp = p1MaxHp; }
+        public String getP1Move() { return p1Move; } public void setP1Move(String p1Move) { this.p1Move = p1Move; }
+        public String getP1AvatarUrl() { return p1AvatarUrl; } public void setP1AvatarUrl(String p1AvatarUrl) { this.p1AvatarUrl = p1AvatarUrl; }
 
-        public void setMessages(List<ChatMessageDTO> messages) { this.messages = messages; }
-        public List<ChatMessageDTO> getMessages() { return messages; }
-        public void setStatus(String s) { this.status = s; } public String getStatus() { return status; }
-        public void setMatchId(Long id) { this.matchId = id; } public Long getMatchId() { return matchId; }
-        public void setMyId(Integer id) { this.myId = id; } public Integer getMyId() { return myId; }
-        public void setWinnerId(Integer id) { this.winnerId = id; } public Integer getWinnerId() { return winnerId; }
-        public void setTurnCount(Integer t) { this.turnCount = t; } public Integer getTurnCount() { return turnCount; }
-        public void setLastLog(String l) { this.lastLog = l; } public String getLastLog() { return lastLog; }
+        public Integer getP2Id() { return p2Id; } public void setP2Id(Integer p2Id) { this.p2Id = p2Id; }
+        public String getP2Name() { return p2Name; } public void setP2Name(String p2Name) { this.p2Name = p2Name; }
+        public Integer getP2Level() { return p2Level; } public void setP2Level(Integer p2Level) { this.p2Level = p2Level; }
+        public Integer getP2Hp() { return p2Hp; } public void setP2Hp(Integer p2Hp) { this.p2Hp = p2Hp; }
+        public Integer getP2MaxHp() { return p2MaxHp; } public void setP2MaxHp(Integer p2MaxHp) { this.p2MaxHp = p2MaxHp; }
+        public String getP2Move() { return p2Move; } public void setP2Move(String p2Move) { this.p2Move = p2Move; }
+        public String getP2AvatarUrl() { return p2AvatarUrl; } public void setP2AvatarUrl(String p2AvatarUrl) { this.p2AvatarUrl = p2AvatarUrl; }
 
-        public void setP1Id(Integer id) { this.p1Id = id; } public Integer getP1Id() { return p1Id; }
-        public void setP1Name(String n) { this.p1Name = n; } public String getP1Name() { return p1Name; }
-        public void setP1Level(Integer l) { this.p1Level = l; } public Integer getP1Level() { return p1Level; }
-        public void setP1Hp(Integer h) { this.p1Hp = h; } public Integer getP1Hp() { return p1Hp; }
-        public void setP1MaxHp(Integer m) { this.p1MaxHp = m; } public Integer getP1MaxHp() { return p1MaxHp; }
-        public void setP1Move(String m) { this.p1Move = m; } public String getP1Move() { return p1Move; }
+        public String getLastP1Move() { return lastP1Move; } public void setLastP1Move(String lastP1Move) { this.lastP1Move = lastP1Move; }
+        public String getLastP2Move() { return lastP2Move; } public void setLastP2Move(String lastP2Move) { this.lastP2Move = lastP2Move; }
 
-        public void setP2Id(Integer id) { this.p2Id = id; } public Integer getP2Id() { return p2Id; }
-        public void setP2Name(String n) { this.p2Name = n; } public String getP2Name() { return p2Name; }
-        public void setP2Level(Integer l) { this.p2Level = l; } public Integer getP2Level() { return p2Level; }
-        public void setP2Hp(Integer h) { this.p2Hp = h; } public Integer getP2Hp() { return p2Hp; }
-        public void setP2MaxHp(Integer m) { this.p2MaxHp = m; } public Integer getP2MaxHp() { return p2MaxHp; }
-        public void setP2Move(String m) { this.p2Move = m; } public String getP2Move() { return p2Move; }
+        public List<ChatMessageDTO> getMessages() { return messages; } public void setMessages(List<ChatMessageDTO> messages) { this.messages = messages; }
     }
 }

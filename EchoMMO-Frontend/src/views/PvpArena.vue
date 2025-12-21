@@ -7,14 +7,14 @@
             
             <div class="hero-card">
                 <div class="avatar-frame gold-border">
-                    <img :src="characterAvatar" />
+                    <img :src="characterAvatar" @error="handleImgError" />
                 </div>
                 <div class="hero-info">
                     <h2>{{ characterName }}</h2>
                     <div class="stats-row">
                         <span class="stat-badge level">Cấp {{ characterLevel }}</span>
                         <span class="stat-badge wins">🏆 Thắng: {{ characterWins }}</span>
-                        <button class="refresh-btn" @click="manualRefresh" title="Cập nhật thông tin">
+                        <button class="refresh-btn" @click="manualRefresh" title="Cập nhật">
                             <i class="fas fa-sync-alt" :class="{'fa-spin': isRefreshing}"></i>
                         </button>
                     </div>
@@ -31,9 +31,9 @@
             </div>
 
             <div v-if="gameState === 'MATCH_FOUND'" class="match-popup">
-                <h3>⚔️ ĐỊCH THỦ XUẤT HIỆN ⚔️</h3>
+                <h3>⚔️ ĐỐI THỦ ⚔️</h3>
                 <div class="enemy-preview">
-                    <img :src="enemyAvatar || defaultAvatar" />
+                    <img :src="enemyAvatar || defaultAvatar" @error="handleImgError" />
                     <p>{{ enemyName }} (Lv.{{ enemyLevel }})</p>
                 </div>
                 <div class="popup-actions">
@@ -82,14 +82,14 @@
                 </div>
                 <div class="sprite-box">
                     <div class="shadow"></div>
-                    <img :src="enemyAvatar || defaultAvatar" class="char-img" :class="{'shake-hit': isEnemyHit}" />
+                    <img :src="enemyAvatar || defaultAvatar" class="char-img" :class="{'shake-hit': isEnemyHit}" @error="handleImgError" />
                 </div>
             </div>
 
             <div class="fighter player">
                 <div class="sprite-box">
                     <div class="shadow"></div>
-                    <img :src="authStore.character?.avatarUrl || defaultAvatar" class="char-img" :class="{'shake-hit': isMyHit}" />
+                    <img :src="characterAvatar" class="char-img" :class="{'shake-hit': isMyHit}" @error="handleImgError" />
                 </div>
                 <div class="hud player-hud">
                     <div class="name">{{ characterName }} <small>Lv.{{ characterLevel }}</small></div>
@@ -132,6 +132,7 @@
                     <button class="square-btn scissor" @click="submitRps('SCISSORS')" :disabled="isActionPending" :class="{'btn-disabled': isActionPending}">
                         <i class="fas fa-hand-scissors"></i><span>KÉO</span>
                     </button>
+                    
                     <button class="square-btn surrender" @click="handleSurrender">
                         <i class="fas fa-flag"></i><span>ĐẦU HÀNG</span>
                     </button>
@@ -145,7 +146,6 @@
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
   </div>
@@ -159,16 +159,18 @@ import axios from 'axios';
 // --- CONFIG ---
 const API_URL = "http://localhost:8080/api/pvp";
 const authStore = useAuthStore();
-const defaultAvatar = "https://i.imgur.com/7Y7t5Xp.png"; 
 
-// --- REACTIVE CHARACTER DATA (FIX LỖI KHÔNG ĐỒNG BỘ) ---
-// Dùng computed để luôn lấy dữ liệu mới nhất từ Store
-const characterName = computed(() => authStore.character?.name || 'Đại Hiệp');
+// --- AVATAR MẶC ĐỊNH (Dùng dịch vụ tạo avatar online để không bị lỗi ảnh) ---
+const defaultAvatar = "https://api.dicebear.com/7.x/adventurer/svg?seed=Felix"; 
+
+// --- COMPUTED DATA ---
+const characterName = computed(() => authStore.character?.name || authStore.user?.username || 'Đại Hiệp');
 const characterLevel = computed(() => authStore.character?.level || 1);
 const characterWins = computed(() => authStore.character?.pvpWins || 0);
+// Nếu không có avatar thì dùng default
 const characterAvatar = computed(() => authStore.character?.avatarUrl || defaultAvatar);
 
-// --- GAME STATE ---
+// --- STATE ---
 const gameState = ref('LOBBY'); 
 const matchId = ref(null);
 const battlePhase = ref('RPS_WAIT'); 
@@ -180,11 +182,11 @@ const showLog = ref(false);
 const isActionPending = ref(false);
 const searchTimer = ref(0);
 const acceptTimer = ref(10);
-const isRefreshing = ref(false); // Cho nút refresh thủ công
+const isRefreshing = ref(false);
 
 const ignoredMatchIds = ref(new Set()); 
 
-// --- DATA ---
+// --- BATTLE DATA ---
 const myHp = ref(100); const myMaxHp = ref(100); const myRpsMove = ref(null);
 const enemyName = ref("Đối thủ"); const enemyLevel = ref(1);
 const enemyHp = ref(100); const enemyMaxHp = ref(100); 
@@ -213,14 +215,28 @@ const resetLocalState = () => {
     showLog.value = false;
 };
 
-// --- MANUAL REFRESH ---
-const manualRefresh = async () => {
-    isRefreshing.value = true;
-    await authStore.fetchCharacter();
-    setTimeout(() => { isRefreshing.value = false; }, 500);
+// Xử lý khi ảnh lỗi -> load ảnh mặc định
+const handleImgError = (e) => {
+    e.target.src = defaultAvatar;
 };
 
-const handleKeydown = (e) => { if (document.activeElement.tagName !== 'INPUT' && e.key.toLowerCase() === 'l') showLog.value = !showLog.value; };
+// --- HELPER: CHECK PLAYER ID ---
+const checkIsPlayer1 = (data) => {
+    const myId = Number(authStore.character?.id || authStore.user?.id || 0);
+    const p1Id = Number(data.p1Id);
+    return myId === p1Id;
+};
+
+const manualRefresh = async () => { 
+    isRefreshing.value = true; 
+    await authStore.fetchCharacter(); 
+    setTimeout(() => { isRefreshing.value = false; }, 500); 
+};
+
+const handleKeydown = (e) => { 
+    if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return;
+    if (e.key === 'l' || e.key === 'L') showLog.value = !showLog.value; 
+};
 
 const getMyAnimClass = () => {
     if (!myRpsMove.value || !enemyRpsMove.value) return '';
@@ -256,6 +272,7 @@ const acceptMatch = async () => {
 
 const declineMatch = async () => { cancelSearch(); };
 
+// --- BATTLE LOGIC ---
 const startTurnTimer = () => {
   if(turnTimerInterval) clearInterval(turnTimerInterval);
   turnTimer.value = 30;
@@ -274,9 +291,11 @@ const startTurnTimer = () => {
 };
 
 const submitRps = async (move) => {
-  if (isActionPending.value || !matchId.value) return;
+  if (isActionPending.value) return; 
+  if (!matchId.value) return;
+
   isActionPending.value = true; 
-  setTimeout(() => { if(isActionPending.value) isActionPending.value = false; }, 5000);
+  setTimeout(() => { if(isActionPending.value) isActionPending.value = false; }, 3000);
 
   if(turnTimerInterval) clearInterval(turnTimerInterval);
   consoleMessage.value = `Đang thi triển: ${move}...`;
@@ -285,16 +304,24 @@ const submitRps = async (move) => {
       await axios.post(`${API_URL}/move`, { matchId: matchId.value, move }, { headers: getHeaders() }); 
       battlePhase.value = 'RPS_REVEAL'; 
   } catch (e) { 
-      battlePhase.value = 'RPS_WAIT'; isActionPending.value = false; 
+      battlePhase.value = 'RPS_WAIT'; 
+      isActionPending.value = false; 
   }
 };
 
+// --- FIX ERROR 400 & STUCK ---
 const handleSurrender = async () => {
-    if(confirm("Đại hiệp muốn rút lui?")) {
+    if(confirm("Đại hiệp muốn rút lui? (Xử thua)")) {
         if(matchId.value) ignoredMatchIds.value.add(Number(matchId.value));
-        try { await axios.post(`${API_URL}/surrender`, { matchId: matchId.value }, { headers: getHeaders() }); } catch(e){} 
-        await authStore.fetchCharacter();
+        
+        // Reset về sảnh trước
         resetToLobby();
+
+        try { 
+            if(matchId.value) await axios.post(`${API_URL}/surrender`, { matchId: matchId.value }, { headers: getHeaders() }); 
+        } catch(e) {}
+        
+        await authStore.fetchCharacter();
     }
 };
 
@@ -342,13 +369,7 @@ const startPolling = () => {
          
          setTimeout(async () => { 
              alert(msg); 
-             
-             // --- FIX ĐỒNG BỘ: CẬP NHẬT CHARACTER SAU 1S ---
-             // Đợi 1 chút để server kịp lưu DB rồi mới fetch
-             setTimeout(async () => {
-                 await authStore.fetchCharacter(); 
-             }, 1000);
-
+             setTimeout(async () => { await authStore.fetchCharacter(); }, 1000);
              resetToLobby(); 
          }, 1500);
       }
@@ -357,17 +378,17 @@ const startPolling = () => {
 };
 
 const syncBasicInfo = (data) => {
-  const myCharId = Number(authStore.character?.id || authStore.user?.id);
-  const isP1 = (myCharId === Number(data.p1Id));
+  const isP1 = checkIsPlayer1(data);
   enemyName.value = (isP1 ? data.p2Name : data.p1Name) || "Đối thủ";
   enemyLevel.value = (isP1 ? data.p2Level : data.p1Level) || 1;
   enemyAvatar.value = isP1 ? data.p2AvatarUrl : data.p1AvatarUrl;
 };
 
 const syncBattleData = (data) => {
+  if (!matchId.value && data.matchId) matchId.value = data.matchId;
+
   syncBasicInfo(data);
-  const myCharId = Number(authStore.character?.id || authStore.user?.id);
-  const isP1 = (myCharId === Number(data.p1Id));
+  const isP1 = checkIsPlayer1(data);
   
   const newMyHp = isP1 ? data.p1Hp : data.p2Hp;
   const newEnemyHp = isP1 ? data.p2Hp : data.p1Hp;
@@ -405,7 +426,7 @@ const syncBattleData = (data) => {
 
   if(data.messages && data.messages.length > matchMessages.value.length) {
     data.messages.slice(matchMessages.value.length).forEach(m => matchMessages.value.push({ 
-       sender: m.senderName, text: m.content, isMe: Number(m.senderId) === myCharId 
+       sender: m.senderName, text: m.content, isMe: (checkIsPlayer1(data) ? data.p1Id : data.p2Id) == m.senderId 
     }));
     nextTick(() => { if(chatBoxRef.value) chatBoxRef.value.scrollTop = chatBoxRef.value.scrollHeight; });
   }
@@ -424,7 +445,6 @@ const percent = (c, m) => (m>0 ? (c/m)*100 : 0);
 const getRpsIcon = (m) => ({ 'ROCK': 'fas fa-hand-rock', 'PAPER': 'fas fa-hand-paper', 'SCISSORS': 'fas fa-hand-scissors' }[m]);
 
 onMounted(async () => {
-    // Force lấy dữ liệu ngay khi vào component
     await authStore.fetchCharacter();
     resetToLobby();
     startPolling();
@@ -451,7 +471,7 @@ onUnmounted(() => {
 .lobby-overlay { flex: 1; background: url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1920&auto=format&fit=crop') center/cover; display: flex; align-items: center; justify-content: center; }
 .lobby-content { background: rgba(0,0,0,0.85); border: 2px solid #b8860b; padding: 40px; border-radius: 10px; text-align: center; width: 400px; box-shadow: 0 0 30px #000; }
 .wuxia-title { font-size: 2.5rem; color: #ffd700; margin-bottom: 20px; text-shadow: 0 0 10px #b8860b; }
-.avatar-frame { width: 100px; height: 100px; border-radius: 50%; border: 3px solid #ffd700; overflow: hidden; margin: 0 auto; }
+.avatar-frame { width: 100px; height: 100px; border-radius: 50%; border: 3px solid #ffd700; overflow: hidden; margin: 0 auto; background: #000; }
 .avatar-frame img { width: 100%; height: 100%; object-fit: cover; }
 .stats-row { margin-top: 15px; display: flex; justify-content: center; align-items: center; gap: 10px; }
 .stat-badge { background: #222; border: 1px solid #555; padding: 4px 12px; border-radius: 4px; color: #ccc; font-size: 0.9rem; font-weight: bold; }
@@ -465,10 +485,11 @@ onUnmounted(() => {
 .btn-accept { background: #28a745; color: #fff; border: none; padding: 8px 20px; margin-left: 10px; cursor: pointer; }
 .btn-decline { background: transparent; border: 1px solid #dc3545; color: #dc3545; padding: 8px 20px; cursor: pointer; }
 
-/* --- BATTLE ARENA --- */
+/* --- BATTLE ARENA (LINK ẢNH BACKGROUND MỚI) --- */
 .battle-arena { 
     display: flex; flex-direction: column; height: 100%;
-    background: url('http://googleusercontent.com/image_collection/image_retrieval/12189370109437321239_0') center/cover no-repeat;
+    /* Link ảnh Unsplash ổn định hơn */
+    background: url('https://images.unsplash.com/photo-1535581652167-3d6b98c365b2?q=80&w=1920&auto=format&fit=crop') center/cover no-repeat;
     position: relative;
 }
 .battle-arena::before { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0.25); pointer-events: none; z-index: 0; }
