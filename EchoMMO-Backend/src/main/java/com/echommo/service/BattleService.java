@@ -86,15 +86,16 @@ public class BattleService {
         int eSpeed = s.getEnemySpeed() != null ? s.getEnemySpeed() : 10;
 
         // [FIX] Giới hạn né tối đa 60% để tránh việc đánh mãi không trúng
-        // Công thức: 5% gốc + Chênh lệch tốc độ
         int eDodgeChance = Math.min(60, Math.max(0, 5 + (eSpeed - pSpeed)));
 
         // A. Player đánh
         if (random.nextInt(100) < eDodgeChance) {
             logs.add("💨 BẠN ĐÁNH TRƯỢT! " + s.getEnemyName() + " né được (" + eDodgeChance + "%).");
         } else {
-            // Sát thương = Công - Thủ (Tối thiểu 1)
-            int dmg = Math.max(1, pAtk - eDef);
+            // [FIX] Sát thương tối thiểu 10% ATK (Xuyên giáp)
+            int minDmg = (int) Math.ceil(pAtk * 0.1);
+            int rawDmg = pAtk - eDef;
+            int dmg = Math.max(minDmg, rawDmg);
 
             // Player Crit Check
             boolean isCrit = random.nextInt(100) < pCritRate;
@@ -123,8 +124,10 @@ public class BattleService {
         if (random.nextInt(100) < pDodgeChance) {
             logs.add("✨ BẠN NÉ ĐƯỢC đòn tấn công!");
         } else {
-            // Quái đánh = Công Quái - Thủ Player
-            int dmg = Math.max(1, eAtk - pDef);
+            // [FIX] Quái đánh cũng có sát thương tối thiểu 10%
+            int minDmg = (int) Math.ceil(eAtk * 0.1);
+            int rawDmg = eAtk - pDef;
+            int dmg = Math.max(minDmg, rawDmg);
 
             logs.add("🛡️ " + s.getEnemyName() + " đánh trả " + dmg + " sát thương.");
 
@@ -141,12 +144,16 @@ public class BattleService {
     }
 
     private BattleResult handleWin(BattleSession session, Character character, List<String> logs) {
-        // Tìm quái gốc để lấy reward. Nếu không thấy (do xóa DB) thì tạo quái tạm để không crash.
+        // Tìm quái gốc để lấy reward base
         Enemy enemy = enemyRepo.findById(session.getEnemyId()).orElse(new Enemy());
         int enemyLvl = enemy.getLevel() != null ? enemy.getLevel() : 1;
 
-        int expReward = (int) ((enemy.getExpReward() != null ? enemy.getExpReward() : 10) * (1 + enemyLvl * 0.2));
-        int goldReward = (int) ((enemy.getGoldReward() != null ? enemy.getGoldReward() : 5) * (1 + enemyLvl * 0.1));
+        // [LOGIC MỚI] Check Tinh Anh để x3 thưởng
+        boolean isElite = session.getEnemyName().contains("[Tinh Anh]");
+        int rewardMult = isElite ? 3 : 1;
+
+        int expReward = (int) ((enemy.getExpReward() != null ? enemy.getExpReward() : 10) * (1 + enemyLvl * 0.2) * rewardMult);
+        int goldReward = (int) ((enemy.getGoldReward() != null ? enemy.getGoldReward() : 5) * (1 + enemyLvl * 0.1) * rewardMult);
 
         character.setCurrentExp(character.getCurrentExp() + expReward);
         character.setMonsterKills(character.getMonsterKills() + 1);
@@ -156,17 +163,19 @@ public class BattleService {
         Wallet wallet = character.getUser().getWallet();
         wallet.setGold(wallet.getGold().add(BigDecimal.valueOf(goldReward)));
 
-        // Drop Coin hiếm (10% cơ hội nếu quái level >= 5)
-        if (enemyLvl >= 5 && random.nextInt(100) < 10) {
+        // Tỷ lệ rơi Echo Coin
+        // Tinh Anh có 30% cơ hội rơi coin lớn, quái thường 5% rơi coin nhỏ
+        if (isElite && random.nextInt(100) < 30) {
+            wallet.setEchoCoin(wallet.getEchoCoin().add(new BigDecimal("0.1")));
+            logs.add("💎 [TINH ANH] Rơi ra mảnh Echo Coin lớn!");
+        } else if (enemyLvl >= 5 && random.nextInt(100) < 10) {
             wallet.setEchoCoin(wallet.getEchoCoin().add(new BigDecimal("0.05")));
             logs.add("💎 Nhặt được mảnh Echo Coin!");
         }
 
         character.setStatus(CharacterStatus.IDLE);
 
-        // [QUAN TRỌNG] ĐÃ BỎ HỒI MÁU FULL.
-        // Chỉ hồi nhẹ 5 HP tượng trưng (hoặc bỏ hẳn dòng này) để Bình Máu có tác dụng.
-        // character.setCurrentHp(character.getMaxHp()); <--- Dòng cũ gây mất cân bằng
+        // Hồi máu nhẹ sau trận (5 HP)
         int regen = 5;
         if(character.getCurrentHp() + regen < character.getMaxHp()){
             character.setCurrentHp(character.getCurrentHp() + regen);
@@ -179,6 +188,7 @@ public class BattleService {
         sessionRepo.delete(session);
 
         logs.add("🏆 CHIẾN THẮNG!");
+        if (isElite) logs.add("🔥 Bạn đã hạ gục quái vật TINH ANH!");
         logs.add("Nhận: " + expReward + " EXP, " + goldReward + " Vàng.");
         return buildResult(session, logs, "VICTORY");
     }

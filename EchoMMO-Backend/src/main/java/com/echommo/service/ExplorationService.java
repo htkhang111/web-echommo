@@ -32,7 +32,6 @@ public class ExplorationService {
     private final Map<Integer, Long> lastActionMap = new HashMap<>();
 
     public enum GameMap {
-        // [CẬP NHẬT TÊN QUÁI KHỚP VỚI DATABASE]
         MAP_01("MAP_01", "Đồng Bằng", 1, 19,
                 createWeightedList(Map.of("w_wood", 40, "o_coal", 30, "o_copper", 20, "f_fish", 10)),
                 List.of("Slime Xanh", "Thỏ Điên", "Sói Hoang", "Goblin Trinh Sát")),
@@ -137,36 +136,33 @@ public class ExplorationService {
             }
         } else if (roll < 91) {
             type = "ENEMY";
-            // Random quái trong danh sách Map
             String enemyName = map.enemies.get(r.nextInt(map.enemies.size()));
 
-            // Tìm quái trong DB
             Enemy baseEnemy = enemyRepository.findByName(enemyName)
-                    .orElseGet(() -> enemyRepository.findAll().stream().findFirst().orElseThrow(() -> new RuntimeException("Database chưa có quái!")));
+                    .orElseGet(() -> enemyRepository.findAll().stream().findFirst().orElseThrow(() -> new RuntimeException("Dữ liệu quái lỗi! Hãy chạy lại SQL.")));
 
-            createScaledBattleSession(c, baseEnemy);
+            // 20% cơ hội gặp Tinh Anh
+            boolean isElite = r.nextInt(100) < 20;
 
-            msg = "Đụng độ " + enemyName + " (Lv." + baseEnemy.getLevel() + ")!";
+            createScaledBattleSession(c, baseEnemy, isElite);
+
+            String prefix = isElite ? "💀 [Tinh Anh] " : "";
+            msg = "Đụng độ " + prefix + enemyName + " (Lv." + baseEnemy.getLevel() + ")!";
             clearGatheringState(c);
         } else {
             type = "ITEM";
-            if (map == GameMap.MAP_06 && r.nextInt(100) < 5) {
-                w.setEchoCoin(w.getEchoCoin().add(BigDecimal.ONE));
-                msg = "May mắn nhặt được 1 Echo Coin!";
+            String code = map.resourceCodes.get(r.nextInt(map.resourceCodes.size()));
+            if ("GOLD_MINE_SPECIAL".equals(code)) {
+                w.setGold(w.getGold().add(BigDecimal.valueOf(20)));
+                msg = "Nhặt được túi vàng nhỏ (+20 Vàng).";
             } else {
-                String code = map.resourceCodes.get(r.nextInt(map.resourceCodes.size()));
-                if (!"GOLD_MINE_SPECIAL".equals(code)) {
-                    Item it = itemRepo.findByCode(code).orElse(null);
-                    if (it != null) {
-                        addItemToInventory(c, it, 1);
-                        msg = "Nhặt được 1 " + it.getName();
-                        rewardName = it.getName(); rewardAmount = 1;
-                    } else {
-                        msg = "Nhặt được hòn đá cuội.";
-                    }
+                Item it = itemRepo.findByCode(code).orElse(null);
+                if (it != null) {
+                    addItemToInventory(c, it, 1);
+                    msg = "Nhặt được 1 " + it.getName();
+                    rewardName = it.getName(); rewardAmount = 1;
                 } else {
-                    w.setGold(w.getGold().add(BigDecimal.valueOf(20)));
-                    msg = "Nhặt được túi vàng nhỏ (+20 Vàng).";
+                    msg = "Nhặt được hòn đá cuội.";
                 }
             }
             clearGatheringState(c);
@@ -185,27 +181,39 @@ public class ExplorationService {
                 .build();
     }
 
-    private void createScaledBattleSession(Character player, Enemy enemy) {
-        List<BattleSession> oldSessions = battleSessionRepo.findByCharacter_CharId(player.getCharId());
-        battleSessionRepo.deleteAll(oldSessions);
+    // [FIX QUAN TRỌNG] Sử dụng Update thay vì Delete-Insert để tránh lỗi Duplicate Entry
+    private void createScaledBattleSession(Character player, Enemy enemy, boolean isElite) {
+        // Tìm session cũ (nếu có)
+        BattleSession session = battleSessionRepo.findByCharacter_CharId(player.getCharId())
+                .stream().findFirst().orElse(new BattleSession());
+
+        // Nếu là session mới hoàn toàn thì gán character
+        if (session.getId() == null) {
+            session.setCharacter(player);
+        }
 
         int lvl = enemy.getLevel() != null ? enemy.getLevel() : 1;
 
-        // [LOGIC SCALE] Tăng nhẹ sức mạnh quái nếu nhân vật level quá cao quay lại farm
-        // Nhưng vẫn giữ base stats của quái làm gốc
-        int scaledHp = (int) (enemy.getHp() * (1 + lvl * 0.1));
-        int scaledAtk = (int) (enemy.getAtk() * (1 + lvl * 0.05));
-        int scaledDef = (int) (enemy.getDef() * (1 + lvl * 0.05));
+        // Logic Scale chỉ số
+        double levelScaling = 1 + (player.getLevel() > lvl ? (player.getLevel() - lvl) * 0.05 : 0);
+        double hpMult = isElite ? 2.5 : 1.0;
+        double statMult = isElite ? 1.5 : 1.0;
 
-        BattleSession session = new BattleSession();
-        session.setCharacter(player);
+        int scaledHp = (int) (enemy.getHp() * levelScaling * hpMult);
+        int scaledAtk = (int) (enemy.getAtk() * statMult);
+        int scaledDef = (int) (enemy.getDef() * statMult);
+
+        // Cập nhật thông tin vào session (Ghi đè lên session cũ)
         session.setEnemyId(enemy.getEnemyId());
-        session.setEnemyName(enemy.getName());
+
+        String nameDisplay = (isElite ? "💀 [Tinh Anh] " : "") + enemy.getName();
+        session.setEnemyName(nameDisplay);
+
         session.setEnemyMaxHp(scaledHp);
         session.setEnemyCurrentHp(scaledHp);
         session.setEnemyAtk(scaledAtk);
         session.setEnemyDef(scaledDef);
-        session.setEnemySpeed(enemy.getSpeed()); // [FIX] Lấy speed từ DB
+        session.setEnemySpeed(enemy.getSpeed());
 
         session.setPlayerMaxHp(player.getMaxHp());
         session.setPlayerCurrentHp(player.getCurrentHp());
@@ -213,6 +221,7 @@ public class ExplorationService {
         session.setCurrentTurn(0);
         session.setCreatedAt(LocalDateTime.now());
 
+        // Lưu lại (JPA sẽ tự động Update nếu ID tồn tại, hoặc Insert nếu mới)
         battleSessionRepo.save(session);
 
         player.setStatus(CharacterStatus.IN_COMBAT);

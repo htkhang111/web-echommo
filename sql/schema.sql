@@ -520,3 +520,34 @@ ALTER TABLE user_items ADD COLUMN max_durability INT DEFAULT 100;
 
 -- 4. Bảng Items: Thêm loại công cụ & cấp độ yêu cầu (nếu chưa có)
 -- (Nếu bạn dùng cột 'type' và 'tier' có sẵn thì không cần thêm, chỉ cần data seed chuẩn)
+
+-- Cập nhật ENUM cho bảng items để chấp nhận các Tool mới
+ALTER TABLE items
+    MODIFY COLUMN slot_type ENUM(
+        'NONE',
+        'WEAPON',
+        'ARMOR',
+        'HELMET',
+        'BOOTS',
+        'RING',
+        'NECKLACE',
+        'CONSUMABLE',
+        'MATERIAL',
+        'PICKAXE',
+        'AXE',
+        'SHOVEL',
+        'FISHING_ROD'
+        );
+
+SET SQL_SAFE_UPDATES = 0;
+
+-- Thêm các cột chỉ số mới
+ALTER TABLE items
+    ADD COLUMN max_durability INT DEFAULT 100 COMMENT 'Độ bền tối đa',
+    ADD COLUMN min_luck INT DEFAULT 0 COMMENT 'May mắn tối thiểu (Random)',
+    ADD COLUMN max_luck INT DEFAULT 0 COMMENT 'May mắn tối đa (Random)',
+    ADD COLUMN energy_save_chance DOUBLE DEFAULT 0.0 COMMENT 'Tỷ lệ không tốn Energy (0.01 = 1%)';
+
+SET SQL_SAFE_UPDATES = 1;
+
+ALTER TABLE items ADD COLUMN is_limited BOOLEAN DEFAULT FALSE;

@@ -10,13 +10,12 @@ import java.util.Optional;
 
 @Repository
 public interface ItemRepository extends JpaRepository<Item, Integer> {
-    // [FIX] Thêm lại method này để sửa lỗi biên dịch
     Optional<Item> findByName(String name);
-
-    // Các method mới cho tính năng Dump
     Optional<Item> findByCode(String code);
 
-    List<Item> findByRarity(Rarity rarity);
+    // [FIX] Thêm method này để ShopController gọi được danh sách hàng vô hạn
+    List<Item> findByIsSystemItemTrue();
 
+    List<Item> findByRarity(Rarity rarity);
     List<Item> findByRarityAndCodeNotLike(Rarity rarity, String codePattern);
 }

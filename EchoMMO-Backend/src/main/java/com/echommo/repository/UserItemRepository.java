@@ -1,5 +1,7 @@
 package com.echommo.repository;
 
+import com.echommo.entity.Character;
+import com.echommo.entity.Item;
 import com.echommo.entity.UserItem;
 import com.echommo.enums.SlotType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,27 +15,19 @@ import java.util.Optional;
 @Repository
 public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
-    // [FIX] Thêm hàm đếm số lượng item của nhân vật để check Inventory Limit
     int countByCharacter_CharId(Integer charId);
 
     List<UserItem> findByCharacter_CharId(Integer charId);
-
-    // 1. Get Inventory (Newest items first)
     List<UserItem> findByCharacter_CharIdOrderByAcquiredAtDesc(Integer charId);
-
-    // 2. Get currently equipped items
     List<UserItem> findByCharacter_CharIdAndIsEquippedTrue(Integer charId);
 
-    // 3. Find item currently in a specific slot
     @Query("SELECT ui FROM UserItem ui WHERE ui.character.charId = :charId AND ui.isEquipped = true AND ui.item.slotType = :slotType")
     Optional<UserItem> findEquippedItemBySlot(@Param("charId") Integer charId, @Param("slotType") SlotType slotType);
 
-    // 4. Find specific item for Stacking
     Optional<UserItem> findByCharacter_CharIdAndItem_ItemId(Integer charId, Integer itemId);
-
-    // 5. Find a specific unique item instance
     Optional<UserItem> findByUserItemIdAndCharacter_CharId(Long userItemId, Integer charId);
-
-    // 6. Find material by name
     Optional<UserItem> findByCharacter_CharIdAndItem_Name(Integer charId, String name);
+
+    // [FIX] Thêm method này để ShopController tìm item trong túi của nhân vật
+    Optional<UserItem> findByCharacterAndItem(Character character, Item item);
 }

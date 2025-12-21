@@ -28,7 +28,7 @@ public class Item {
     private String type;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "slot_type") // [FIX QUAN TRỌNG]: Thêm dòng này
+    @Column(name = "slot_type")
     private SlotType slotType;
 
     private Integer tier;
@@ -58,10 +58,22 @@ public class Item {
     @Column(name = "speed_bonus")
     private Integer speedBonus;
 
+    // [NEW] CÁC CHỈ SỐ MỚI CHO TOOL
+    @Column(name = "max_durability")
+    private Integer maxDurability; // Độ bền tối đa (VD: 500)
+
+    @Column(name = "min_luck")
+    private Integer minLuck; // May mắn min
+
+    @Column(name = "max_luck")
+    private Integer maxLuck; // May mắn max
+
+    @Column(name = "energy_save_chance")
+    private Double energySaveChance; // Tỷ lệ tiết kiệm sức (0.1 = 10%)
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // Helper method để lấy chỉ số chính
     @Transient
     public Integer getBaseMainStat() {
         if (atkBonus != null && atkBonus > 0) return atkBonus;

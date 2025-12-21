@@ -24,11 +24,9 @@ public class InventoryServiceImpl implements InventoryService {
     private final CharacterRepository charRepo;
     private final WalletRepository walletRepo;
     private final UserRepository userRepo;
-
-    // Inject Service để xử lý Logic
     private final EquipmentService equipmentService;
-    private final CharacterService characterService; // [QUAN TRỌNG] Để tính lại chỉ số
-    private final ItemGenerationService itemGenService; // [QUAN TRỌNG] Để random chỉ số đồ mới
+    private final CharacterService characterService;
+    private final ItemGenerationService itemGenService;
 
     @Override
     public List<UserItem> getInventory(Integer charId) {
@@ -44,25 +42,30 @@ public class InventoryServiceImpl implements InventoryService {
         UserItem newItem = userItemRepo.findById(userItemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
-        // 1. Check quyền sở hữu
         if (!newItem.getCharacter().getCharId().equals(charId)) {
             throw new RuntimeException("Vật phẩm không thuộc về bạn!");
         }
 
         Item itemBase = newItem.getItem();
-        if (!List.of("WEAPON", "ARMOR").contains(itemBase.getType())) {
-            throw new RuntimeException("Chỉ có thể trang bị Vũ khí hoặc Giáp!");
+
+        // [FIX] Cho phép trang bị TOOL (Cúp, Rìu, Xẻng, Cần Câu)
+        boolean isGear = List.of("WEAPON", "ARMOR").contains(itemBase.getType());
+        boolean isTool = "TOOL".equals(itemBase.getType());
+
+        if (!isGear && !isTool) {
+            throw new RuntimeException("Vật phẩm này không thể trang bị!");
         }
 
-        // 2. Check Level (Tier * 10 - 10)
+        // Check Level yêu cầu
         int requiredLv = (itemBase.getTier() != null) ? Math.max(1, (itemBase.getTier() - 1) * 10) : 1;
         if (character.getLevel() < requiredLv) {
             throw new RuntimeException("Cấp độ không đủ! Cần Level " + requiredLv);
         }
 
-        // 3. Tháo đồ cũ ở cùng vị trí (Slot)
-        List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(charId);
+        // Tháo đồ cũ cùng slot
         SlotType newSlot = itemBase.getSlotType();
+        // Cần lấy tất cả đồ đang mặc để check slot, vì DB có thể chưa update type chuẩn
+        List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(charId);
 
         for (UserItem equipped : equippedItems) {
             if (equipped.getItem().getSlotType() == newSlot) {
@@ -71,11 +74,11 @@ public class InventoryServiceImpl implements InventoryService {
             }
         }
 
-        // 4. Mặc đồ mới
+        // Mặc đồ mới
         newItem.setIsEquipped(true);
         userItemRepo.save(newItem);
 
-        // 5. Tính lại chỉ số nhân vật
+        // Tính lại chỉ số
         characterService.recalculateStats(character);
         charRepo.save(character);
     }
@@ -96,7 +99,6 @@ public class InventoryServiceImpl implements InventoryService {
         item.setIsEquipped(false);
         userItemRepo.save(item);
 
-        // Tính lại chỉ số (sức mạnh sẽ giảm)
         characterService.recalculateStats(character);
         charRepo.save(character);
     }
@@ -104,26 +106,68 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public UserItem enhanceItem(Integer charId, Long userItemId) {
-        // Delegate sang EquipmentService đã fix
         return equipmentService.enhanceItem(userItemId);
+    }
+
+    // [NEW] LOGIC SỬA ĐỒ (GIÁ RẺ)
+    @Override
+    @Transactional
+    public UserItem repairItem(User user, Long userItemId) {
+        UserItem userItem = userItemRepo.findById(userItemId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy vật phẩm!"));
+
+        if (!userItem.getUser().getUserId().equals(user.getUserId())) {
+            throw new RuntimeException("Vật phẩm không thuộc về bạn!");
+        }
+
+        Integer current = userItem.getCurrentDurability();
+        Integer max = userItem.getMaxDurability();
+
+        if (current == null) current = 0;
+        if (max == null || max <= 0) max = 100; // Fallback
+
+        if (current >= max) {
+            throw new RuntimeException("Độ bền đã đầy, không cần sửa!");
+        }
+
+        int missingDurability = max - current;
+
+        // CÔNG THỨC: 1 Echo Coin sửa 10 Độ bền (0.1 coin/point)
+        // VD: Hỏng 500 điểm -> 50 Coin
+        double costValue = Math.ceil(missingDurability / 10.0);
+        BigDecimal cost = BigDecimal.valueOf(costValue);
+
+        // Tối thiểu 1 coin
+        if (cost.compareTo(BigDecimal.ONE) < 0) {
+            cost = BigDecimal.ONE;
+        }
+
+        Wallet wallet = user.getWallet();
+        if (wallet.getEchoCoin().compareTo(cost) < 0) {
+            throw new RuntimeException("Không đủ Echo Coin! Cần " + cost + " để sửa.");
+        }
+
+        // Trừ tiền & Hồi phục
+        wallet.setEchoCoin(wallet.getEchoCoin().subtract(cost));
+        walletRepo.save(wallet);
+
+        userItem.setCurrentDurability(max);
+        return userItemRepo.save(userItem);
     }
 
     @Override
     @Transactional
     public User expandInventory(User user) {
         int currentSlots = user.getInventorySlots() != null ? user.getInventorySlots() : 50;
-
-        if (currentSlots >= 200) throw new RuntimeException("Kho đồ đã đạt giới hạn tối đa!");
+        if (currentSlots >= 200) throw new RuntimeException("Kho đồ đã đạt giới hạn!");
 
         int nextSlots = currentSlots + 5;
-
-        // Công thức Echo Coin của bạn: ((current - 50) / 5) + 1
         int costInt = ((currentSlots - 50) / 5) + 1;
         BigDecimal cost = BigDecimal.valueOf(costInt);
 
         Wallet w = user.getWallet();
         if (w.getEchoCoin().compareTo(cost) < 0) {
-            throw new RuntimeException("Thiếu Echo Coin! Cần " + cost + " để mở thêm 5 ô.");
+            throw new RuntimeException("Thiếu Echo Coin! Cần " + cost);
         }
 
         w.setEchoCoin(w.getEchoCoin().subtract(cost));
@@ -140,24 +184,19 @@ public class InventoryServiceImpl implements InventoryService {
                 .orElseThrow(() -> new RuntimeException("Character not found"));
 
         Item item = itemRepo.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Item not found: " + itemId));
+                .orElseThrow(() -> new RuntimeException("Item not found"));
 
-        // 1. Kiểm tra sức chứa kho
         int currentCount = userItemRepo.countByCharacter_CharId(character.getCharId());
         int maxSlots = user.getInventorySlots() != null ? user.getInventorySlots() : 50;
 
-        // Nếu là đồ mới (không stack được hoặc chưa có) thì check full kho
         boolean isStackable = List.of("MATERIAL", "CONSUMABLE").contains(item.getType());
         if (!isStackable && currentCount + quantity > maxSlots) {
-            throw new RuntimeException("Kho đồ đã đầy (" + currentCount + "/" + maxSlots + ")!");
+            throw new RuntimeException("Kho đồ đã đầy!");
         }
 
-        // 2. Logic Stack cho nguyên liệu
         if (isStackable) {
             Optional<UserItem> existingItem = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), itemId)
-                    .stream()
-                    .filter(ui -> !Boolean.TRUE.equals(ui.getIsEquipped()))
-                    .findFirst();
+                    .stream().filter(ui -> !Boolean.TRUE.equals(ui.getIsEquipped())).findFirst();
 
             if (existingItem.isPresent()) {
                 UserItem ui = existingItem.get();
@@ -167,22 +206,23 @@ public class InventoryServiceImpl implements InventoryService {
             }
         }
 
-        // 3. Tạo vật phẩm mới (Trang bị hoặc nguyên liệu mới)
         for (int i = 0; i < quantity; i++) {
             UserItem ui = UserItem.builder()
                     .character(character)
                     .item(item)
-                    .quantity(1) // Trang bị số lượng luôn là 1
+                    .quantity(1)
                     .isEquipped(false)
                     .enhanceLevel(0)
                     .rarity(item.getRarity() != null ? item.getRarity() : Rarity.COMMON)
                     .acquiredAt(LocalDateTime.now())
-                    // Fix lỗi null MainStatValue
                     .mainStatValue(BigDecimal.valueOf(item.getBaseMainStat() != null ? item.getBaseMainStat() : 0))
+                    // [FIX] Khởi tạo độ bền từ Template
+                    .maxDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100)
+                    .currentDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100)
                     .build();
 
-            // [FIX] Nếu là trang bị, phải Random chỉ số
-            if (List.of("WEAPON", "ARMOR").contains(item.getType())) {
+            // Nếu là Tool hoặc Gear, random chỉ số
+            if (List.of("WEAPON", "ARMOR", "TOOL").contains(item.getType())) {
                 itemGenService.randomizeNewItem(ui);
             } else {
                 ui.setSubStats("[]");

@@ -1,6 +1,5 @@
 package com.echommo.service;
 
-import com.echommo.config.GameConstants;
 import com.echommo.dto.CharacterRequest;
 import com.echommo.dto.SubStatDTO;
 import com.echommo.entity.Character;
@@ -36,7 +35,7 @@ public class CharacterService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // HELPER: Chuyển null thành 0
+    // Helper: Chuyển null thành 0
     private BigDecimal safe(BigDecimal val) {
         return val == null ? BigDecimal.ZERO : val;
     }
@@ -54,24 +53,10 @@ public class CharacterService {
 
         if (c != null) {
             ensureNoNullStats(c);
+            recalculateStats(c); // Luôn tính lại chỉ số mới nhất khi load
             recalculateStatPoints(c);
         }
         return c;
-    }
-
-    private void recalculateStatPoints(Character c) {
-        int lvl = safeInt(c.getLevel());
-        int pointsPerLevel = 5;
-        try {
-            pointsPerLevel = GameConstants.STAT_POINTS_PER_LEVEL;
-        } catch (Exception ignored) {}
-
-        int totalExpected = (lvl - 1) * pointsPerLevel;
-        int usedPoints = (safeInt(c.getStr()) - 5) + (safeInt(c.getVit()) - 5) +
-                (safeInt(c.getAgi()) - 5) + (safeInt(c.getDex()) - 5) +
-                (safeInt(c.getIntelligence()) - 5) + (safeInt(c.getLuck()) - 5);
-
-        c.setStatPoints(Math.max(0, totalExpected - usedPoints));
     }
 
     @Transactional
@@ -100,15 +85,112 @@ public class CharacterService {
         c.setStatus(CharacterStatus.IDLE);
         c.setMonsterKills(0);
 
+        // Chỉ số khởi đầu
         c.setStr(5); c.setVit(5); c.setAgi(5);
         c.setDex(5); c.setIntelligence(5); c.setLuck(5);
-        c.setBaseDef(5); c.setBaseAtk(10); c.setBaseSpeed(10);
+
+        // [FIX] Mặc định thấp
+        c.setBaseDef(5);
+        c.setBaseAtk(10);
+        c.setBaseSpeed(10);
+        c.setBaseCritRate(5);
 
         recalculateStats(c);
 
         Character savedChar = characterRepo.save(c);
         grantStarterPack(savedChar);
         return savedChar;
+    }
+
+    // --- HÀM TÍNH TOÁN CHỈ SỐ (ĐÃ FIX TĂNG THỦ THEO CẤP) ---
+    public void recalculateStats(Character c) {
+        ensureNoNullStats(c);
+        int lvl = safeInt(c.getLevel());
+
+        // 1. Chỉ số cơ bản từ Level
+        int autoHpBonus = (lvl - 1) * 20;  // Mỗi cấp tăng 20 Máu (cũ là 15)
+        int autoAtkBonus = (lvl - 1) * 2;  // Mỗi cấp tăng 2 Công
+
+        // [FIX MỚI] Mỗi cấp tự động tăng 1 Hộ Thể để trâu hơn
+        int autoDefBonus = (lvl - 1) * 1;
+
+        // --- TÍNH TOÁN ---
+        int rawMaxHp = 200 + (safeInt(c.getVit()) * 20) + autoHpBonus;
+        int rawAtk = 10 + (safeInt(c.getStr()) * 2) + autoAtkBonus;
+
+        // [CÔNG THỨC MỚI]
+        // 5 Gốc + Bonus theo cấp + (Thể lực / 5)
+        // Ví dụ: Lv 10, Vit 50 => Def = 5 + 9 + (50/5) = 24 Def (Khá ổn)
+        int rawDef = 5 + autoDefBonus + (safeInt(c.getVit()) / 5);
+
+        int rawSpeed = 10 + safeInt(c.getAgi());
+
+        // Bạo Kích: 5% Gốc + (Luck / 5)
+        int rawCritRate = 5 + (safeInt(c.getLuck()) / 5);
+        int rawCritDmg = 150 + (safeInt(c.getDex()) / 2);
+
+        // 2. Cộng chỉ số từ trang bị
+        List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(c.getCharId());
+
+        BigDecimal equipAtk = BigDecimal.ZERO;
+        BigDecimal equipDef = BigDecimal.ZERO;
+        BigDecimal equipHp = BigDecimal.ZERO;
+
+        double bonusCritRate = 0;
+        double bonusCritDmg = 0;
+        double bonusSpeed = 0;
+
+        for (UserItem item : equippedItems) {
+            BigDecimal mainVal = safe(item.getMainStatValue());
+
+            if (item.getItem().getSlotType() == SlotType.WEAPON) {
+                equipAtk = equipAtk.add(mainVal);
+            } else if (item.getItem().getSlotType() == SlotType.ARMOR
+                    || item.getItem().getSlotType() == SlotType.HELMET
+                    || item.getItem().getSlotType() == SlotType.BOOTS) {
+                equipDef = equipDef.add(mainVal);
+            }
+
+            try {
+                if (item.getSubStats() != null && !item.getSubStats().equals("[]")) {
+                    List<SubStatDTO> subs = objectMapper.readValue(item.getSubStats(), new TypeReference<List<SubStatDTO>>() {});
+                    for (SubStatDTO sub : subs) {
+                        switch (sub.getCode()) {
+                            case "ATK_FLAT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(sub.getValue()));
+                            case "DEF_FLAT" -> equipDef = equipDef.add(BigDecimal.valueOf(sub.getValue())); // Cộng dòng phụ Def
+                            case "HP_FLAT" -> equipHp = equipHp.add(BigDecimal.valueOf(sub.getValue()));
+                            case "SPEED" -> bonusSpeed += sub.getValue();
+                            case "CRIT_RATE" -> bonusCritRate += sub.getValue();
+                            case "CRIT_DMG" -> bonusCritDmg += sub.getValue();
+                            case "ATK_PERCENT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk * (sub.getValue() / 100.0)));
+                            case "DEF_PERCENT" -> equipDef = equipDef.add(BigDecimal.valueOf(rawDef * (sub.getValue() / 100.0)));
+                            case "HP_PERCENT" -> equipHp = equipHp.add(BigDecimal.valueOf(rawMaxHp * (sub.getValue() / 100.0)));
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // 3. Tổng hợp và Lưu
+        c.setMaxHp(rawMaxHp + equipHp.intValue());
+        c.setBaseAtk(rawAtk + equipAtk.intValue());
+
+        // Cập nhật Def mới
+        c.setBaseDef(rawDef + equipDef.intValue());
+
+        c.setBaseSpeed(rawSpeed + (int)bonusSpeed);
+        c.setBaseCritRate(rawCritRate + (int)bonusCritRate);
+        c.setBaseCritDmg(rawCritDmg + (int)bonusCritDmg);
+
+        // Tính lại lực chiến
+        int power = (c.getMaxHp() / 10) + (c.getBaseAtk() * 3) + (c.getBaseDef() * 5) + (lvl * 10);
+        c.setTotalPower(power);
+
+        if (c.getCurrentHp() == null || c.getCurrentHp() > c.getMaxHp()) {
+            c.setCurrentHp(c.getMaxHp());
+        }
+
+        characterRepo.save(c);
     }
 
     @Transactional
@@ -142,77 +224,13 @@ public class CharacterService {
         return characterRepo.save(c);
     }
 
-    public void recalculateStats(Character c) {
-        ensureNoNullStats(c);
+    private void recalculateStatPoints(Character c) {
         int lvl = safeInt(c.getLevel());
-
-        // 1. Chỉ số cơ bản
-        int autoHpBonus = (lvl - 1) * 15;
-        int autoAtkBonus = (lvl - 1) * 2;
-
-        int rawMaxHp = 200 + (safeInt(c.getVit()) * 20) + autoHpBonus;
-        int rawAtk = 10 + (safeInt(c.getStr()) * 2) + autoAtkBonus;
-        int rawDef = 5 + safeInt(c.getBaseDef());
-        int rawSpeed = 10 + safeInt(c.getAgi());
-
-        // [FIXED] TỶ LỆ CHÍ MẠNG: Gốc 5% + (Luck / 5)
-        // Ví dụ: Luck = 5 -> Crit = 5 + 1 = 6%
-        int rawCritRate = 5 + (safeInt(c.getLuck()) / 5);
-        int rawCritDmg = 150 + (safeInt(c.getDex()) / 2);
-
-        // 2. Cộng đồ
-        List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(c.getCharId());
-
-        BigDecimal equipAtk = BigDecimal.ZERO;
-        BigDecimal equipDef = BigDecimal.ZERO;
-        BigDecimal equipHp = BigDecimal.ZERO;
-
-        double bonusCritRate = 0;
-        double bonusCritDmg = 0;
-        double bonusSpeed = 0;
-
-        for (UserItem item : equippedItems) {
-            BigDecimal mainVal = safe(item.getMainStatValue());
-
-            if (item.getItem().getSlotType() == SlotType.WEAPON) {
-                equipAtk = equipAtk.add(mainVal);
-            } else if (item.getItem().getSlotType() == SlotType.ARMOR
-                    || item.getItem().getSlotType() == SlotType.HELMET
-                    || item.getItem().getSlotType() == SlotType.BOOTS) {
-                equipDef = equipDef.add(mainVal);
-            }
-
-            try {
-                if (item.getSubStats() != null && !item.getSubStats().equals("[]")) {
-                    List<SubStatDTO> subs = objectMapper.readValue(item.getSubStats(), new TypeReference<List<SubStatDTO>>() {});
-                    for (SubStatDTO sub : subs) {
-                        switch (sub.getCode()) {
-                            case "ATK_FLAT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(sub.getValue()));
-                            case "DEF_FLAT" -> equipDef = equipDef.add(BigDecimal.valueOf(sub.getValue()));
-                            case "HP_FLAT" -> equipHp = equipHp.add(BigDecimal.valueOf(sub.getValue()));
-                            case "SPEED" -> bonusSpeed += sub.getValue();
-                            case "CRIT_RATE" -> bonusCritRate += sub.getValue();
-                            case "CRIT_DMG" -> bonusCritDmg += sub.getValue();
-                            case "ATK_PERCENT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk * (sub.getValue() / 100.0)));
-                        }
-                    }
-                }
-            } catch (Exception ignored) {}
-        }
-
-        c.setMaxHp(rawMaxHp + equipHp.intValue());
-        c.setBaseAtk(rawAtk + equipAtk.intValue());
-        c.setBaseDef(rawDef + equipDef.intValue());
-        c.setBaseSpeed(rawSpeed + (int)bonusSpeed);
-        c.setBaseCritRate(rawCritRate + (int)bonusCritRate);
-        c.setBaseCritDmg(rawCritDmg + (int)bonusCritDmg);
-
-        int power = (c.getMaxHp() / 10) + (c.getBaseAtk() * 3) + (c.getBaseDef() * 5) + (lvl * 10);
-        c.setTotalPower(power);
-
-        if (c.getCurrentHp() == null || c.getCurrentHp() > c.getMaxHp()) {
-            c.setCurrentHp(c.getMaxHp());
-        }
+        int totalExpected = (lvl - 1) * 5;
+        int usedPoints = (safeInt(c.getStr()) - 5) + (safeInt(c.getVit()) - 5) +
+                (safeInt(c.getAgi()) - 5) + (safeInt(c.getDex()) - 5) +
+                (safeInt(c.getIntelligence()) - 5) + (safeInt(c.getLuck()) - 5);
+        c.setStatPoints(Math.max(0, totalExpected - usedPoints));
     }
 
     private void ensureNoNullStats(Character c) {
