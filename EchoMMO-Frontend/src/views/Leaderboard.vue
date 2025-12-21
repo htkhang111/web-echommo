@@ -176,16 +176,17 @@ const rankedRestOfList = computed(() => {
 
 const formatVal = (val) => val;
 
-// [NEW] Logic phân giải ảnh
-// avatarStr có thể là: Link HTTP (ảnh upload) HOẶC Skin ID (skin_yasou) HOẶC Emoji (🐲)
+// [UPDATE] Logic phân giải ảnh cho BXH
+// avatarStr: Có thể là đường dẫn file ảnh (/uploads/...) hoặc Skin ID (skin_yasou)
 const resolveAvatar = (avatarStr) => {
   if (!avatarStr) return getCurrentSkin("default").sprites.idle;
   
-  // 1. Nếu là Link URL -> Dùng luôn
-  if (avatarStr.startsWith("http")) return avatarStr;
+  // 1. Nếu chứa '/' hoặc '.' -> Coi là đường dẫn file ảnh (http hoặc relative path)
+  if (avatarStr.includes("/") || avatarStr.includes(".")) {
+    return avatarStr;
+  }
   
-  // 2. Nếu là Skin ID hoặc Emoji -> Dùng hàm helper lấy ảnh asset
-  // getCurrentSkin tự handle fallback nếu không tìm thấy key
+  // 2. Nếu không, coi là Skin ID -> Lấy từ asset helper
   const skin = getCurrentSkin(avatarStr);
   return skin ? skin.sprites.idle : 'https://placehold.co/50?text=U';
 };
@@ -275,7 +276,7 @@ onMounted(() => {
 .silver-border { border-color: #e0e0e0; }
 .bronze-border { border-color: #cd7f32; }
 
-/* [UPDATE] CSS cho ảnh trong BXH */
+/* [UPDATE] CSS cho ảnh trong BXH - Ảnh thường cover, pixel art contain */
 .podium-img {
   width: 100%; height: 100%; object-fit: cover;
 }

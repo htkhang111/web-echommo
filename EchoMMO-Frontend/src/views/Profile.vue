@@ -16,30 +16,17 @@
           
           <div class="avatar-edit-box">
             <div class="current-avatar">
-              <img :src="getAvatarUrl(form.profileImageUrl)" @error="handleImgError" />
+              <img :src="form.profileImageUrl || defaultAvatar" @error="handleImgError" />
             </div>
-            
-            <div class="upload-controls">
-                <label>Ảnh Đại Diện:</label>
-                <div class="input-tabs">
-                    <button @click="uploadMode = 'file'" :class="{active: uploadMode === 'file'}">Tải Lên</button>
-                    <button @click="uploadMode = 'url'" :class="{active: uploadMode === 'url'}">Link URL</button>
-                </div>
-
-                <div v-if="uploadMode === 'file'" class="input-group file-group">
-                    <input type="file" @change="handleFileUpload" accept="image/*" />
-                    <div v-if="isUploading" class="uploading-text"><i class="fas fa-spinner fa-spin"></i> Đang tải lên...</div>
-                </div>
-
-                 <div v-if="uploadMode === 'url'" class="input-group">
-                    <input v-model="form.profileImageUrl" placeholder="https://..." />
-                </div>
+            <div class="input-group">
+              <label>Link Ảnh Đại Diện (URL):</label>
+              <input v-model="form.profileImageUrl" placeholder="https://example.com/anh.jpg" />
             </div>
           </div>
 
           <div class="info-form">
             <div class="form-group">
-              <label>Họ Tên (Biệt Danh):</label>
+              <label>Biệt Danh (Họ Tên):</label>
               <input v-model="form.fullName" placeholder="Nhập tên hiển thị..." />
             </div>
 
@@ -59,9 +46,9 @@
             </div>
 
             <div class="form-group read-only">
-              <label>Ngày Nhập Môn (Cố Định):</label>
+              <label>Ngày Nhập Môn (Ngày Sinh):</label>
               <div class="static-val">{{ dob }}</div>
-              <small class="hint">*Đây là ngày Cưng bắt đầu tu tiên, không sửa được đâu nhé!</small>
+              <small class="hint">*Ngày sinh là cố định theo ngày tạo tài khoản</small>
             </div>
 
             <button class="btn-save" @click="saveProfile">
@@ -130,9 +117,6 @@ const authStore = useAuthStore();
 const charStore = useCharacterStore();
 
 // --- LOGIC HỒ SƠ ---
-const uploadMode = ref('file');
-const isUploading = ref(false);
-
 const form = reactive({
   fullName: "",
   username: "",
@@ -142,54 +126,13 @@ const form = reactive({
 });
 
 const defaultAvatar = "https://placehold.co/150?text=Avatar";
-
-// [QUAN TRỌNG] Backend chạy port nào thì sửa port đó (Mặc định 8080)
-const BACKEND_URL = "http://localhost:8080";
-
-// Hiển thị ngày đăng ký (Không cho sửa)
 const dob = computed(() => {
   if (!authStore.user?.createdAt) return "Chưa cập nhật";
   return new Date(authStore.user.createdAt).toLocaleDateString('vi-VN');
 });
 
-// Helper: Xử lý hiển thị đường dẫn ảnh
-const getAvatarUrl = (path) => {
-  if (!path) return defaultAvatar;
-  if (path.startsWith("http")) return path;
-  // Nếu là đường dẫn tương đối (/uploads/...) thì nối thêm domain backend
-  return `${BACKEND_URL}${path}`;
-};
-
 const handleImgError = (e) => {
   e.target.src = defaultAvatar;
-};
-
-// Xử lý upload file
-const handleFileUpload = async (event) => {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  if (!file.type.match('image.*')) {
-    alert("Chỉ được chọn file ảnh thôi Cưng à!");
-    return;
-  }
-
-  isUploading.value = true;
-  const formData = new FormData();
-  formData.append("file", file);
-
-  try {
-    const res = await axiosClient.post("/upload/image", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    // Server trả về: { "url": "/uploads/xxx.jpg" }
-    // Lưu tạm vào form để preview
-    form.profileImageUrl = res.data.url;
-  } catch (e) {
-    alert("Lỗi tải ảnh: " + (e.response?.data || e.message));
-  } finally {
-    isUploading.value = false;
-  }
 };
 
 const saveProfile = async () => {
@@ -199,20 +142,20 @@ const saveProfile = async () => {
       fullName: form.fullName,
       username: form.username,
       email: form.email,
-      password: form.password || null,
+      password: form.password || null, // Chỉ gửi nếu có nhập
       profileImageUrl: form.profileImageUrl
     });
     
-    // Refresh lại thông tin user trong store
+    // Nếu đổi username/password thì nên logout bắt đăng nhập lại, nhưng ở đây ta chỉ fetch lại profile cho tiện
     await authStore.fetchProfile();
     alert("Lưu hồ sơ thành công!");
-    form.password = ""; 
+    form.password = ""; // Reset pass field
   } catch (e) {
     alert("Lỗi lưu hồ sơ: " + (e.response?.data?.message || e.message));
   }
 };
 
-// --- LOGIC SKIN (GIỮ NGUYÊN) ---
+// --- LOGIC SKIN (CŨ) ---
 const skins = Object.values(CHARACTER_SKINS);
 const currentSkinId = computed(() => authStore.user?.avatarUrl || "skin_yasou");
 const selectedSkinId = ref("skin_yasou");
@@ -258,7 +201,7 @@ onMounted(() => {
   charStore.fetchCharacter();
   selectedSkinId.value = currentSkinId.value;
   
-  // Fill data vào form khi load trang
+  // Fill form data
   if (authStore.user) {
     form.fullName = authStore.user.fullName;
     form.username = authStore.user.username;
@@ -356,10 +299,8 @@ onUnmounted(() => {
 .avatar-edit-box {
   display: flex;
   gap: 20px;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 20px;
-  padding-bottom: 20px;
-  border-bottom: 1px dashed #5d4037;
 }
 
 .current-avatar {
@@ -369,7 +310,6 @@ onUnmounted(() => {
   border: 3px solid #fbc02d;
   overflow: hidden;
   background: #000;
-  flex-shrink: 0;
 }
 
 .current-avatar img {
@@ -378,40 +318,20 @@ onUnmounted(() => {
   object-fit: cover;
 }
 
-.upload-controls {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.input-group {
+  flex: 1;
 }
-
-.input-tabs {
-    display: flex;
-    gap: 5px;
+.input-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #a1887f;
 }
-.input-tabs button {
-    background: #261815;
-    color: #a1887f;
-    border: 1px solid #5d4037;
-    padding: 4px 10px;
-    cursor: pointer;
-    font-size: 0.8em;
-}
-.input-tabs button.active {
-    background: #fbc02d;
-    color: #000;
-    font-weight: bold;
-}
-
-.file-group input {
-    padding: 5px;
-    font-size: 0.9em;
-    color: #fff;
-}
-.uploading-text {
-    color: #fbc02d;
-    font-size: 0.8em;
-    font-style: italic;
+.input-group input {
+  width: 100%;
+  padding: 8px;
+  background: #261815;
+  border: 1px solid #5d4037;
+  color: #fff;
 }
 
 .info-form {
@@ -447,9 +367,9 @@ onUnmounted(() => {
 }
 
 .hint {
-    color: #a1887f;
-    font-size: 0.8em;
-    font-style: italic;
+  color: #a1887f;
+  font-style: italic;
+  font-size: 0.8em;
 }
 
 .btn-save {
@@ -467,7 +387,7 @@ onUnmounted(() => {
   background: #388e3c;
 }
 
-/* CHAR SELECT COLUMN */
+/* CHAR SELECT COLUMN (Giữ style cũ nhưng thu gọn) */
 .char-select-column {
   background: rgba(0,0,0,0.3);
   padding: 20px;
