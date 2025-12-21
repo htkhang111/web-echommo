@@ -127,7 +127,7 @@
             <div class="decor-line"></div>
           </div>
           <div class="bag-info">
-            Sức chứa: {{ bagItems.length }} / 50
+            Trang bị: {{ bagItems.length }} / 50
           </div>
 
           <div class="mini-grid custom-scroll">
@@ -140,7 +140,7 @@
                 { 'is-equipped': item.isEquipped }
               ]"
               @click="equip(item)"
-              @mouseenter="hoveredType = normalizeSlot(item.item.type)" 
+              @mouseenter="hoveredType = determineSlot(item.item)" 
               @mouseleave="hoveredType = null"
               :title="item.item.name"
             >
@@ -198,7 +198,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useCharacterStore } from "@/stores/characterStore";
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { useAuthStore } from "@/stores/authStore";
@@ -218,74 +218,65 @@ const SLOT_CONFIG = {
   BOOTS:    { label: "Giày",       icon: "fa-socks",           className: "boots-slot" },
 };
 
-// --- 2. HÀM CHUẨN HÓA SLOT (Ưu tiên slot_type từ DB) ---
+// --- 2. HÀM CHUẨN HÓA SLOT (STRICT MODE) ---
 const determineSlot = (item) => {
   if (!item) return null;
 
-  // CÁCH 1: Lấy trực tiếp từ cột slot_type trong DB (Chính xác 100%)
-  // Backend thường trả về: item.slotType hoặc item.slot_type
-  const dbSlot = item.slotType || item.slot_type; 
-  if (dbSlot && dbSlot !== 'NONE' && SLOT_CONFIG[dbSlot]) {
+  // Lấy slotType từ API (Backend trả về slotType hoặc slot_type)
+  const dbSlot = (item.slotType || item.slot_type || "").toUpperCase(); 
+
+  // Chỉ chấp nhận nếu nó nằm trong danh sách trang bị
+  // Nếu là MATERIAL, NONE, CONSUMABLE... sẽ trả về null
+  if (SLOT_CONFIG[dbSlot]) {
       return dbSlot;
   }
-
-  // CÁCH 2: Nếu DB chưa setup slot_type, dùng logic đoán theo tên/type (Fallback)
-  const t = String(item.type || "").toUpperCase().trim();
-  const name = String(item.name || "").toUpperCase().trim();
-  const combined = t + " " + name; // Kiểm tra cả tên và loại
-
-  if (combined.includes("BOOT") || combined.includes("GIAY") || combined.includes("HAI") || combined.includes("SHOE")) return "BOOTS";
-  if (combined.includes("NECK") || combined.includes("DAY CHUYEN") || combined.includes("AMULET") || combined.includes("LIEN")) return "NECKLACE";
-  if (combined.includes("HELMET") || combined.includes("MU") || combined.includes("NON") || combined.includes("MAO") || combined.includes("HAT")) return "HELMET";
-  if (combined.includes("RING") || combined.includes("NHAN") || combined.includes("ACCESSORY")) return "RING";
-  if (combined.includes("ARMOR") || combined.includes("AO") || combined.includes("GIAP") || combined.includes("Y PHUC") || combined.includes("ROBE")) return "ARMOR";
-  if (combined.includes("WEAPON") || combined.includes("KIEM") || combined.includes("DAO") || combined.includes("CUNG") || combined.includes("THUONG")) return "WEAPON";
-
   return null;
 };
 
 // --- 3. XỬ LÝ DỮ LIỆU HIỂN THỊ ---
+
+// Trang bị đang mặc trên người
 const equipment = computed(() => {
   const mapped = {};
   const allItems = inventoryStore.items || [];
-  const rawEquip = inventoryStore.equippedItems;
-
-  // 1. Quét từ danh sách tổng (Ưu tiên)
-  if (allItems.length > 0) {
-      allItems.forEach(userItem => {
-          if (userItem && userItem.item && userItem.isEquipped) {
-              const slot = determineSlot(userItem.item);
-              if (slot) mapped[slot] = userItem;
+  
+  // Chỉ lấy những món đang equipped = true
+  allItems.forEach(userItem => {
+      if (userItem && userItem.item && userItem.isEquipped) {
+          const slot = determineSlot(userItem.item);
+          if (slot) {
+              mapped[slot] = userItem;
           }
-      });
-  }
-
-  // 2. Quét bổ sung từ equippedItems (Nếu danh sách tổng bị thiếu)
-  if (rawEquip) {
-      const equipList = Array.isArray(rawEquip) ? rawEquip : Object.values(rawEquip);
-      equipList.forEach(userItem => {
-         if (userItem && userItem.item) {
-             const slot = determineSlot(userItem.item);
-             // Chỉ ghi đè nếu slot đó chưa có (tránh xung đột)
-             if (slot && !mapped[slot]) mapped[slot] = userItem;
-         }
-      });
-  }
-
+      }
+  });
   return mapped;
 });
 
-// Lọc đồ trong túi (Chỉ hiện đồ chưa mặc và có slot hợp lệ)
+// Túi đồ (Đã lọc bỏ rác và nguyên liệu)
 const bagItems = computed(() => {
   const items = inventoryStore.items || [];
-  return items.filter(ui => 
-    ui && ui.item && 
-    determineSlot(ui.item) !== null && 
-    !ui.isEquipped 
-  );
+  
+  return items.filter(ui => {
+    // Check an toàn
+    if (!ui || !ui.item) return false;
+
+    // Không hiện đồ đang mặc
+    if (ui.isEquipped) return false;
+
+    // Lọc theo TYPE (Từ Database: WEAPON, ARMOR, MATERIAL, CONSUMABLE)
+    const type = (ui.item.type || "").toUpperCase();
+    
+    // Nếu là nguyên liệu hoặc đồ tiêu hao -> Ẩn khỏi túi trang bị
+    if (type === 'MATERIAL' || type === 'CONSUMABLE' || type === 'RESOURCE') {
+        return false;
+    }
+
+    // Kiểm tra kỹ hơn: Phải có Slot hợp lệ mới hiện
+    return determineSlot(ui.item) !== null;
+  });
 });
 
-// Skin
+// Skin nhân vật
 const userSkinImg = computed(() => {
     const skin = getCurrentSkin(authStore.user?.avatarUrl);
     return skin ? skin.sprites.idle : ''; 
@@ -293,7 +284,7 @@ const userSkinImg = computed(() => {
 
 const hoveredType = ref(null);
 
-// Tính chỉ số
+// Tính tổng chỉ số
 const totalStats = computed(() => {
   const char = charStore.character || {};
   let stats = {
@@ -305,10 +296,9 @@ const totalStats = computed(() => {
 
   Object.values(equipment.value).forEach((slotItem) => {
     if (slotItem && slotItem.item) {
-      stats.atk += (slotItem.item.atkBonus || slotItem.item.atk || 0); // Fix theo DB (atk_bonus)
+      stats.atk += (slotItem.item.atkBonus || slotItem.item.atk || 0); 
       stats.def += (slotItem.item.defBonus || slotItem.item.def || 0);
       stats.speed += (slotItem.item.speedBonus || slotItem.item.speed || 0);
-      // stats.crit += ... (Nếu có)
       
       const lv = slotItem.enhanceLevel || slotItem.level || 0;
       if (lv > 0) {
@@ -340,22 +330,20 @@ const equip = async (userItem) => {
 
   const slot = determineSlot(userItem.item);
   
-  console.log(`Đang mặc: ${userItem.item.name}`);
-  console.log(`Slot Type (DB): ${userItem.item.slotType || userItem.item.slot_type}`);
-  console.log(`Slot Tính toán: ${slot}`);
-
   if (slot) {
     try {
         await inventoryStore.equipItem(userItem.userItemId);
+        // Refresh lại data sau khi mặc
         await Promise.all([
             inventoryStore.fetchInventory(), 
             charStore.fetchCharacter()
         ]);
     } catch (e) {
-        console.error("Lỗi API:", e);
+        console.error("Lỗi API Equip:", e);
     }
   } else {
-    alert(`Vật phẩm này chưa được định nghĩa ô trang bị (Slot Type: ${userItem.item.slotType})`);
+    // Trường hợp items cũ trong DB chưa set slot_type đúng
+    alert(`Vật phẩm này chưa có Slot Type hợp lệ (Type: ${userItem.item.type})`);
   }
 };
 
@@ -380,7 +368,7 @@ const confirmUnequip = async () => {
             charStore.fetchCharacter()
         ]);
     } catch (e) {
-        console.error(e);
+        console.error("Lỗi API Unequip:", e);
     }
   }
   closeModal();
@@ -390,14 +378,6 @@ const closeModal = () => {
   showUnequipModal.value = false;
   itemToUnequip.value = null;
 };
-
-// --- Hover Logic ---
-// Khi hover vào item trong túi, xác định nó thuộc slot nào để highlight
-const setHover = (item) => {
-    if(item && item.item) {
-        hoveredType.value = determineSlot(item.item);
-    }
-}
 
 onMounted(async () => {
   await Promise.all([
@@ -476,12 +456,12 @@ onMounted(async () => {
 .stat-bonus { color: var(--bonus-green); font-size: 0.8rem; }
 .atk { color: #ef5350; } .def { color: #42a5f5; } .speed { color: #66bb6a; } .crit { color: #ab47bc; }
 
-/* --- HERO PANEL (FLEXBOX LAYOUT - FIX OVERLAP) --- */
+/* --- HERO PANEL --- */
 .hero-panel {
     background: radial-gradient(circle at center, #4e342e 0%, #261815 100%);
     border-color: var(--gold);
     display: flex;
-    flex-direction: row; /* Xếp ngang */
+    flex-direction: row; 
     justify-content: space-between;
     align-items: center;
     padding: 20px;
@@ -493,7 +473,7 @@ onMounted(async () => {
     justify-content: space-around;
     height: 100%;
     z-index: 5;
-    gap: 30px; /* Khoảng cách giữa các ô dọc */
+    gap: 30px; 
 }
 
 .char-center-col {

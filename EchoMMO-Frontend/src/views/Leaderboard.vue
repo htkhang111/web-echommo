@@ -176,17 +176,21 @@ const rankedRestOfList = computed(() => {
 
 const formatVal = (val) => val;
 
-// [UPDATE] Logic phân giải ảnh cho BXH
-// avatarStr: Có thể là đường dẫn file ảnh (/uploads/...) hoặc Skin ID (skin_yasou)
+// [UPDATE] Logic phân giải ảnh cho BXH (Hỗ trợ ảnh từ server upload)
 const resolveAvatar = (avatarStr) => {
   if (!avatarStr) return getCurrentSkin("default").sprites.idle;
   
-  // 1. Nếu chứa '/' hoặc '.' -> Coi là đường dẫn file ảnh (http hoặc relative path)
-  if (avatarStr.includes("/") || avatarStr.includes(".")) {
+  // 1. Link file ảnh upload (từ server)
+  if (avatarStr.startsWith("/uploads/")) {
+    return `http://localhost:8080${avatarStr}`;
+  }
+
+  // 2. Link http bên ngoài
+  if (avatarStr.includes("http") || avatarStr.startsWith("data:")) {
     return avatarStr;
   }
   
-  // 2. Nếu không, coi là Skin ID -> Lấy từ asset helper
+  // 3. Coi là Skin ID nếu không phải link
   const skin = getCurrentSkin(avatarStr);
   return skin ? skin.sprites.idle : 'https://placehold.co/50?text=U';
 };

@@ -22,18 +22,21 @@ public class LeaderboardController {
     // 1. BXH Cấp Độ (Level)
     @GetMapping("/level")
     public ResponseEntity<List<LeaderboardEntry>> getLevelBoard() {
-        return ResponseEntity.ok(leaderboardService.getLevelLeaderboard());
+        // [FIX] Gọi đúng tên hàm getTopLevels() trong Service
+        return ResponseEntity.ok(leaderboardService.getTopLevels());
     }
 
     // 2. BXH Tài Phú (Vàng)
     @GetMapping("/wealth")
     public ResponseEntity<List<LeaderboardEntry>> getWealthBoard() {
-        return ResponseEntity.ok(leaderboardService.getWealthLeaderboard());
+        // [FIX] Gọi đúng tên hàm getTopWealth() trong Service
+        return ResponseEntity.ok(leaderboardService.getTopWealth());
     }
 
     // 3. BXH Diệt Quái (Monster Kills)
     @GetMapping("/monster")
     public ResponseEntity<List<LeaderboardEntry>> getMonsterBoard() {
-        return ResponseEntity.ok(leaderboardService.getMonsterKillLeaderboard());
+        // [FIX] Gọi đúng tên hàm getTopMonsters() trong Service
+        return ResponseEntity.ok(leaderboardService.getTopMonsters());
     }
 }

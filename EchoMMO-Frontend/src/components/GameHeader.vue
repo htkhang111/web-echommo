@@ -89,18 +89,24 @@ const walletStore = {
   wallet: computed(() => authStore.user?.wallet)
 };
 
-// [UPDATE] Logic chọn Avatar hiển thị
+// [UPDATE] Logic chọn Avatar hiển thị (Hỗ trợ ảnh upload server)
 const userSkinAvatar = computed(() => {
   const user = authStore.user;
   if (!user) return 'https://placehold.co/50?text=U';
 
-  // 1. Nếu user có ảnh upload (link http...) -> Dùng ảnh upload
-  if (user.profileImageUrl && user.profileImageUrl.startsWith('http')) {
-    return user.profileImageUrl;
+  // 1. Nếu có ảnh upload
+  if (user.profileImageUrl) {
+    // Nếu là ảnh từ server (relative path), thêm domain vào
+    if (user.profileImageUrl.startsWith('/uploads/')) {
+      return `http://localhost:8080${user.profileImageUrl}`;
+    }
+    // Nếu là link http ngoài
+    if (user.profileImageUrl.startsWith('http')) {
+      return user.profileImageUrl;
+    }
   }
 
-  // 2. Nếu không, dùng Skin Asset (Yasuo, v.v.) dựa trên avatarUrl
-  // Hàm getCurrentSkin đã có logic fallback về Yasuo nếu avatarUrl không tìm thấy hoặc là "🐲"
+  // 2. Nếu không, dùng Skin Asset
   const skin = getCurrentSkin(user.avatarUrl);
   return skin ? skin.sprites.idle : 'https://placehold.co/50?text=U';
 });
