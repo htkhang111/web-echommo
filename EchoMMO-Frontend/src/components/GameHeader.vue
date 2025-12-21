@@ -94,12 +94,13 @@ const userSkinAvatar = computed(() => {
   const user = authStore.user;
   if (!user) return 'https://placehold.co/50?text=U';
 
-  // 1. Nếu user có ảnh upload -> Dùng ảnh upload
-  if (user.profileImageUrl) {
+  // 1. Nếu user có ảnh upload (link http...) -> Dùng ảnh upload
+  if (user.profileImageUrl && user.profileImageUrl.startsWith('http')) {
     return user.profileImageUrl;
   }
 
-  // 2. Nếu không, dùng Skin Asset (Yasuo, v.v.)
+  // 2. Nếu không, dùng Skin Asset (Yasuo, v.v.) dựa trên avatarUrl
+  // Hàm getCurrentSkin đã có logic fallback về Yasuo nếu avatarUrl không tìm thấy hoặc là "🐲"
   const skin = getCurrentSkin(user.avatarUrl);
   return skin ? skin.sprites.idle : 'https://placehold.co/50?text=U';
 });
@@ -357,14 +358,14 @@ onMounted(() => {
   align-items: center;
 }
 
-/* [UPDATE] Class mới cho avatar */
+/* [UPDATE] Style avatar */
 .user-avatar {
   width: 100%;
   height: 100%;
-  object-fit: cover; /* Ảnh upload sẽ cover khung tròn */
+  object-fit: cover; /* Ảnh upload sẽ cover */
 }
 
-/* Nếu là pixel art (nhận diện qua tên file/url) thì dùng contain */
+/* Nếu là pixel art (nhận diện qua tên file) thì contain để không bị mất chi tiết */
 .user-avatar[src*="resource"], .user-avatar[src*="character"] {
   width: 130%;
   height: 130%;

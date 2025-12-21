@@ -124,7 +124,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import { useLeaderboardStore } from "@/stores/leaderboardStore";
-import { getCurrentSkin } from "@/utils/assetHelper"; // [IMPORT] Để lấy asset pixel
+import { getCurrentSkin } from "@/utils/assetHelper";
 
 const activeTab = ref("level");
 const lbStore = useLeaderboardStore();
@@ -176,16 +176,18 @@ const rankedRestOfList = computed(() => {
 
 const formatVal = (val) => val;
 
-// [NEW] Hàm xử lý Avatar: URL -> Giữ nguyên, SkinID -> Lấy Asset
+// [NEW] Logic phân giải ảnh
+// avatarStr có thể là: Link HTTP (ảnh upload) HOẶC Skin ID (skin_yasou) HOẶC Emoji (🐲)
 const resolveAvatar = (avatarStr) => {
   if (!avatarStr) return getCurrentSkin("default").sprites.idle;
   
-  // Nếu là Link ảnh (Upload từ imgur, cloudinary...)
+  // 1. Nếu là Link URL -> Dùng luôn
   if (avatarStr.startsWith("http")) return avatarStr;
   
-  // Nếu là Skin ID (skin_yasou, etc.) hoặc Default
+  // 2. Nếu là Skin ID hoặc Emoji -> Dùng hàm helper lấy ảnh asset
+  // getCurrentSkin tự handle fallback nếu không tìm thấy key
   const skin = getCurrentSkin(avatarStr);
-  return skin ? skin.sprites.idle : avatarStr;
+  return skin ? skin.sprites.idle : 'https://placehold.co/50?text=U';
 };
 
 const switchTab = async (tab) => {
@@ -273,11 +275,10 @@ onMounted(() => {
 .silver-border { border-color: #e0e0e0; }
 .bronze-border { border-color: #cd7f32; }
 
-/* [UPDATE] Style cho ảnh trong khung podium */
+/* [UPDATE] CSS cho ảnh trong BXH */
 .podium-img {
   width: 100%; height: 100%; object-fit: cover;
 }
-/* Nếu là pixel art (nhận diện qua tên file) thì scale to lên chút cho rõ */
 .podium-img[src*="resource"], .podium-img[src*="character"] {
   width: 130%; height: 130%; object-fit: contain; image-rendering: pixelated;
 }
