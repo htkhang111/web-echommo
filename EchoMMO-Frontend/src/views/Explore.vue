@@ -728,6 +728,9 @@ onUnmounted(() => clearInterval(moveInterval));
   .right-zone { height: 400px; flex: none; }
 }
 </style> -->
+
+
+
 <template>
   <div class="page-container explore-page">
     <div class="explore-layout">

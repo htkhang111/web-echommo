@@ -202,6 +202,7 @@ public class UserService {
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
 
+    // Thư mục lưu ảnh (root project/uploads)
     private final String UPLOAD_DIR = "uploads";
 
     public User findByUsername(String username) {
@@ -235,7 +236,6 @@ public class UserService {
 
         Wallet wallet = new Wallet();
         wallet.setUser(user);
-        // [FIX] Khởi tạo Gold bằng BigDecimal
         wallet.setGold(BigDecimal.valueOf(1000));
         user.setWallet(wallet);
 
@@ -295,6 +295,24 @@ public class UserService {
                 Files.createDirectories(uploadPath);
             }
 
+            // --- LOGIC XÓA ẢNH CŨ ---
+            String oldAvatar = user.getProfileImageUrl();
+            if (oldAvatar != null && oldAvatar.startsWith("/uploads/")) {
+                // Đường dẫn trong DB: /uploads/abc.png -> Lấy tên file: abc.png
+                String oldFileName = oldAvatar.substring("/uploads/".length());
+                Path oldFilePath = uploadPath.resolve(oldFileName);
+
+                // Xóa file nếu tồn tại
+                try {
+                    Files.deleteIfExists(oldFilePath);
+                } catch (IOException e) {
+                    // Nếu lỗi xóa file cũ thì log ra thôi, không chặn process upload mới
+                    System.err.println("Không thể xóa ảnh cũ: " + e.getMessage());
+                }
+            }
+            // ------------------------
+
+            // Tạo tên file mới
             String originalFilename = file.getOriginalFilename();
             String fileExtension = "";
             if (originalFilename != null && originalFilename.contains(".")) {
@@ -302,9 +320,11 @@ public class UserService {
             }
             String newFileName = UUID.randomUUID().toString() + fileExtension;
 
+            // Lưu file mới
             Path filePath = uploadPath.resolve(newFileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
+            // Cập nhật DB
             String dbFilePath = "/uploads/" + newFileName;
             user.setProfileImageUrl(dbFilePath);
 

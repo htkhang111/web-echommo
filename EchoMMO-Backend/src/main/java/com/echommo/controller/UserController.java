@@ -9,10 +9,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/user")
-@CrossOrigin(origins = "*") // Cho phép Frontend gọi API không bị chặn CORS
+@CrossOrigin(origins = "*")
 public class UserController {
 
     @Autowired
@@ -24,24 +25,29 @@ public class UserController {
     // --- 1. Lấy thông tin cá nhân (Kèm Vàng/Ngọc) ---
     @GetMapping("/me")
     public ResponseEntity<?> getMyProfile() {
-        // Lấy username từ Token đang đăng nhập
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-
-        // [QUAN TRỌNG] Dùng hàm findByUsernameWithWallet thay vì findByUsername thường
-        // Hàm này dùng JOIN FETCH để lôi thông tin Wallet lên cùng lúc -> Fix lỗi hiển thị vàng
         User user = userRepository.findByUsernameWithWallet(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
         return ResponseEntity.ok(user);
     }
 
-    // --- 2. Cập nhật thông tin (Tên, Avatar...) ---
+    // --- 2. Cập nhật thông tin text (Tên, Email...) ---
     @PutMapping("/update")
     public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request) {
         try {
             return ResponseEntity.ok(userService.updateProfile(request));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // --- 2.1 API MỚI: Upload Avatar (File) ---
+    @PostMapping("/upload-avatar")
+    public ResponseEntity<?> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        try {
+            return ResponseEntity.ok(userService.uploadAvatar(file));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi upload: " + e.getMessage());
         }
     }
 

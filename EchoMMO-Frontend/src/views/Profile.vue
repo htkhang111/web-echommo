@@ -1,3 +1,6 @@
+type: uploaded file
+fileName: htkhang111/web-echommo/web-echommo-5d1f1b5ba17c93eb4ce34af44348e3509f5c0a58/EchoMMO-Frontend/src/views/Profile.vue
+fullContent:
 <template>
   <div class="page-container profile-page ancient-theme">
     <div class="wood-bg-layer"></div>
@@ -16,11 +19,31 @@
           
           <div class="avatar-edit-box">
             <div class="current-avatar">
-              <img :src="form.profileImageUrl || defaultAvatar" @error="handleImgError" />
+              <img :src="getAvatarUrl(form.profileImageUrl)" @error="handleImgError" />
             </div>
+            
             <div class="input-group">
-              <label>Link Ảnh Đại Diện (URL):</label>
-              <input v-model="form.profileImageUrl" placeholder="https://example.com/anh.jpg" />
+              <label>Ảnh Đại Diện:</label>
+              <input 
+                type="file" 
+                ref="fileInput" 
+                @change="handleFileUpload" 
+                accept="image/*"
+                style="display: none" 
+              />
+              
+              <div class="avatar-actions">
+                <button class="btn-upload" @click="$refs.fileInput.click()">
+                  <i class="fas fa-upload"></i> TẢI ẢNH TỪ MÁY (MAX 100MB)
+                </button>
+                <small class="upload-hint">Hoặc nhập link ảnh bên dưới (Không khuyến khích)</small>
+              </div>
+
+              <input 
+                v-model="form.profileImageUrl" 
+                placeholder="https://example.com/anh.jpg" 
+                class="url-input"
+              />
             </div>
           </div>
 
@@ -115,6 +138,7 @@ import axiosClient from "../api/axiosClient";
 
 const authStore = useAuthStore();
 const charStore = useCharacterStore();
+const fileInput = ref(null); // Reference tới input file
 
 // --- LOGIC HỒ SƠ ---
 const form = reactive({
@@ -131,8 +155,56 @@ const dob = computed(() => {
   return new Date(authStore.user.createdAt).toLocaleDateString('vi-VN');
 });
 
+// Hàm lấy URL ảnh hiển thị (Xử lý đường dẫn tương đối từ server)
+const getAvatarUrl = (url) => {
+  if (!url) return defaultAvatar;
+  // Nếu là đường dẫn tương đối (từ server trả về), thêm base URL API vào
+  if (url.startsWith("/uploads/")) {
+    return `http://localhost:8080${url}`; // Thay localhost bằng domain thật nếu deploy
+  }
+  return url;
+};
+
 const handleImgError = (e) => {
   e.target.src = defaultAvatar;
+};
+
+// --- XỬ LÝ UPLOAD FILE ---
+const handleFileUpload = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Validate cơ bản (ảnh < 100MB)
+  if (file.size > 100 * 1024 * 1024) {
+    alert("File ảnh quá lớn! Vui lòng chọn ảnh < 100MB.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    // [FIX] Thêm headers Multipart để override mặc định JSON của axiosClient
+    const res = await axiosClient.post("/user/upload-avatar", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    // Server trả về User object mới -> Update store và form
+    authStore.user = res.data; 
+    form.profileImageUrl = res.data.profileImageUrl;
+    alert("Tải ảnh đại diện thành công!");
+    
+  } catch (e) {
+    console.error(e);
+    // Lấy message lỗi chi tiết từ backend trả về (nếu có)
+    const errorMsg = e.response?.data?.message || e.message;
+    alert("Lỗi upload ảnh: " + errorMsg);
+  } finally {
+    // Reset input để chọn lại cùng file nếu muốn
+    event.target.value = null;
+  }
 };
 
 const saveProfile = async () => {
@@ -142,20 +214,19 @@ const saveProfile = async () => {
       fullName: form.fullName,
       username: form.username,
       email: form.email,
-      password: form.password || null, // Chỉ gửi nếu có nhập
+      password: form.password || null, 
       profileImageUrl: form.profileImageUrl
     });
     
-    // Nếu đổi username/password thì nên logout bắt đăng nhập lại, nhưng ở đây ta chỉ fetch lại profile cho tiện
     await authStore.fetchProfile();
     alert("Lưu hồ sơ thành công!");
-    form.password = ""; // Reset pass field
+    form.password = ""; 
   } catch (e) {
     alert("Lỗi lưu hồ sơ: " + (e.response?.data?.message || e.message));
   }
 };
 
-// --- LOGIC SKIN (CŨ) ---
+// --- LOGIC SKIN ---
 const skins = Object.values(CHARACTER_SKINS);
 const currentSkinId = computed(() => authStore.user?.avatarUrl || "skin_yasou");
 const selectedSkinId = ref("skin_yasou");
@@ -201,7 +272,6 @@ onMounted(() => {
   charStore.fetchCharacter();
   selectedSkinId.value = currentSkinId.value;
   
-  // Fill form data
   if (authStore.user) {
     form.fullName = authStore.user.fullName;
     form.username = authStore.user.username;
@@ -299,13 +369,14 @@ onUnmounted(() => {
 .avatar-edit-box {
   display: flex;
   gap: 20px;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 20px;
 }
 
 .current-avatar {
   width: 100px;
   height: 100px;
+  flex-shrink: 0;
   border-radius: 50%;
   border: 3px solid #fbc02d;
   overflow: hidden;
@@ -326,12 +397,44 @@ onUnmounted(() => {
   margin-bottom: 5px;
   color: #a1887f;
 }
-.input-group input {
+
+.avatar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.btn-upload {
+  background: #ff9800;
+  color: #fff;
+  border: 1px solid #ef6c00;
+  padding: 8px 15px;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: 0.2s;
+}
+.btn-upload:hover {
+  background: #fb8c00;
+}
+
+.upload-hint {
+  font-size: 0.8em;
+  color: #8d6e63;
+}
+
+.url-input {
   width: 100%;
   padding: 8px;
   background: #261815;
   border: 1px solid #5d4037;
   color: #fff;
+  border-radius: 4px;
 }
 
 .info-form {
@@ -387,7 +490,7 @@ onUnmounted(() => {
   background: #388e3c;
 }
 
-/* CHAR SELECT COLUMN (Giữ style cũ nhưng thu gọn) */
+/* CHAR SELECT COLUMN */
 .char-select-column {
   background: rgba(0,0,0,0.3);
   padding: 20px;
