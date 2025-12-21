@@ -46,6 +46,10 @@ public class Item {
     @Column(name = "is_system_item")
     private Boolean isSystemItem;
 
+    // [NEW] Dành cho vật phẩm giới hạn (Limited)
+    @Column(name = "is_limited")
+    private Boolean isLimited = false;
+
     @Column(name = "atk_bonus")
     private Integer atkBonus;
 

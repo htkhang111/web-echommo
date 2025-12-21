@@ -12,6 +12,6 @@ public interface InventoryService {
     User expandInventory(User user);
     void addItemToInventory(User user, Integer itemId, int quantity);
 
-    // [NEW] Hàm sửa đồ
+    // [NEW] API SỬA ĐỒ
     UserItem repairItem(User user, Long userItemId);
 }

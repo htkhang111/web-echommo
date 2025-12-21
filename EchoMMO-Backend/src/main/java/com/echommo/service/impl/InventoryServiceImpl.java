@@ -56,7 +56,7 @@ public class InventoryServiceImpl implements InventoryService {
             throw new RuntimeException("Vật phẩm này không thể trang bị!");
         }
 
-        // Check Level yêu cầu
+        // Check Level
         int requiredLv = (itemBase.getTier() != null) ? Math.max(1, (itemBase.getTier() - 1) * 10) : 1;
         if (character.getLevel() < requiredLv) {
             throw new RuntimeException("Cấp độ không đủ! Cần Level " + requiredLv);
@@ -64,7 +64,6 @@ public class InventoryServiceImpl implements InventoryService {
 
         // Tháo đồ cũ cùng slot
         SlotType newSlot = itemBase.getSlotType();
-        // Cần lấy tất cả đồ đang mặc để check slot, vì DB có thể chưa update type chuẩn
         List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(charId);
 
         for (UserItem equipped : equippedItems) {
@@ -74,11 +73,9 @@ public class InventoryServiceImpl implements InventoryService {
             }
         }
 
-        // Mặc đồ mới
         newItem.setIsEquipped(true);
         userItemRepo.save(newItem);
 
-        // Tính lại chỉ số
         characterService.recalculateStats(character);
         charRepo.save(character);
     }
@@ -109,7 +106,7 @@ public class InventoryServiceImpl implements InventoryService {
         return equipmentService.enhanceItem(userItemId);
     }
 
-    // [NEW] LOGIC SỬA ĐỒ (GIÁ RẺ)
+    // [NEW] LOGIC SỬA ĐỒ (GIÁ RẺ 0.1/Point)
     @Override
     @Transactional
     public UserItem repairItem(User user, Long userItemId) {
@@ -124,7 +121,7 @@ public class InventoryServiceImpl implements InventoryService {
         Integer max = userItem.getMaxDurability();
 
         if (current == null) current = 0;
-        if (max == null || max <= 0) max = 100; // Fallback
+        if (max == null || max <= 0) max = 100;
 
         if (current >= max) {
             throw new RuntimeException("Độ bền đã đầy, không cần sửa!");
@@ -132,22 +129,17 @@ public class InventoryServiceImpl implements InventoryService {
 
         int missingDurability = max - current;
 
-        // CÔNG THỨC: 1 Echo Coin sửa 10 Độ bền (0.1 coin/point)
-        // VD: Hỏng 500 điểm -> 50 Coin
+        // CÔNG THỨC: 1 Echo Coin sửa 10 Độ bền
         double costValue = Math.ceil(missingDurability / 10.0);
         BigDecimal cost = BigDecimal.valueOf(costValue);
 
-        // Tối thiểu 1 coin
-        if (cost.compareTo(BigDecimal.ONE) < 0) {
-            cost = BigDecimal.ONE;
-        }
+        if (cost.compareTo(BigDecimal.ONE) < 0) cost = BigDecimal.ONE;
 
         Wallet wallet = user.getWallet();
         if (wallet.getEchoCoin().compareTo(cost) < 0) {
             throw new RuntimeException("Không đủ Echo Coin! Cần " + cost + " để sửa.");
         }
 
-        // Trừ tiền & Hồi phục
         wallet.setEchoCoin(wallet.getEchoCoin().subtract(cost));
         walletRepo.save(wallet);
 
@@ -216,12 +208,11 @@ public class InventoryServiceImpl implements InventoryService {
                     .rarity(item.getRarity() != null ? item.getRarity() : Rarity.COMMON)
                     .acquiredAt(LocalDateTime.now())
                     .mainStatValue(BigDecimal.valueOf(item.getBaseMainStat() != null ? item.getBaseMainStat() : 0))
-                    // [FIX] Khởi tạo độ bền từ Template
+                    // [NEW] SET ĐỘ BỀN
                     .maxDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100)
                     .currentDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100)
                     .build();
 
-            // Nếu là Tool hoặc Gear, random chỉ số
             if (List.of("WEAPON", "ARMOR", "TOOL").contains(item.getType())) {
                 itemGenService.randomizeNewItem(ui);
             } else {

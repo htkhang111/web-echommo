@@ -102,26 +102,23 @@ public class CharacterService {
         return savedChar;
     }
 
-    // --- HÀM TÍNH TOÁN CHỈ SỐ (ĐÃ FIX TĂNG THỦ THEO CẤP) ---
+    // --- HÀM TÍNH TOÁN CHỈ SỐ (ĐÃ XÓA LOGIC TỰ CỘNG THEO CẤP) ---
     public void recalculateStats(Character c) {
         ensureNoNullStats(c);
         int lvl = safeInt(c.getLevel());
 
-        // 1. Chỉ số cơ bản từ Level
-        int autoHpBonus = (lvl - 1) * 20;  // Mỗi cấp tăng 20 Máu (cũ là 15)
-        int autoAtkBonus = (lvl - 1) * 2;  // Mỗi cấp tăng 2 Công
-
-        // [FIX MỚI] Mỗi cấp tự động tăng 1 Hộ Thể để trâu hơn
-        int autoDefBonus = (lvl - 1) * 1;
+        // [REMOVED] Đã bỏ logic tự động tăng chỉ số theo cấp (autoHpBonus, autoAtkBonus...)
+        // Bây giờ chỉ số hoàn toàn phụ thuộc vào điểm tiềm năng và trang bị.
 
         // --- TÍNH TOÁN ---
-        int rawMaxHp = 200 + (safeInt(c.getVit()) * 20) + autoHpBonus;
-        int rawAtk = 10 + (safeInt(c.getStr()) * 2) + autoAtkBonus;
+        // HP = 200 Gốc + (Vit * 20)
+        int rawMaxHp = 200 + (safeInt(c.getVit()) * 20);
 
-        // [CÔNG THỨC MỚI]
-        // 5 Gốc + Bonus theo cấp + (Thể lực / 5)
-        // Ví dụ: Lv 10, Vit 50 => Def = 5 + 9 + (50/5) = 24 Def (Khá ổn)
-        int rawDef = 5 + autoDefBonus + (safeInt(c.getVit()) / 5);
+        // Atk = 10 Gốc + (Str * 2)
+        int rawAtk = 10 + (safeInt(c.getStr()) * 2);
+
+        // Def = 5 Gốc + (Vit / 5)
+        int rawDef = 5 + (safeInt(c.getVit()) / 5);
 
         int rawSpeed = 10 + safeInt(c.getAgi());
 
@@ -182,7 +179,7 @@ public class CharacterService {
         c.setBaseCritRate(rawCritRate + (int)bonusCritRate);
         c.setBaseCritDmg(rawCritDmg + (int)bonusCritDmg);
 
-        // Tính lại lực chiến
+        // Tính lại lực chiến (Công thức giữ nguyên để tham khảo sức mạnh)
         int power = (c.getMaxHp() / 10) + (c.getBaseAtk() * 3) + (c.getBaseDef() * 5) + (lvl * 10);
         c.setTotalPower(power);
 

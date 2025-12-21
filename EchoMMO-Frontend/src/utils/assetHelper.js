@@ -138,6 +138,161 @@
   
 //   return getEnemyImg(`${prefix}${fileName}.png`);
 // };
+// import { reactive } from "vue";
+
+// // 1. Cấu hình Base URL trỏ thẳng về GitHub Pages
+// const BASE_URL = "https://htkhang111.github.io";
+
+// // 2. Map tiền tố (Prefix) -> Thư mục assets tương ứng
+// const PREFIX_MAP = {
+//   // --- EQUIPMENT (Trang bị) ---
+//   "s_":  "/resources/equipment/sword",
+//   "a_":  "/resources/equipment/armor",
+//   "h_":  "/resources/equipment/helmet",
+//   "ri_": "/resources/equipment/ring",
+//   "n_":  "/resources/equipment/necklace",
+//   "b_":  "/resources/equipment/boots", // Thêm b_ vào đây luôn cho gọn
+
+//   // --- TOOLS (Công cụ - Đã check đúng path trên git) ---
+//   "fr-": "/resources/tool/fishing-rod", // Fishing Rod
+//   "p-":  "/resources/tool/pickaxe",     // Pickaxe
+//   "a-":  "/resources/tool/axe",         // Axe (Khác với a_ là Armor)
+//   "s-":  "/resources/tool/shovel",      // Shovel (Khác với s_ là Sword)
+// };
+
+// // 3. Xử lý các file ngoại lệ (không phải .png)
+// const EXCEPTIONS = {
+//   "a-4-heartoftheforest": ".webp" // File rìu này dùng đuôi webp
+// };
+
+// // Helper: Ghép Base URL với path + Xử lý khoảng trắng (encodeURI)
+// const getUrl = (path) => {
+//   if (!path) return "";
+//   if (path.startsWith("http") || path.startsWith("data:")) return path;
+  
+//   const cleanPath = path.startsWith("/") ? path : `/${path}`;
+//   // encodeURI để xử lý các file có khoảng trắng như "best axeinthegame.png"
+//   return `${BASE_URL}${encodeURI(cleanPath)}`;
+// };
+
+// export const resolveItemImage = (itemCode) => {
+//   // 1. Fallback mặc định
+//   if (!itemCode) return getUrl("/resources/material/o_coal.png");
+
+//   // 2. Nếu là link full thì giữ nguyên
+//   if (itemCode.includes("http")) return itemCode;
+
+//   const code = itemCode.trim();
+//   const lowerCode = code.toLowerCase();
+
+//   // --- SPECIAL CASES ---
+//   if (lowerCode === "logo") return getUrl("/logo/Logo.png");
+  
+//   // Potion
+//   if (lowerCode === "r_potion" || lowerCode === "r_potion.png") {
+//       return getUrl("/resources/r_potion.png");
+//   }
+
+//   // --- COIN ---
+//   if (lowerCode.includes("coin")) {
+//       const fileName = lowerCode.includes("echo") ? "r_coin-echo.png" : "r_coin.png";
+//       return getUrl(`/resources/coin/${fileName}`);
+//   }
+
+//   // --- CHECK EXTENSION (Nếu code đã có đuôi file thì dùng luôn) ---
+//   let ext = ".png";
+//   let cleanName = lowerCode;
+  
+//   if (lowerCode.endsWith(".png") || lowerCode.endsWith(".jpg") || lowerCode.endsWith(".webp")) {
+//     ext = ""; // Không cần cộng thêm đuôi
+//   } else {
+//     // Check ngoại lệ đuôi file
+//     if (EXCEPTIONS[lowerCode]) {
+//       ext = EXCEPTIONS[lowerCode];
+//     }
+//   }
+
+//   // --- CHECK PREFIX MAP (Equipment & Tools) ---
+//   for (const [prefix, folder] of Object.entries(PREFIX_MAP)) {
+//     if (lowerCode.startsWith(prefix)) {
+//       // Trường hợp đặc biệt: b_ vừa là boots vừa là background
+//       if (prefix === "b_" && !lowerCode.includes("boot")) {
+//          continue; // Bỏ qua, để logic background bên dưới xử lý
+//       }
+//       return getUrl(`${folder}/${cleanName}${ext}`);
+//     }
+//   }
+
+//   // --- BACKGROUNDS (b_ nhưng không phải boots) ---
+//   if (lowerCode.startsWith("b_")) {
+//       if (lowerCode.endsWith(".png") || lowerCode.endsWith(".jpg")) {
+//           return getUrl(`/background/${lowerCode}`);
+//       }
+//       const bgExt = lowerCode.includes("doanhtrai") ? ".png" : ".jpg";
+//       return getUrl(`/background/${lowerCode}${bgExt}`);
+//   }
+
+//   // --- MATERIALS (Mặc định cho f_, o_, w_...) ---
+//   return getUrl(`/resources/material/${cleanName}${ext}`);
+// };
+
+// // --- EXPORTS ALIAS ---
+// export const getAppLogo = () => getUrl("/logo/Logo.png");
+// export const getAssetUrl = resolveItemImage;
+// export const getItemImage = resolveItemImage;
+// export const getResourceImage = resolveItemImage;
+
+// // --- CHARACTER & ENEMY HELPERS ---
+// const getCharImg = (name) => getUrl(`/character/${name}`);
+// const getEnemyImg = (name) => getUrl(`/enemy/${name}`);
+
+// export const CHARACTER_SKINS = reactive({
+//   skin_yasou: { 
+//     id: "skin_yasou", 
+//     name: "Yasuo", 
+//     sprites: { 
+//       idle: getCharImg("idle_yasou.png"), 
+//       run: getCharImg("run_yasou.png"), 
+//       attack: getCharImg("atk_yasou.png") 
+//     } 
+//   },
+//   skin_demon: { 
+//     id: "skin_demon", 
+//     name: "Huyết Quỷ", 
+//     sprites: { 
+//       idle: getCharImg("idle_demon1.png"), 
+//       run: getCharImg("run_demon1.png"), 
+//       attack: getCharImg("atk_demon1.png") 
+//     } 
+//   },
+//   skin_langkhach: { 
+//     id: "skin_langkhach", 
+//     name: "Lãng Khách", 
+//     sprites: { 
+//       idle: getCharImg("idle_langkhach1.png"), 
+//       run: getCharImg("run_langkhach1.png"), 
+//       attack: getCharImg("atk_langkhach1.png") 
+//     } 
+//   },
+// });
+
+// export const getCurrentSkin = (avatarUrl) => CHARACTER_SKINS[avatarUrl] || CHARACTER_SKINS["skin_yasou"];
+
+// export const getEnemyImage = (name, state = "idle") => {
+//   if (!name) return getEnemyImg("idle_goblin.png");
+  
+//   const normalizedName = name.toLowerCase(); 
+//   const prefix = state === 'attack' ? 'atk_' : 'idle_';
+  
+//   let fileName = "goblin"; 
+//   if (normalizedName.includes("xuong") || normalizedName.includes("skeleton")) fileName = "skeleton";
+//   else if (normalizedName.includes("nam") || normalizedName.includes("mushroom")) fileName = "mushroom";
+//   else if (normalizedName.includes("ac quy") || normalizedName.includes("demon")) fileName = "demon1";
+//   else if (normalizedName.includes("lang khach") || normalizedName.includes("langkhach")) fileName = "langkhach1";
+//   else if (normalizedName.includes("kiem si") || normalizedName.includes("yasou")) fileName = "yasou";
+  
+//   return getEnemyImg(`${prefix}${fileName}.png`);
+// };
 import { reactive } from "vue";
 
 // 1. Cấu hình Base URL trỏ thẳng về GitHub Pages
@@ -151,18 +306,18 @@ const PREFIX_MAP = {
   "h_":  "/resources/equipment/helmet",
   "ri_": "/resources/equipment/ring",
   "n_":  "/resources/equipment/necklace",
-  "b_":  "/resources/equipment/boots", // Thêm b_ vào đây luôn cho gọn
+  "b_":  "/resources/equipment/boots", 
 
-  // --- TOOLS (Công cụ - Đã check đúng path trên git) ---
-  "fr-": "/resources/tool/fishing-rod", // Fishing Rod
-  "p-":  "/resources/tool/pickaxe",     // Pickaxe
-  "a-":  "/resources/tool/axe",         // Axe (Khác với a_ là Armor)
-  "s-":  "/resources/tool/shovel",      // Shovel (Khác với s_ là Sword)
+  // --- TOOLS (Dành cho trường hợp chỉ lưu tên file: "a-0-strongaxe.png") ---
+  "fr-": "/resources/tool/fishing-rod", 
+  "p-":  "/resources/tool/pickaxe",     
+  "a-":  "/resources/tool/axe",         
+  "s-":  "/resources/tool/shovel",      
 };
 
 // 3. Xử lý các file ngoại lệ (không phải .png)
 const EXCEPTIONS = {
-  "a-4-heartoftheforest": ".webp" // File rìu này dùng đuôi webp
+  "a-4-heartoftheforest": ".webp" 
 };
 
 // Helper: Ghép Base URL với path + Xử lý khoảng trắng (encodeURI)
@@ -170,6 +325,7 @@ const getUrl = (path) => {
   if (!path) return "";
   if (path.startsWith("http") || path.startsWith("data:")) return path;
   
+  // Đảm bảo path bắt đầu bằng /
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   // encodeURI để xử lý các file có khoảng trắng như "best axeinthegame.png"
   return `${BASE_URL}${encodeURI(cleanPath)}`;
@@ -179,11 +335,20 @@ export const resolveItemImage = (itemCode) => {
   // 1. Fallback mặc định
   if (!itemCode) return getUrl("/resources/material/o_coal.png");
 
-  // 2. Nếu là link full thì giữ nguyên
-  if (itemCode.includes("http")) return itemCode;
+  // 2. Nếu là link full (http) hoặc data base64 thì giữ nguyên
+  if (itemCode.includes("http") || itemCode.includes("data:")) return itemCode;
 
   const code = itemCode.trim();
   const lowerCode = code.toLowerCase();
+
+  // --- [FIX QUAN TRỌNG] XỬ LÝ ĐƯỜNG DẪN CÓ SẴN TRONG DB ---
+  // Nếu trong DB lưu dạng "tool/axe/a-0-strongaxe.png" hoặc "resources/..."
+  if (lowerCode.startsWith("tool/") || lowerCode.startsWith("equipment/")) {
+      return getUrl(`/resources/${code}`); // Thêm /resources/ vào trước
+  }
+  if (lowerCode.startsWith("resources/")) {
+      return getUrl(`/${code}`); // Giữ nguyên, chỉ thêm / đầu
+  }
 
   // --- SPECIAL CASES ---
   if (lowerCode === "logo") return getUrl("/logo/Logo.png");
@@ -199,12 +364,12 @@ export const resolveItemImage = (itemCode) => {
       return getUrl(`/resources/coin/${fileName}`);
   }
 
-  // --- CHECK EXTENSION (Nếu code đã có đuôi file thì dùng luôn) ---
+  // --- XỬ LÝ EXTENSION (Nếu code chưa có đuôi file) ---
   let ext = ".png";
-  let cleanName = lowerCode;
+  let cleanName = code; // Dùng code gốc để giữ hoa thường nếu cần (dù file server thường case-insensitive)
   
   if (lowerCode.endsWith(".png") || lowerCode.endsWith(".jpg") || lowerCode.endsWith(".webp")) {
-    ext = ""; // Không cần cộng thêm đuôi
+    ext = ""; 
   } else {
     // Check ngoại lệ đuôi file
     if (EXCEPTIONS[lowerCode]) {
@@ -212,7 +377,7 @@ export const resolveItemImage = (itemCode) => {
     }
   }
 
-  // --- CHECK PREFIX MAP (Equipment & Tools) ---
+  // --- CHECK PREFIX MAP (Equipment & Tools - Chỉ chạy khi DB lưu tên file trần) ---
   for (const [prefix, folder] of Object.entries(PREFIX_MAP)) {
     if (lowerCode.startsWith(prefix)) {
       // Trường hợp đặc biệt: b_ vừa là boots vừa là background
@@ -226,13 +391,14 @@ export const resolveItemImage = (itemCode) => {
   // --- BACKGROUNDS (b_ nhưng không phải boots) ---
   if (lowerCode.startsWith("b_")) {
       if (lowerCode.endsWith(".png") || lowerCode.endsWith(".jpg")) {
-          return getUrl(`/background/${lowerCode}`);
+          return getUrl(`/background/${code}`);
       }
       const bgExt = lowerCode.includes("doanhtrai") ? ".png" : ".jpg";
-      return getUrl(`/background/${lowerCode}${bgExt}`);
+      return getUrl(`/background/${code}${bgExt}`);
   }
 
   // --- MATERIALS (Mặc định cho f_, o_, w_...) ---
+  // Nếu không khớp logic nào ở trên -> coi là nguyên liệu
   return getUrl(`/resources/material/${cleanName}${ext}`);
 };
 

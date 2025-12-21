@@ -65,7 +65,7 @@ public class UserItem {
     @Column(name = "mythic_stars")
     private Integer mythicStars = 0;
 
-    // [NEW] ĐỘ BỀN
+    // [NEW] ĐỘ BỀN HIỆN TẠI
     @Column(name = "current_durability")
     @Builder.Default
     private Integer currentDurability = 100;
@@ -84,7 +84,6 @@ public class UserItem {
         return this.character != null ? this.character.getUser() : null;
     }
 
-    // Helpers
     public Integer getLevel() { return this.enhanceLevel != null ? this.enhanceLevel : 0; }
     public void setLevel(Integer level) { this.enhanceLevel = level; }
     public Boolean getIsMythic() { return isMythic; }

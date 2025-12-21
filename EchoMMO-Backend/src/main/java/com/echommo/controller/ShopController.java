@@ -20,34 +20,36 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/shop")
 public class ShopController extends BaseController {
 
-    @Autowired
-    private ItemRepository itemRepository;
-
-    @Autowired
-    private UserItemRepository userItemRepository;
-
-    @Autowired
-    private WalletRepository walletRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private CharacterRepository characterRepository;
-
-    @Autowired
-    private JwtUtils jwtUtils;
+    @Autowired private ItemRepository itemRepository;
+    @Autowired private UserItemRepository userItemRepository;
+    @Autowired private WalletRepository walletRepository;
+    @Autowired private UserRepository userRepository;
+    @Autowired private CharacterRepository characterRepository;
+    @Autowired private JwtUtils jwtUtils;
 
     @GetMapping("/items")
     public ResponseEntity<?> getShopItems() {
-        // Chỉ hiện vật phẩm Shop (Vô hạn)
-        List<Item> items = itemRepository.findByIsSystemItemTrue();
-        return ResponseEntity.ok(items);
+        // 1. Lấy tất cả vật phẩm hệ thống (isSystemItem = true)
+        List<Item> allItems = itemRepository.findByIsSystemItemTrue();
+
+        // 2. [LOGIC MỚI] Lọc bỏ Tool Tier 5 (Hàng Drop/Craft, không bán shop)
+        List<Item> filteredItems = allItems.stream()
+                .filter(item -> {
+                    // Nếu là TOOL và Tier >= 5 -> Ẩn khỏi shop
+                    if ("TOOL".equals(item.getType()) && item.getTier() != null && item.getTier() >= 5) {
+                        return false;
+                    }
+                    return true;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(filteredItems);
     }
 
     @PostMapping("/buy")
@@ -63,9 +65,14 @@ public class ShopController extends BaseController {
         Item item = itemRepository.findById(request.getItemId().intValue())
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
-        // Chặn mua nếu là hàng Drop hoặc Limited
+        // Check 1: Chặn mua nếu là hàng Drop/Limited
         if (Boolean.FALSE.equals(item.getIsSystemItem())) {
             return ResponseEntity.badRequest().body(Map.of("message", "Vật phẩm này không được bán trong Shop (Limited/Drop only)."));
+        }
+
+        // Check 2: Chặn mua Tool Tier 5 (Đề phòng hack request API)
+        if ("TOOL".equals(item.getType()) && item.getTier() != null && item.getTier() >= 5) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Vật phẩm Huyền Thoại không thể mua bằng tiền thường!"));
         }
 
         Wallet wallet = walletRepository.findByUser(user)
@@ -78,9 +85,11 @@ public class ShopController extends BaseController {
             return ResponseEntity.badRequest().body(Map.of("message", "Không đủ ngân lượng!"));
         }
 
+        // Trừ tiền
         wallet.setGold(wallet.getGold().subtract(totalCost));
         walletRepository.save(wallet);
 
+        // Cộng đồ (Logic Stack: Nếu có rồi thì cộng số lượng, chưa có thì tạo mới)
         UserItem userItem = userItemRepository.findByCharacterAndItem(character, item)
                 .orElse(new UserItem());
 
@@ -88,6 +97,10 @@ public class ShopController extends BaseController {
             userItem.setCharacter(character);
             userItem.setItem(item);
             userItem.setQuantity(0);
+
+            // [QUAN TRỌNG] Khởi tạo độ bền từ Template khi mua mới
+            userItem.setMaxDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100);
+            userItem.setCurrentDurability(userItem.getMaxDurability());
         }
 
         userItem.setQuantity(userItem.getQuantity() + quantity);

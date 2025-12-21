@@ -281,6 +281,26 @@ export const useCharacterStore = defineStore("character", {
       }
     },
 
+    // [NEW] Action gọi API cộng điểm tiềm năng
+    // Nhận vào statsMap dạng: { str: 1, vit: 2, ... }
+    async addStats(statsMap) {
+      try {
+        const res = await axiosClient.post("/character/add-stats", statsMap);
+        
+        // Cập nhật lại nhân vật với dữ liệu mới từ Server trả về
+        // (Server sẽ trả về Character đã tính lại lực chiến và trừ điểm tiềm năng)
+        if (res.data) {
+          this.character = res.data;
+        }
+        this.addLog("✅ Cộng điểm thành công!", "SUCCESS");
+        return true;
+      } catch (error) {
+        const msg = error.response?.data?.message || "Lỗi cộng điểm";
+        this.addLog("❌ " + msg, "ERROR");
+        return false;
+      }
+    },
+
     async explore(payload = { mapId: "MAP_01" }) {
       if (!this.character) return;
 
