@@ -233,10 +233,15 @@ const fetchMessages = async () => {
   if (!chatTargetId.value) return;
   try {
     // [FIX] Đúng endpoint Backend
-    const res = await axiosClient.get(`/messages/history/${chatTargetId.value}`);
-    
+    const res = await axiosClient.get(
+      `/messages/history/${chatTargetId.value}`,
+    );
+
     // Logic đơn giản để update tin nhắn
-    if (res.data.length !== messages.value.length || messages.value.length === 0) {
+    if (
+      res.data.length !== messages.value.length ||
+      messages.value.length === 0
+    ) {
       messages.value = res.data;
       scrollToBottom();
     }

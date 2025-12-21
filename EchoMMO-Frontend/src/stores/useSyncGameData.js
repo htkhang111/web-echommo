@@ -11,10 +11,10 @@ export function useSyncGameData() {
     try {
       // 1. Cập nhật lại thông tin nhân vật (để update thanh Nội năng, EXP...)
       await charStore.fetchCharacter();
-      
+
       // 2. Nếu sau này có Inventory, bạn bỏ comment dòng dưới để update túi đồ luôn
       // await inventoryStore.fetchInventory();
-      
+
       console.log("🔄 Đã đồng bộ dữ liệu game thành công!");
     } catch (error) {
       console.error("❌ Lỗi đồng bộ dữ liệu:", error);
@@ -22,6 +22,6 @@ export function useSyncGameData() {
   };
 
   return {
-    syncAll
+    syncAll,
   };
 }

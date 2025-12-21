@@ -2,11 +2,10 @@
   <header class="game-header">
     <div class="header-texture"></div>
     <div class="header-border-bot"></div>
-    
+
     <div class="spacer"></div>
 
     <div class="hud-container" v-if="authStore.token">
-
       <div class="resource-bank">
         <div class="res-module gold" title="Ngân Lượng">
           <img :src="getAssetUrl('r_coin.png')" class="icon-img" />
@@ -21,7 +20,10 @@
         <div class="res-module energy" title="Chân Khí">
           <div class="res-icon"><i class="fas fa-bolt"></i></div>
           <div class="energy-track">
-            <div class="energy-bar" :style="{ width: charStore.energyPercent + '%' }"></div>
+            <div
+              class="energy-bar"
+              :style="{ width: charStore.energyPercent + '%' }"
+            ></div>
           </div>
           <div class="res-val small">
             {{ formatNumber(charStore.character?.currentEnergy || 0) }}
@@ -29,19 +31,30 @@
         </div>
       </div>
 
-      <div class="hud-icon-node chat-node" @click="chatStore.openChat()" title="Truyền Thư">
+      <div
+        class="hud-icon-node chat-node"
+        @click="chatStore.openChat()"
+        title="Truyền Thư"
+      >
         <div class="node-icon"><i class="fas fa-envelope"></i></div>
       </div>
 
-      <router-link to="/friends" class="hud-icon-node friend-node" :class="{ 'has-signal': friendRequestCount > 0 }">
+      <router-link
+        to="/friends"
+        class="hud-icon-node friend-node"
+        :class="{ 'has-signal': friendRequestCount > 0 }"
+      >
         <div class="node-icon"><i class="fas fa-user-friends"></i></div>
         <div class="node-badge" v-if="friendRequestCount > 0">
           {{ friendRequestCount > 9 ? "9+" : friendRequestCount }}
         </div>
       </router-link>
 
-      <router-link to="/notifications" class="hud-icon-node noti-node"
-        :class="{ 'has-signal': notiStore.unreadCount > 0 }">
+      <router-link
+        to="/notifications"
+        class="hud-icon-node noti-node"
+        :class="{ 'has-signal': notiStore.unreadCount > 0 }"
+      >
         <div class="node-icon"><i class="fas fa-bell"></i></div>
         <div class="node-badge" v-if="notiStore.unreadCount > 0">
           {{ notiStore.unreadCount > 99 ? "99+" : notiStore.unreadCount }}
@@ -49,19 +62,29 @@
       </router-link>
 
       <div class="profile-group">
-        <router-link to="/profile" class="profile-link" v-if="charStore.character">
+        <router-link
+          to="/profile"
+          class="profile-link"
+          v-if="charStore.character"
+        >
           <div class="profile-info mobile-hide">
             <div class="char-name">{{ charStore.character.name }}</div>
             <div class="xp-track">
-              <div class="xp-fill" :style="{ width: charStore.xpPercent + '%' }"></div>
+              <div
+                class="xp-fill"
+                :style="{ width: charStore.xpPercent + '%' }"
+              ></div>
             </div>
           </div>
           <div class="avatar-frame">
-            <img :src="userSkinAvatar" class="user-avatar" @error="handleAvatarError" />
+            <img
+              :src="userSkinAvatar"
+              class="user-avatar"
+              @error="handleAvatarError"
+            />
           </div>
         </router-link>
       </div>
-
     </div>
   </header>
   <ChatWidget />
@@ -76,7 +99,7 @@ import { useChatStore } from "../stores/chatStore";
 import { getCurrentSkin, getAssetUrl } from "@/utils/assetHelper";
 import ChatWidget from "./ChatWidget.vue";
 
-const emit = defineEmits(['toggle-sidebar']);
+const emit = defineEmits(["toggle-sidebar"]);
 
 const authStore = useAuthStore();
 const charStore = useCharacterStore();
@@ -86,38 +109,38 @@ const chatStore = useChatStore();
 const friendRequestCount = ref(0);
 
 const walletStore = {
-  wallet: computed(() => authStore.user?.wallet)
+  wallet: computed(() => authStore.user?.wallet),
 };
 
 // [UPDATE] Logic chọn Avatar hiển thị (Hỗ trợ ảnh upload server)
 const userSkinAvatar = computed(() => {
   const user = authStore.user;
-  if (!user) return 'https://placehold.co/50?text=U';
+  if (!user) return "https://placehold.co/50?text=U";
 
   // 1. Nếu có ảnh upload
   if (user.profileImageUrl) {
     // Nếu là ảnh từ server (relative path), thêm domain vào
-    if (user.profileImageUrl.startsWith('/uploads/')) {
+    if (user.profileImageUrl.startsWith("/uploads/")) {
       return `http://localhost:8080${user.profileImageUrl}`;
     }
     // Nếu là link http ngoài
-    if (user.profileImageUrl.startsWith('http')) {
+    if (user.profileImageUrl.startsWith("http")) {
       return user.profileImageUrl;
     }
   }
 
   // 2. Nếu không, dùng Skin Asset
   const skin = getCurrentSkin(user.avatarUrl);
-  return skin ? skin.sprites.idle : 'https://placehold.co/50?text=U';
+  return skin ? skin.sprites.idle : "https://placehold.co/50?text=U";
 });
 
 const handleAvatarError = (e) => {
   const fallbackUrl = "https://placehold.co/50?text=U";
-  if (e.target.src === fallbackUrl || e.target.src.includes('placehold.co')) {
+  if (e.target.src === fallbackUrl || e.target.src.includes("placehold.co")) {
     return;
   }
   e.target.src = fallbackUrl;
-}
+};
 
 const currentGold = computed(() => walletStore.wallet.value?.gold || 0);
 const currentEcho = computed(() => walletStore.wallet.value?.echoCoin || 0);
@@ -125,8 +148,10 @@ const currentEcho = computed(() => walletStore.wallet.value?.echoCoin || 0);
 const formatNumber = (val) => {
   const num = Number(val);
   if (!num || isNaN(num)) return "0";
-  if (num >= 1000000000) return (num / 1000000000).toFixed(1).replace(/\.0$/, "") + "B";
-  if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+  if (num >= 1000000000)
+    return (num / 1000000000).toFixed(1).replace(/\.0$/, "") + "B";
+  if (num >= 1000000)
+    return (num / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
   if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, "") + "K";
   return Math.floor(num).toString();
 };
@@ -134,7 +159,10 @@ const formatNumber = (val) => {
 const formatEcho = (val) => {
   const num = Number(val);
   if (!num || isNaN(num)) return "0.0000";
-  return num.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  return num.toLocaleString("en-US", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  });
 };
 
 onMounted(() => {
@@ -176,7 +204,12 @@ onMounted(() => {
   left: 0;
   width: 100%;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--gold-accent), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--gold-accent),
+    transparent
+  );
 }
 
 .spacer {
@@ -372,7 +405,8 @@ onMounted(() => {
 }
 
 /* Nếu là pixel art (nhận diện qua tên file) thì contain để không bị mất chi tiết */
-.user-avatar[src*="resource"], .user-avatar[src*="character"] {
+.user-avatar[src*="resource"],
+.user-avatar[src*="character"] {
   width: 130%;
   height: 130%;
   object-fit: contain;

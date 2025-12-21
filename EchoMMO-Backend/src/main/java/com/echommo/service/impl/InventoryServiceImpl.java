@@ -48,21 +48,21 @@ public class InventoryServiceImpl implements InventoryService {
 
         Item itemBase = newItem.getItem();
 
-        // [FIX] Cho phép trang bị TOOL (Cúp, Rìu, Xẻng, Cần Câu)
-        boolean isGear = List.of("WEAPON", "ARMOR").contains(itemBase.getType());
+        // 1. Check Loại (Gear hoặc Tool)
+        boolean isGear = List.of("WEAPON", "ARMOR", "HELMET", "BOOTS", "RING", "NECKLACE").contains(itemBase.getType());
         boolean isTool = "TOOL".equals(itemBase.getType());
 
         if (!isGear && !isTool) {
             throw new RuntimeException("Vật phẩm này không thể trang bị!");
         }
 
-        // Check Level
-        int requiredLv = (itemBase.getTier() != null) ? Math.max(1, (itemBase.getTier() - 1) * 10) : 1;
+        // 2. [FIX] Check Cấp Độ Yêu Cầu (Thiên Đạo Cấm Chế)
+        int requiredLv = getRequiredLevel(itemBase.getTier());
         if (character.getLevel() < requiredLv) {
-            throw new RuntimeException("Cấp độ không đủ! Cần Level " + requiredLv);
+            throw new RuntimeException("Cấp độ không đủ! Cần đạt Level " + requiredLv + " để trang bị.");
         }
 
-        // Tháo đồ cũ cùng slot
+        // 3. Tháo đồ cũ cùng slot
         SlotType newSlot = itemBase.getSlotType();
         List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(charId);
 
@@ -73,11 +73,25 @@ public class InventoryServiceImpl implements InventoryService {
             }
         }
 
+        // 4. Mặc đồ mới
         newItem.setIsEquipped(true);
         userItemRepo.save(newItem);
 
+        // 5. Tính lại chỉ số
         characterService.recalculateStats(character);
         charRepo.save(character);
+    }
+
+    // [HELPER] CÔNG THỨC TÍNH LEVEL YÊU CẦU
+    private int getRequiredLevel(Integer tier) {
+        if (tier == null || tier <= 1) return 1;
+        switch (tier) {
+            case 2: return 10;
+            case 3: return 20;
+            case 4: return 30; // Epic
+            case 5: return 50; // Legendary
+            default: return (tier - 1) * 10;
+        }
     }
 
     @Override
@@ -106,7 +120,6 @@ public class InventoryServiceImpl implements InventoryService {
         return equipmentService.enhanceItem(userItemId);
     }
 
-    // [NEW] LOGIC SỬA ĐỒ (GIÁ RẺ 0.1/Point)
     @Override
     @Transactional
     public UserItem repairItem(User user, Long userItemId) {
@@ -129,7 +142,7 @@ public class InventoryServiceImpl implements InventoryService {
 
         int missingDurability = max - current;
 
-        // CÔNG THỨC: 1 Echo Coin sửa 10 Độ bền
+        // 1 Echo Coin = 10 Durability
         double costValue = Math.ceil(missingDurability / 10.0);
         BigDecimal cost = BigDecimal.valueOf(costValue);
 
@@ -208,7 +221,6 @@ public class InventoryServiceImpl implements InventoryService {
                     .rarity(item.getRarity() != null ? item.getRarity() : Rarity.COMMON)
                     .acquiredAt(LocalDateTime.now())
                     .mainStatValue(BigDecimal.valueOf(item.getBaseMainStat() != null ? item.getBaseMainStat() : 0))
-                    // [NEW] SET ĐỘ BỀN
                     .maxDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100)
                     .currentDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100)
                     .build();

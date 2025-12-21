@@ -6,7 +6,7 @@ export const useNotificationStore = defineStore("notification", {
     notifications: [], // [MỚI] Danh sách thông báo
     unreadCount: 0,
     isLoading: false, // [MỚI] Trạng thái tải
-    
+
     // State quản lý Toast (Popup)
     toast: {
       visible: false,
@@ -15,7 +15,7 @@ export const useNotificationStore = defineStore("notification", {
     },
     timeoutId: null,
   }),
-  
+
   actions: {
     // 1. Lấy danh sách thông báo (Hàm bị thiếu gây lỗi)
     async fetchNotifications() {
@@ -23,9 +23,9 @@ export const useNotificationStore = defineStore("notification", {
       try {
         const res = await axiosClient.get("/notifications");
         this.notifications = res.data;
-        
+
         // Cập nhật lại số lượng chưa đọc luôn
-        this.unreadCount = this.notifications.filter(n => !n.isRead).length;
+        this.unreadCount = this.notifications.filter((n) => !n.isRead).length;
       } catch (e) {
         console.error("Lỗi tải thông báo:", e);
       } finally {
@@ -37,9 +37,9 @@ export const useNotificationStore = defineStore("notification", {
     async markRead(id) {
       try {
         await axiosClient.post(`/notifications/read/${id}`);
-        
+
         // Update local state
-        const noti = this.notifications.find(n => n.id === id);
+        const noti = this.notifications.find((n) => n.id === id);
         if (noti && !noti.isRead) {
           noti.isRead = true;
           this.unreadCount = Math.max(0, this.unreadCount - 1);
@@ -53,9 +53,9 @@ export const useNotificationStore = defineStore("notification", {
     async markAllRead() {
       try {
         await axiosClient.post("/notifications/read-all");
-        
+
         // Update local state
-        this.notifications.forEach(n => n.isRead = true);
+        this.notifications.forEach((n) => (n.isRead = true));
         this.unreadCount = 0;
         this.showToast("Đã đánh dấu đọc tất cả!", "success");
       } catch (e) {
@@ -90,6 +90,6 @@ export const useNotificationStore = defineStore("notification", {
     hideToast() {
       this.toast.visible = false;
       if (this.timeoutId) clearTimeout(this.timeoutId);
-    }
+    },
   },
 });

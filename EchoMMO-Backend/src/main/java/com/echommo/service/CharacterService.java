@@ -85,15 +85,10 @@ public class CharacterService {
         c.setStatus(CharacterStatus.IDLE);
         c.setMonsterKills(0);
 
-        // Chỉ số khởi đầu
+        // Chỉ số khởi đầu cơ bản (Mặc định là 5)
         c.setStr(5); c.setVit(5); c.setAgi(5);
         c.setDex(5); c.setIntelligence(5); c.setLuck(5);
-
-        // [FIX] Mặc định thấp
-        c.setBaseDef(5);
-        c.setBaseAtk(10);
-        c.setBaseSpeed(10);
-        c.setBaseCritRate(5);
+        c.setStatPoints(0); // Level 1 theo công thức (1-1)*5 = 0 điểm
 
         recalculateStats(c);
 
@@ -102,31 +97,28 @@ public class CharacterService {
         return savedChar;
     }
 
-    // --- HÀM TÍNH TOÁN CHỈ SỐ (ĐÃ XÓA LOGIC TỰ CỘNG THEO CẤP) ---
+    /**
+     * TÍNH TOÁN LẠI TẤT CẢ CHỈ SỐ: Gốc + Tiềm năng + Trang bị
+     */
     public void recalculateStats(Character c) {
         ensureNoNullStats(c);
         int lvl = safeInt(c.getLevel());
 
-        // [REMOVED] Đã bỏ logic tự động tăng chỉ số theo cấp (autoHpBonus, autoAtkBonus...)
-        // Bây giờ chỉ số hoàn toàn phụ thuộc vào điểm tiềm năng và trang bị.
-
-        // --- TÍNH TOÁN ---
-        // HP = 200 Gốc + (Vit * 20)
+        // 1. CHỈ SỐ GỐC TỪ ĐIỂM TIỀM NĂNG
+        // HP: 200 Gốc + 20 HP mỗi điểm VIT
         int rawMaxHp = 200 + (safeInt(c.getVit()) * 20);
-
-        // Atk = 10 Gốc + (Str * 2)
+        // Atk: 10 Gốc + 2 Atk mỗi điểm STR
         int rawAtk = 10 + (safeInt(c.getStr()) * 2);
-
-        // Def = 5 Gốc + (Vit / 5)
+        // Def: 5 Gốc + 1 Def mỗi 5 điểm VIT
         int rawDef = 5 + (safeInt(c.getVit()) / 5);
-
+        // Speed: 10 Gốc + 1 Speed mỗi điểm AGI
         int rawSpeed = 10 + safeInt(c.getAgi());
-
-        // Bạo Kích: 5% Gốc + (Luck / 5)
+        // Crit Rate: 5% Gốc + 1% mỗi 5 điểm Luck
         int rawCritRate = 5 + (safeInt(c.getLuck()) / 5);
+        // Crit Dmg: 150% Gốc + 1% mỗi 2 điểm DEX
         int rawCritDmg = 150 + (safeInt(c.getDex()) / 2);
 
-        // 2. Cộng chỉ số từ trang bị
+        // 2. CỘNG CHỈ SỐ TỪ TRANG BỊ ĐANG MẶC
         List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(c.getCharId());
 
         BigDecimal equipAtk = BigDecimal.ZERO;
@@ -154,7 +146,7 @@ public class CharacterService {
                     for (SubStatDTO sub : subs) {
                         switch (sub.getCode()) {
                             case "ATK_FLAT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(sub.getValue()));
-                            case "DEF_FLAT" -> equipDef = equipDef.add(BigDecimal.valueOf(sub.getValue())); // Cộng dòng phụ Def
+                            case "DEF_FLAT" -> equipDef = equipDef.add(BigDecimal.valueOf(sub.getValue()));
                             case "HP_FLAT" -> equipHp = equipHp.add(BigDecimal.valueOf(sub.getValue()));
                             case "SPEED" -> bonusSpeed += sub.getValue();
                             case "CRIT_RATE" -> bonusCritRate += sub.getValue();
@@ -168,19 +160,16 @@ public class CharacterService {
             } catch (Exception ignored) {}
         }
 
-        // 3. Tổng hợp và Lưu
+        // 3. TỔNG HỢP KẾT QUẢ VÀO CHARACTER ENTITY
         c.setMaxHp(rawMaxHp + equipHp.intValue());
         c.setBaseAtk(rawAtk + equipAtk.intValue());
-
-        // Cập nhật Def mới
         c.setBaseDef(rawDef + equipDef.intValue());
-
         c.setBaseSpeed(rawSpeed + (int)bonusSpeed);
         c.setBaseCritRate(rawCritRate + (int)bonusCritRate);
         c.setBaseCritDmg(rawCritDmg + (int)bonusCritDmg);
 
-        // Tính lại lực chiến (Công thức giữ nguyên để tham khảo sức mạnh)
-        int power = (c.getMaxHp() / 10) + (c.getBaseAtk() * 3) + (c.getBaseDef() * 5) + (lvl * 10);
+        // Tính lại Lực chiến
+        int power = (c.getMaxHp() / 10) + (c.getBaseAtk() * 5) + (c.getBaseDef() * 8) + (lvl * 20);
         c.setTotalPower(power);
 
         if (c.getCurrentHp() == null || c.getCurrentHp() > c.getMaxHp()) {
@@ -208,7 +197,7 @@ public class CharacterService {
         int totalCost = addStr + addVit + addAgi + addDex + addInt + addLuck;
 
         if (totalCost <= 0) throw new IllegalArgumentException("Vui lòng chọn chỉ số để cộng!");
-        if (totalCost > available) throw new IllegalArgumentException("Không đủ điểm! Bạn chỉ còn " + available + " điểm.");
+        if (totalCost > available) throw new IllegalArgumentException("Không đủ điểm tiềm năng!");
 
         c.setStr(safeInt(c.getStr()) + addStr);
         c.setVit(safeInt(c.getVit()) + addVit);
@@ -221,13 +210,25 @@ public class CharacterService {
         return characterRepo.save(c);
     }
 
+    /**
+     * TÍNH LẠI ĐIỂM TIỀM NĂNG DỰA TRÊN CÔNG THỨC: n = (n-1)*5
+     */
     private void recalculateStatPoints(Character c) {
         int lvl = safeInt(c.getLevel());
-        int totalExpected = (lvl - 1) * 5;
-        int usedPoints = (safeInt(c.getStr()) - 5) + (safeInt(c.getVit()) - 5) +
-                (safeInt(c.getAgi()) - 5) + (safeInt(c.getDex()) - 5) +
-                (safeInt(c.getIntelligence()) - 5) + (safeInt(c.getLuck()) - 5);
-        c.setStatPoints(Math.max(0, totalExpected - usedPoints));
+
+        // 1. Tổng điểm nhận được từ khi bắt đầu
+        int totalPointsEarned = (lvl - 1) * 5;
+
+        // 2. Điểm đã dùng (Mỗi chỉ số mặc định là 5)
+        int usedPoints = (safeInt(c.getStr()) - 5) +
+                (safeInt(c.getVit()) - 5) +
+                (safeInt(c.getAgi()) - 5) +
+                (safeInt(c.getDex()) - 5) +
+                (safeInt(c.getIntelligence()) - 5) +
+                (safeInt(c.getLuck()) - 5);
+
+        // 3. Cập nhật số điểm còn lại
+        c.setStatPoints(Math.max(0, totalPointsEarned - usedPoints));
     }
 
     private void ensureNoNullStats(Character c) {
@@ -237,13 +238,13 @@ public class CharacterService {
         if (c.getDex() == null) c.setDex(5);
         if (c.getIntelligence() == null) c.setIntelligence(5);
         if (c.getLuck() == null) c.setLuck(5);
-        if (c.getBaseDef() == null) c.setBaseDef(5);
         if (c.getLevel() == null) c.setLevel(1);
+        if (c.getCurrentExp() == null) c.setCurrentExp(0L);
     }
 
     private void grantStarterPack(Character character) {
         itemRepo.findByName("Kiếm Gỗ").ifPresent(i -> createItemForChar(character, i, 1, true));
-        itemRepo.findByName("Bình Máu Nhỏ").ifPresent(i -> createItemForChar(character, i, 5, false));
+        itemRepo.findByName("Áo Vải Rách").ifPresent(i -> createItemForChar(character, i, 1, true));
     }
 
     private void createItemForChar(Character c, Item item, int qty, boolean equip) {
@@ -254,13 +255,13 @@ public class CharacterService {
         ui.setIsEquipped(equip);
         ui.setRarity(Rarity.COMMON);
         ui.setEnhanceLevel(0);
-        ui.setMainStatValue(BigDecimal.ZERO);
-        ui.setOriginalMainStatValue(BigDecimal.ZERO);
+        ui.setMainStatValue(BigDecimal.valueOf(5));
+        ui.setOriginalMainStatValue(BigDecimal.valueOf(5));
 
         if (item.getSlotType() == SlotType.WEAPON) {
             ui.setMainStatType("ATK_FLAT");
-            ui.setMainStatValue(BigDecimal.valueOf(5));
-            ui.setOriginalMainStatValue(BigDecimal.valueOf(5));
+        } else if (item.getSlotType() == SlotType.ARMOR) {
+            ui.setMainStatType("DEF_FLAT");
         } else {
             ui.setMainStatType("NONE");
         }

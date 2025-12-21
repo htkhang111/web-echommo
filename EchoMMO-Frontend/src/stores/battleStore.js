@@ -139,22 +139,22 @@ import { useCharacterStore } from "./characterStore";
 
 export const useBattleStore = defineStore("battle", {
   state: () => ({
-    enemy: null,        
-    enemyVisual: null,  
-    
+    enemy: null,
+    enemyVisual: null,
+
     enemyHp: 0,
     enemyMaxHp: 100,
     playerHp: 0,
     playerMaxHp: 100,
-    
+
     combatLogs: [],
-    status: "IDLE", 
-    
-    rewardGold: 0, 
-    rewardExp: 0,  
+    status: "IDLE",
+
+    rewardGold: 0,
+    rewardExp: 0,
     droppedItem: null,
-    
-    isReady: false, 
+
+    isReady: false,
   }),
 
   actions: {
@@ -175,7 +175,9 @@ export const useBattleStore = defineStore("battle", {
       } catch (e) {
         this.status = "ERROR";
         // Hiển thị lỗi rõ ràng
-        const msg = e.response?.data?.message || "Không thể tải trận đấu (Có thể do lỗi server hoặc dữ liệu cũ).";
+        const msg =
+          e.response?.data?.message ||
+          "Không thể tải trận đấu (Có thể do lỗi server hoặc dữ liệu cũ).";
         this.combatLogs.push(msg);
         console.error(e);
       }
@@ -186,21 +188,22 @@ export const useBattleStore = defineStore("battle", {
 
       try {
         const res = await axiosClient.post("/battle/attack", {
-          enemyId: this.enemy?.enemyId || 0, 
+          enemyId: this.enemy?.enemyId || 0,
           isBuffed: isBuffed,
         });
         this.handleResult(res.data);
         return res.data;
       } catch (e) {
         console.error("Turn Error:", e);
-        
+
         // [FIX QUAN TRỌNG: CHẶN ĐỨNG VÒNG LẶP NẾU CÓ LỖI]
         this.status = "ERROR"; // Chuyển trạng thái sang Error để hiện nút Về Làng
-        this.isReady = false;  // Dừng vòng lặp auto
-        
-        const msg = e.response?.data?.message || e.message || "Mất kết nối với trận đấu.";
+        this.isReady = false; // Dừng vòng lặp auto
+
+        const msg =
+          e.response?.data?.message || e.message || "Mất kết nối với trận đấu.";
         this.combatLogs.push("⚠️ LỖI: " + msg);
-        
+
         return null;
       }
     },
@@ -237,38 +240,38 @@ export const useBattleStore = defineStore("battle", {
 
       if (data.combatLog) {
         if (Array.isArray(data.combatLog)) {
-           this.combatLogs = [...this.combatLogs, ...data.combatLog].slice(-20);
-        } else if (typeof data.combatLog === 'string') {
-           this.combatLogs.push(data.combatLog);
+          this.combatLogs = [...this.combatLogs, ...data.combatLog].slice(-20);
+        } else if (typeof data.combatLog === "string") {
+          this.combatLogs.push(data.combatLog);
         }
       }
 
       if (data.status === "VICTORY") {
-        this.rewardGold = data.goldEarned || 0; 
-        this.rewardExp = data.expEarned || 0;   
-        
+        this.rewardGold = data.goldEarned || 0;
+        this.rewardExp = data.expEarned || 0;
+
         if (data.droppedItemName) {
           this.droppedItem = {
             name: data.droppedItemName,
             image: data.droppedItemImage,
-            rarity: data.droppedItemRarity || 'COMMON',
+            rarity: data.droppedItemRarity || "COMMON",
           };
         }
-        this.isReady = false; 
+        this.isReady = false;
       } else if (data.status === "DEFEAT") {
-        this.isReady = false; 
+        this.isReady = false;
       }
 
       const charStore = useCharacterStore();
       if (charStore.character) {
-        charStore.character.currentHp = this.playerHp; 
+        charStore.character.currentHp = this.playerHp;
       }
     },
 
     resetRewards() {
-        this.rewardGold = 0;
-        this.rewardExp = 0;
-        this.droppedItem = null;
+      this.rewardGold = 0;
+      this.rewardExp = 0;
+      this.droppedItem = null;
     },
 
     resetBattle() {

@@ -5,22 +5,27 @@
 
 /* --- KHAI BÁO FONT TỪ GITHUB --- */
 @font-face {
-    font-family: 'UTM Thu Phap Thien An';
-    src: url('https://htkhang111.github.io/fonts/UTM-Thu-Phap-Thien-An.woff2') format('woff2'),
-         url('https://htkhang111.github.io/fonts/UTM-Thu-Phap-Thien-An.woff') format('woff'),
-         url('https://htkhang111.github.io/fonts/UTM-Thu-Phap-Thien-An.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
+  font-family: "UTM Thu Phap Thien An";
+  src:
+    url("https://htkhang111.github.io/fonts/UTM-Thu-Phap-Thien-An.woff2")
+      format("woff2"),
+    url("https://htkhang111.github.io/fonts/UTM-Thu-Phap-Thien-An.woff")
+      format("woff"),
+    url("https://htkhang111.github.io/fonts/UTM-Thu-Phap-Thien-An.ttf")
+      format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 @font-face {
-    font-family: 'MTD Dartangnon ITC';
-    src: url('https://htkhang111.github.io/fonts/MTD.woff2') format('woff2'),
-         url('https://htkhang111.github.io/fonts/MTD.woff') format('woff'),
-         url('https://htkhang111.github.io/fonts/MTD.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
+  font-family: "MTD Dartangnon ITC";
+  src:
+    url("https://htkhang111.github.io/fonts/MTD.woff2") format("woff2"),
+    url("https://htkhang111.github.io/fonts/MTD.woff") format("woff"),
+    url("https://htkhang111.github.io/fonts/MTD.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
 }
 
 /* --- ROOT VARIABLES (CYBER SYSTEM) --- */
@@ -65,7 +70,11 @@
 }
 
 /* --- BASE RESET --- */
-*, *::before, *::after { box-sizing: border-box; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -77,8 +86,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a { text-decoration: none; color: inherit; }
-button { font-family: var(--font-display); }
+a {
+  text-decoration: none;
+  color: inherit;
+}
+button {
+  font-family: var(--font-display);
+}
 
 /* --- UTILITY CLASSES --- */
 .glass-panel {
@@ -105,10 +119,20 @@ button { font-family: var(--font-display); }
 }
 
 /* Custom Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
 
 /* --- GLOBAL COMPONENTS --- */
 .btn-3d {
@@ -119,7 +143,14 @@ button { font-family: var(--font-display); }
   font-weight: 700;
   letter-spacing: 1px;
   border: 1px solid var(--primary);
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  clip-path: polygon(
+    10px 0,
+    100% 0,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    0 100%,
+    0 10px
+  );
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;
@@ -131,7 +162,11 @@ button { font-family: var(--font-display); }
   box-shadow: 0 0 20px var(--primary-glow);
   transform: translateY(-2px);
 }
-.btn-3d:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+.btn-3d:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
 
 .btn-danger-3d {
   color: var(--accent);
@@ -144,66 +179,140 @@ button { font-family: var(--font-display); }
 }
 
 /* --- TRANSITIONS --- */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.page-fade-enter-active, .page-fade-leave-active { transition: opacity 0.4s ease, transform 0.4s ease; }
-.page-fade-enter-from { opacity: 0; transform: translateY(20px); }
-.page-fade-leave-to { opacity: 0; transform: translateY(-20px); }
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+.page-fade-enter-active,
+.page-fade-leave-active {
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s ease;
+}
+.page-fade-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
+}
+.page-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+}
 
 /* --- KEYFRAMES --- */
 @keyframes glitch-skew {
-  0% { transform: skew(0deg); }
-  20% { transform: skew(-2deg); }
-  40% { transform: skew(2deg); }
-  60% { transform: skew(-1deg); }
-  80% { transform: skew(1deg); }
-  100% { transform: skew(0deg); }
+  0% {
+    transform: skew(0deg);
+  }
+  20% {
+    transform: skew(-2deg);
+  }
+  40% {
+    transform: skew(2deg);
+  }
+  60% {
+    transform: skew(-1deg);
+  }
+  80% {
+    transform: skew(1deg);
+  }
+  100% {
+    transform: skew(0deg);
+  }
 }
 @keyframes pulse {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.05); opacity: 0.8; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 @keyframes scan {
-  0% { top: 0; opacity: 0; }
-  50% { opacity: 1; }
-  100% { top: 100%; opacity: 0; }
+  0% {
+    top: 0;
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
 }
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* --- RESPONSIVE --- */
 @media (max-width: 768px) {
-  :root { --sidebar-width: 0px; --header-height: 60px; }
-  .page-container { padding-bottom: 80px; }
+  :root {
+    --sidebar-width: 0px;
+    --header-height: 60px;
+  }
+  .page-container {
+    padding-bottom: 80px;
+  }
 }
 
 /* Rarity Styles Override */
-.grid-slot.rarity-C, .grid-slot.rarity-B, .grid-slot.rarity-A, .grid-slot.rarity-S {
+.grid-slot.rarity-C,
+.grid-slot.rarity-B,
+.grid-slot.rarity-A,
+.grid-slot.rarity-S {
   border-bottom: none !important;
   transition: all 0.3s ease;
 }
 .rarity-C {
   border: 1px solid var(--neon-c) !important;
-  box-shadow: 0 0 5px rgba(0, 255, 157, 0.3), inset 0 0 10px rgba(0, 255, 157, 0.1);
+  box-shadow:
+    0 0 5px rgba(0, 255, 157, 0.3),
+    inset 0 0 10px rgba(0, 255, 157, 0.1);
 }
 .rarity-B {
   border: 1px solid var(--neon-b) !important;
-  box-shadow: 0 0 8px rgba(0, 153, 255, 0.5), inset 0 0 15px rgba(0, 153, 255, 0.15);
+  box-shadow:
+    0 0 8px rgba(0, 153, 255, 0.5),
+    inset 0 0 15px rgba(0, 153, 255, 0.15);
 }
 .rarity-A {
   border: 1px solid var(--neon-a) !important;
-  box-shadow: 0 0 10px var(--neon-a), inset 0 0 20px rgba(183, 0, 255, 0.2);
+  box-shadow:
+    0 0 10px var(--neon-a),
+    inset 0 0 20px rgba(183, 0, 255, 0.2);
 }
 .rarity-S {
   border: 1px solid var(--neon-s) !important;
@@ -211,7 +320,20 @@ button { font-family: var(--font-display); }
   background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), transparent 60%);
 }
 
-.text-rarity-C { color: var(--neon-c) !important; text-shadow: 0 0 5px var(--neon-c); }
-.text-rarity-B { color: var(--neon-b) !important; text-shadow: 0 0 8px var(--neon-b); }
-.text-rarity-A { color: var(--neon-a) !important; text-shadow: 0 0 10px var(--neon-a); }
-.text-rarity-S { color: var(--neon-s) !important; text-shadow: 0 0 15px var(--neon-s); font-weight: 800; }
+.text-rarity-C {
+  color: var(--neon-c) !important;
+  text-shadow: 0 0 5px var(--neon-c);
+}
+.text-rarity-B {
+  color: var(--neon-b) !important;
+  text-shadow: 0 0 8px var(--neon-b);
+}
+.text-rarity-A {
+  color: var(--neon-a) !important;
+  text-shadow: 0 0 10px var(--neon-a);
+}
+.text-rarity-S {
+  color: var(--neon-s) !important;
+  text-shadow: 0 0 15px var(--neon-s);
+  font-weight: 800;
+}

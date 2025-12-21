@@ -72,13 +72,13 @@ export const useLeaderboardStore = defineStore("leaderboard", {
       try {
         // Gọi đến endpoint /pvp/leaderboard mà chúng ta đã viết ở Backend
         const res = await axiosClient.get("/pvp/leaderboard");
-        
+
         // Vì giao diện Thiên Thư dùng biến 'username', 'avatar', 'value'
         // Nên chúng ta map lại dữ liệu từ Backend trả về cho chuẩn
-        this.topPvp = (res.data || []).map(item => ({
-          username: item.name,        // Tên nhân vật
-          avatar: item.avatarUrl,     // Ảnh đại diện
-          value: item.pvpWins + " Trận Thắng" // Hiển thị giá trị
+        this.topPvp = (res.data || []).map((item) => ({
+          username: item.name, // Tên nhân vật
+          avatar: item.avatarUrl, // Ảnh đại diện
+          value: item.pvpWins + " Trận Thắng", // Hiển thị giá trị
         }));
       } catch (error) {
         console.error("Lỗi fetch PvP:", error);

@@ -23,8 +23,16 @@
         <div class="nav-col">
           <h3 class="col-title">Cộng Đồng</h3>
           <ul>
-            <li><a href="https://discord.gg/mdbgEPxg" target="_blank"><i class="fab fa-discord"></i> Discord</a></li>
-            <li><a href="#" target="_blank"><i class="fab fa-facebook"></i> Fanpage</a></li>
+            <li>
+              <a href="https://discord.gg/mdbgEPxg" target="_blank"
+                ><i class="fab fa-discord"></i> Discord</a
+              >
+            </li>
+            <li>
+              <a href="#" target="_blank"
+                ><i class="fab fa-facebook"></i> Fanpage</a
+              >
+            </li>
           </ul>
         </div>
         <div class="nav-col">
@@ -38,7 +46,9 @@
       </div>
     </div>
     <div class="copyright-row">
-      <p>&copy; {{ new Date().getFullYear() }} AURIX Team. All rights reserved.</p>
+      <p>
+        &copy; {{ new Date().getFullYear() }} AURIX Team. All rights reserved.
+      </p>
     </div>
   </footer>
 </template>
@@ -52,22 +62,136 @@ const appLogo = getAppLogo();
 /* ... (Giữ nguyên CSS cũ của bạn) ... */
 @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Cinzel:wght@700&family=Roboto+Slab:wght@500;700&display=swap");
 /* Copy CSS cũ vào đây */
-:root { --wood-dark: #3e2723; --wood-light: #5d4037; --gold-accent: #fbc02d; --text-light: #d7ccc8; }
-.game-footer { position: relative; width: 100%; background: #3e2723; color: #d7ccc8; font-family: "Playfair Display", serif; border-top: 2px solid #5d4037; margin-top: auto; padding-top: 20px; box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.5); }
-.footer-border-top { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, #fbc02d, transparent); }
-.footer-container { display: flex; justify-content: space-between; align-items: flex-start; padding: 0 40px 20px 40px; flex-wrap: wrap; gap: 30px; }
-.footer-brand { display: flex; align-items: center; gap: 15px; flex: 1; min-width: 250px; }
-.brand-logo img { width: 80px; height: auto; max-height: 80px; object-fit: contain; filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5)); }
-.brand-info { display: flex; flex-direction: column; }
-.team-name { font-family: "Cinzel", serif; font-size: 1.5em; color: #fbc02d; margin: 0; text-shadow: 0 2px 2px rgba(0, 0, 0, 0.8); }
-.slogan { font-size: 0.9em; color: #a1887f; margin: 5px 0 0 0; font-style: italic; }
-.footer-nav { display: flex; gap: 50px; flex: 2; justify-content: flex-end; }
-.nav-col { display: flex; flex-direction: column; }
-.col-title { font-family: "Playfair Display", serif; font-weight: 700; font-size: 1.1em; color: #fbc02d; margin-bottom: 15px; border-bottom: 1px solid #5d4037; padding-bottom: 5px; display: inline-block; letter-spacing: 0.5px; }
-.nav-col ul { list-style: none; padding: 0; margin: 0; }
-.nav-col li { margin-bottom: 8px; }
-.nav-col a { text-decoration: none; color: #d7ccc8; font-size: 0.95em; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
-.nav-col a:hover { color: #fbc02d; transform: translateX(5px); text-shadow: 0 0 5px rgba(251, 192, 45, 0.4); }
-.copyright-row { background: rgba(0, 0, 0, 0.3); text-align: center; padding: 10px 0; font-size: 0.8em; color: #8d6e63; border-top: 1px solid #4e342e; }
-@media (max-width: 768px) { .footer-container { flex-direction: column; align-items: center; padding: 20px; } .footer-brand { text-align: center; flex-direction: column; margin-bottom: 20px; } .footer-nav { width: 100%; justify-content: space-between; gap: 20px; } }
+:root {
+  --wood-dark: #3e2723;
+  --wood-light: #5d4037;
+  --gold-accent: #fbc02d;
+  --text-light: #d7ccc8;
+}
+.game-footer {
+  position: relative;
+  width: 100%;
+  background: #3e2723;
+  color: #d7ccc8;
+  font-family: "Playfair Display", serif;
+  border-top: 2px solid #5d4037;
+  margin-top: auto;
+  padding-top: 20px;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.5);
+}
+.footer-border-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fbc02d, transparent);
+}
+.footer-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0 40px 20px 40px;
+  flex-wrap: wrap;
+  gap: 30px;
+}
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+  min-width: 250px;
+}
+.brand-logo img {
+  width: 80px;
+  height: auto;
+  max-height: 80px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.5));
+}
+.brand-info {
+  display: flex;
+  flex-direction: column;
+}
+.team-name {
+  font-family: "Cinzel", serif;
+  font-size: 1.5em;
+  color: #fbc02d;
+  margin: 0;
+  text-shadow: 0 2px 2px rgba(0, 0, 0, 0.8);
+}
+.slogan {
+  font-size: 0.9em;
+  color: #a1887f;
+  margin: 5px 0 0 0;
+  font-style: italic;
+}
+.footer-nav {
+  display: flex;
+  gap: 50px;
+  flex: 2;
+  justify-content: flex-end;
+}
+.nav-col {
+  display: flex;
+  flex-direction: column;
+}
+.col-title {
+  font-family: "Playfair Display", serif;
+  font-weight: 700;
+  font-size: 1.1em;
+  color: #fbc02d;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #5d4037;
+  padding-bottom: 5px;
+  display: inline-block;
+  letter-spacing: 0.5px;
+}
+.nav-col ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.nav-col li {
+  margin-bottom: 8px;
+}
+.nav-col a {
+  text-decoration: none;
+  color: #d7ccc8;
+  font-size: 0.95em;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-col a:hover {
+  color: #fbc02d;
+  transform: translateX(5px);
+  text-shadow: 0 0 5px rgba(251, 192, 45, 0.4);
+}
+.copyright-row {
+  background: rgba(0, 0, 0, 0.3);
+  text-align: center;
+  padding: 10px 0;
+  font-size: 0.8em;
+  color: #8d6e63;
+  border-top: 1px solid #4e342e;
+}
+@media (max-width: 768px) {
+  .footer-container {
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  .footer-brand {
+    text-align: center;
+    flex-direction: column;
+    margin-bottom: 20px;
+  }
+  .footer-nav {
+    width: 100%;
+    justify-content: space-between;
+    gap: 20px;
+  }
+}
 </style>

@@ -1,7 +1,6 @@
 <template>
   <div class="auth-page" :style="{ backgroundImage: `url(${bgImage})` }">
     <div class="auth-container">
-      
       <div class="auth-header">
         <div class="sect-seal">
           <span class="seal-char">密</span>
@@ -12,7 +11,6 @@
 
       <div class="step-container">
         <transition name="slide-fade" mode="out-in">
-          
           <form
             v-if="step === 1"
             key="step1"
@@ -29,13 +27,11 @@
               />
             </div>
 
-            <button
-              type="submit"
-              class="btn-submit"
-              :disabled="isLoading"
-            >
+            <button type="submit" class="btn-submit" :disabled="isLoading">
               <span v-if="!isLoading">GỬI BỒ CÂU</span>
-              <span v-else><i class="fas fa-spinner fa-spin"></i> Đang tìm...</span>
+              <span v-else
+                ><i class="fas fa-spinner fa-spin"></i> Đang tìm...</span
+              >
             </button>
           </form>
 
@@ -77,7 +73,9 @@
               :disabled="isLoading"
             >
               <span v-if="!isLoading">THIẾT LẬP LẠI</span>
-              <span v-else><i class="fas fa-spinner fa-spin"></i> Đang khắc ấn...</span>
+              <span v-else
+                ><i class="fas fa-spinner fa-spin"></i> Đang khắc ấn...</span
+              >
             </button>
           </form>
         </transition>
@@ -88,7 +86,6 @@
           <i class="fas fa-undo"></i> Quay lại
         </router-link>
       </div>
-
     </div>
   </div>
 </template>
@@ -96,9 +93,9 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { useAuthStore } from '../stores/authStore'; // Giả sử bạn dùng store
-import axiosClient from "../api/axiosClient"; 
-import { getAssetUrl } from '@/utils/assetHelper';
+import { useAuthStore } from "../stores/authStore"; // Giả sử bạn dùng store
+import axiosClient from "../api/axiosClient";
+import { getAssetUrl } from "@/utils/assetHelper";
 
 const router = useRouter();
 const bgImage = getAssetUrl("b_mountain.jpg"); // Dùng chung background
@@ -114,14 +111,17 @@ const sendOtp = async () => {
   try {
     // API gửi OTP
     await axiosClient.post("/auth/forgot-password", { email: email.value });
-    
+
     // Giả lập delay một chút cho trải nghiệm user
     setTimeout(() => {
       step.value = 2;
       isLoading.value = false;
     }, 800);
   } catch (e) {
-    alert(e.response?.data?.message || "Không tìm thấy địa chỉ thư tín này trong giang hồ.");
+    alert(
+      e.response?.data?.message ||
+        "Không tìm thấy địa chỉ thư tín này trong giang hồ.",
+    );
     isLoading.value = false;
   }
 };
@@ -138,7 +138,10 @@ const resetPass = async () => {
     alert("Khôi phục thành công. Mời đại hiệp đăng nhập lại.");
     router.push("/login");
   } catch (e) {
-    alert(e.response?.data?.message || "Thất bại: Mã xác nhận không đúng hoặc đã hết hạn.");
+    alert(
+      e.response?.data?.message ||
+        "Thất bại: Mã xác nhận không đúng hoặc đã hết hạn.",
+    );
   } finally {
     isLoading.value = false;
   }
@@ -153,7 +156,7 @@ const resetPass = async () => {
   height: 100vh;
   width: 100%;
   overflow-y: auto; /* Cho phép cuộn */
-  
+
   display: flex;
   padding: 20px 15px;
   box-sizing: border-box;
@@ -163,12 +166,12 @@ const resetPass = async () => {
   background-size: cover;
   background-attachment: fixed;
   position: relative;
-  
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .auth-page::before {
-  content: '';
+  content: "";
   position: fixed; /* Che toàn màn hình */
   inset: 0;
   background: rgba(0, 0, 0, 0.65);
@@ -181,15 +184,15 @@ const resetPass = async () => {
   z-index: 2;
   width: 100%;
   max-width: 450px;
-  
-  /* CĂN GIỮA & SCROLL */
-  margin: auto; 
 
-  background: rgba(30, 20, 15, 0.95); 
+  /* CĂN GIỮA & SCROLL */
+  margin: auto;
+
+  background: rgba(30, 20, 15, 0.95);
   padding: 40px 35px;
   border-radius: 8px;
   border: 2px solid #5d4037;
-  
+
   box-shadow: 0 0 25px rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(4px);
   color: #f3f4f6;
@@ -218,7 +221,7 @@ const resetPass = async () => {
 }
 
 .seal-char {
-  font-family: 'UTM Thu Phap Thien An', cursive;
+  font-family: "UTM Thu Phap Thien An", cursive;
   font-size: 2.2rem;
   color: #fbc02d;
   line-height: 1;
@@ -227,7 +230,7 @@ const resetPass = async () => {
 .title-ink {
   margin: 5px 0;
   color: #fbc02d;
-  font-family: 'UTM Thu Phap Thien An', cursive;
+  font-family: "UTM Thu Phap Thien An", cursive;
   font-size: 2.8rem;
   font-weight: normal;
   letter-spacing: 2px;
@@ -278,7 +281,10 @@ const resetPass = async () => {
   background: rgba(0, 0, 0, 0.6);
   box-shadow: 0 0 8px rgba(251, 192, 45, 0.4);
 }
-.text-center { text-align: center; letter-spacing: 3px; }
+.text-center {
+  text-align: center;
+  letter-spacing: 3px;
+}
 
 /* Thông báo đã gửi mail */
 .alert-scroll {
@@ -291,7 +297,9 @@ const resetPass = async () => {
   text-align: center;
   margin-bottom: 5px;
 }
-.alert-scroll i { margin-right: 5px; }
+.alert-scroll i {
+  margin-right: 5px;
+}
 
 /* =========================================
    4. BUTTON
@@ -303,12 +311,12 @@ const resetPass = async () => {
   color: #fff;
   border: 1px solid #e53935;
   border-radius: 4px;
-  
-  font-family: 'UTM Thu Phap Thien An', cursive;
+
+  font-family: "UTM Thu Phap Thien An", cursive;
   font-size: 2rem;
   line-height: 1;
   white-space: nowrap;
-  
+
   cursor: pointer;
   transition: all 0.2s ease-in-out;
 }
@@ -329,13 +337,13 @@ const resetPass = async () => {
 
 /* Nút thành công (Bước 2) đổi màu chút cho khác biệt */
 .btn-submit.success-mode {
-    background: linear-gradient(to bottom, #f57f17, #fbc02d);
-    border-color: #fdd835;
-    color: #3e2723; /* Chữ màu tối trên nền vàng */
-    text-shadow: none;
+  background: linear-gradient(to bottom, #f57f17, #fbc02d);
+  border-color: #fdd835;
+  color: #3e2723; /* Chữ màu tối trên nền vàng */
+  text-shadow: none;
 }
 .btn-submit.success-mode:hover {
-    background: linear-gradient(to bottom, #fbc02d, #fdd835);
+  background: linear-gradient(to bottom, #fbc02d, #fdd835);
 }
 
 /* =========================================

@@ -1,28 +1,28 @@
-import { defineStore } from 'pinia';
-import axiosClient from '../api/axiosClient';
+import { defineStore } from "pinia";
+import axiosClient from "../api/axiosClient";
 
-export const useAdminStore = defineStore('admin', {
+export const useAdminStore = defineStore("admin", {
   state: () => ({
     stats: {
       totalUsers: 0,
       totalItems: 0,
       totalEchoMined: 0,
-      totalGold: 0
+      totalGold: 0,
     },
     users: [],
     items: [],
     loading: false,
-    error: null
+    error: null,
   }),
 
   actions: {
     async fetchStats() {
       this.loading = true;
       try {
-        const res = await axiosClient.get('/admin/stats');
+        const res = await axiosClient.get("/admin/stats");
         this.stats = res.data;
       } catch (err) {
-        this.error = err.response?.data?.message || 'Lỗi tải thống kê';
+        this.error = err.response?.data?.message || "Lỗi tải thống kê";
         console.error(err);
       } finally {
         this.loading = false;
@@ -32,7 +32,7 @@ export const useAdminStore = defineStore('admin', {
     async fetchUsers() {
       this.loading = true;
       try {
-        const res = await axiosClient.get('/admin/users');
+        const res = await axiosClient.get("/admin/users");
         this.users = res.data;
       } catch (err) {
         this.error = "Lỗi tải Users";
@@ -52,7 +52,7 @@ export const useAdminStore = defineStore('admin', {
     },
 
     async deleteUser(userId) {
-      if(!confirm("Xóa vĩnh viễn user này?")) return;
+      if (!confirm("Xóa vĩnh viễn user này?")) return;
       await axiosClient.delete(`/admin/user/${userId}`);
       await this.fetchUsers();
     },
@@ -60,7 +60,7 @@ export const useAdminStore = defineStore('admin', {
     async fetchItems() {
       this.loading = true;
       try {
-        const res = await axiosClient.get('/admin/items');
+        const res = await axiosClient.get("/admin/items");
         this.items = res.data;
       } catch (err) {
         this.error = "Lỗi tải Items";
@@ -70,32 +70,36 @@ export const useAdminStore = defineStore('admin', {
     },
 
     async createItem(itemData) {
-      await axiosClient.post('/admin/item/create', itemData);
+      await axiosClient.post("/admin/item/create", itemData);
       await this.fetchItems();
     },
 
     async deleteItem(itemId) {
-      if(!confirm("Xóa item này?")) return;
+      if (!confirm("Xóa item này?")) return;
       await axiosClient.delete(`/admin/item/${itemId}`);
       await this.fetchItems();
     },
 
     // --- Rewards ---
     async grantGold(username, amount) {
-      await axiosClient.post('/admin/grant-gold', { username, amount });
+      await axiosClient.post("/admin/grant-gold", { username, amount });
     },
 
     // [NEW] Action phát EchoCoin
     async grantEcho(username, amount) {
-        await axiosClient.post('/admin/grant-echo', { username, amount });
+      await axiosClient.post("/admin/grant-echo", { username, amount });
     },
 
     async grantItem(username, itemId, quantity) {
-      await axiosClient.post('/admin/grant-item', { username, itemId, quantity });
+      await axiosClient.post("/admin/grant-item", {
+        username,
+        itemId,
+        quantity,
+      });
     },
-    
+
     async sendNotification(payload) {
-        await axiosClient.post('/admin/notification/create', payload);
-    }
-  }
+      await axiosClient.post("/admin/notification/create", payload);
+    },
+  },
 });

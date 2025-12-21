@@ -1,5 +1,5 @@
-type: uploaded file
-fileName: htkhang111/web-echommo/web-echommo-5d1f1b5ba17c93eb4ce34af44348e3509f5c0a58/EchoMMO-Frontend/src/views/Profile.vue
+type: uploaded file fileName:
+htkhang111/web-echommo/web-echommo-5d1f1b5ba17c93eb4ce34af44348e3509f5c0a58/EchoMMO-Frontend/src/views/Profile.vue
 fullContent:
 <template>
   <div class="page-container profile-page ancient-theme">
@@ -15,33 +15,40 @@ fullContent:
 
       <div class="profile-content">
         <div class="info-column">
-          <h3 class="section-title"><i class="fas fa-id-card"></i> THÔNG TIN CÁ NHÂN</h3>
-          
+          <h3 class="section-title">
+            <i class="fas fa-id-card"></i> THÔNG TIN CÁ NHÂN
+          </h3>
+
           <div class="avatar-edit-box">
             <div class="current-avatar">
-              <img :src="getAvatarUrl(form.profileImageUrl)" @error="handleImgError" />
+              <img
+                :src="getAvatarUrl(form.profileImageUrl)"
+                @error="handleImgError"
+              />
             </div>
-            
+
             <div class="input-group">
               <label>Ảnh Đại Diện:</label>
-              <input 
-                type="file" 
-                ref="fileInput" 
-                @change="handleFileUpload" 
+              <input
+                type="file"
+                ref="fileInput"
+                @change="handleFileUpload"
                 accept="image/*"
-                style="display: none" 
+                style="display: none"
               />
-              
+
               <div class="avatar-actions">
                 <button class="btn-upload" @click="$refs.fileInput.click()">
                   <i class="fas fa-upload"></i> TẢI ẢNH TỪ MÁY (MAX 100MB)
                 </button>
-                <small class="upload-hint">Hoặc nhập link ảnh bên dưới (Không khuyến khích)</small>
+                <small class="upload-hint"
+                  >Hoặc nhập link ảnh bên dưới (Không khuyến khích)</small
+                >
               </div>
 
-              <input 
-                v-model="form.profileImageUrl" 
-                placeholder="https://example.com/anh.jpg" 
+              <input
+                v-model="form.profileImageUrl"
+                placeholder="https://example.com/anh.jpg"
                 class="url-input"
               />
             </div>
@@ -50,7 +57,10 @@ fullContent:
           <div class="info-form">
             <div class="form-group">
               <label>Biệt Danh (Họ Tên):</label>
-              <input v-model="form.fullName" placeholder="Nhập tên hiển thị..." />
+              <input
+                v-model="form.fullName"
+                placeholder="Nhập tên hiển thị..."
+              />
             </div>
 
             <div class="form-group">
@@ -65,13 +75,19 @@ fullContent:
 
             <div class="form-group">
               <label>Mật Khẩu Mới (Bỏ trống nếu không đổi):</label>
-              <input v-model="form.password" type="password" placeholder="******" />
+              <input
+                v-model="form.password"
+                type="password"
+                placeholder="******"
+              />
             </div>
 
             <div class="form-group read-only">
               <label>Ngày Nhập Môn (Ngày Sinh):</label>
               <div class="static-val">{{ dob }}</div>
-              <small class="hint">*Ngày sinh là cố định theo ngày tạo tài khoản</small>
+              <small class="hint"
+                >*Ngày sinh là cố định theo ngày tạo tài khoản</small
+              >
             </div>
 
             <button class="btn-save" @click="saveProfile">
@@ -81,16 +97,26 @@ fullContent:
         </div>
 
         <div class="char-select-column">
-          <h3 class="section-title"><i class="fas fa-mask"></i> HÓA THÂN CHI THUẬT</h3>
-          
+          <h3 class="section-title">
+            <i class="fas fa-mask"></i> HÓA THÂN CHI THUẬT
+          </h3>
+
           <div class="preview-stage">
             <div class="stage-bg">
               <div class="preview-actor">
-                <img :src="previewImage" class="actor-img" :class="previewState" />
+                <img
+                  :src="previewImage"
+                  class="actor-img"
+                  :class="previewState"
+                />
               </div>
             </div>
             <div class="control-bar">
-               <button v-if="currentSkinId !== selectedSkinId" class="btn-equip" @click="saveSkin">
+              <button
+                v-if="currentSkinId !== selectedSkinId"
+                class="btn-equip"
+                @click="saveSkin"
+              >
                 CHỌN SKIN NÀY
               </button>
               <button v-else class="btn-equipped" disabled>ĐANG SỬ DỤNG</button>
@@ -118,7 +144,7 @@ fullContent:
           </div>
 
           <div class="char-stats-box">
-             <div class="rename-box">
+            <div class="rename-box">
               <input v-model="newName" placeholder="Đổi tên nhân vật game..." />
               <button @click="renameChar"><i class="fas fa-pen"></i></button>
             </div>
@@ -146,13 +172,13 @@ const form = reactive({
   username: "",
   email: "",
   password: "",
-  profileImageUrl: ""
+  profileImageUrl: "",
 });
 
 const defaultAvatar = "https://placehold.co/150?text=Avatar";
 const dob = computed(() => {
   if (!authStore.user?.createdAt) return "Chưa cập nhật";
-  return new Date(authStore.user.createdAt).toLocaleDateString('vi-VN');
+  return new Date(authStore.user.createdAt).toLocaleDateString("vi-VN");
 });
 
 // Hàm lấy URL ảnh hiển thị (Xử lý đường dẫn tương đối từ server)
@@ -192,10 +218,9 @@ const handleFileUpload = async (event) => {
     });
 
     // Server trả về User object mới -> Update store và form
-    authStore.user = res.data; 
+    authStore.user = res.data;
     form.profileImageUrl = res.data.profileImageUrl;
     alert("Tải ảnh đại diện thành công!");
-    
   } catch (e) {
     console.error(e);
     // Lấy message lỗi chi tiết từ backend trả về (nếu có)
@@ -214,13 +239,13 @@ const saveProfile = async () => {
       fullName: form.fullName,
       username: form.username,
       email: form.email,
-      password: form.password || null, 
-      profileImageUrl: form.profileImageUrl
+      password: form.password || null,
+      profileImageUrl: form.profileImageUrl,
     });
-    
+
     await authStore.fetchProfile();
     alert("Lưu hồ sơ thành công!");
-    form.password = ""; 
+    form.password = "";
   } catch (e) {
     alert("Lỗi lưu hồ sơ: " + (e.response?.data?.message || e.message));
   }
@@ -271,7 +296,7 @@ const renameChar = async () => {
 onMounted(() => {
   charStore.fetchCharacter();
   selectedSkinId.value = currentSkinId.value;
-  
+
   if (authStore.user) {
     form.fullName = authStore.user.fullName;
     form.username = authStore.user.username;
@@ -360,7 +385,7 @@ onUnmounted(() => {
 
 /* INFO COLUMN */
 .info-column {
-  background: rgba(0,0,0,0.3);
+  background: rgba(0, 0, 0, 0.3);
   padding: 20px;
   border-radius: 8px;
   border: 1px solid #5d4037;
@@ -492,7 +517,7 @@ onUnmounted(() => {
 
 /* CHAR SELECT COLUMN */
 .char-select-column {
-  background: rgba(0,0,0,0.3);
+  background: rgba(0, 0, 0, 0.3);
   padding: 20px;
   border-radius: 8px;
   border: 1px solid #5d4037;
@@ -518,8 +543,18 @@ onUnmounted(() => {
   align-items: center;
   overflow: hidden;
 }
-.preview-actor { width: 100px; height: 100px; margin-top: 10px; }
-.actor-img { width: 100%; height: 100%; object-fit: contain; transform: scale(1.5); image-rendering: pixelated; }
+.preview-actor {
+  width: 100px;
+  height: 100px;
+  margin-top: 10px;
+}
+.actor-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform: scale(1.5);
+  image-rendering: pixelated;
+}
 
 .control-bar button {
   width: 100%;
@@ -529,8 +564,16 @@ onUnmounted(() => {
   border: none;
   border-radius: 4px;
 }
-.btn-equip { background: #fbc02d; color: #000; }
-.btn-equipped { background: #3e2723; color: #757575; cursor: default; border: 1px solid #5d4037; }
+.btn-equip {
+  background: #fbc02d;
+  color: #000;
+}
+.btn-equipped {
+  background: #3e2723;
+  color: #757575;
+  cursor: default;
+  border: 1px solid #5d4037;
+}
 
 .skin-list {
   flex: 1;
@@ -552,17 +595,55 @@ onUnmounted(() => {
   cursor: pointer;
   align-items: center;
 }
-.skin-card.active { border-color: #fbc02d; background: #4e342e; }
-.skin-icon { width: 40px; height: 40px; background: #000; border: 1px solid #3e2723; display: flex; align-items: center; justify-content: center; }
-.skin-icon img { width: 100%; height: 100%; object-fit: contain; }
-.skin-name { font-weight: bold; color: #fbc02d; font-size: 0.9em; }
-.equipped-icon { color: #2e7d32; }
+.skin-card.active {
+  border-color: #fbc02d;
+  background: #4e342e;
+}
+.skin-icon {
+  width: 40px;
+  height: 40px;
+  background: #000;
+  border: 1px solid #3e2723;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.skin-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.skin-name {
+  font-weight: bold;
+  color: #fbc02d;
+  font-size: 0.9em;
+}
+.equipped-icon {
+  color: #2e7d32;
+}
 
-.rename-box { display: flex; gap: 5px; }
-.rename-box input { flex: 1; background: #1a1a1a; border: 1px solid #5d4037; color: #fff; padding: 8px; }
-.rename-box button { background: #3e2723; color: #fbc02d; border: 1px solid #5d4037; cursor: pointer; width: 40px; }
+.rename-box {
+  display: flex;
+  gap: 5px;
+}
+.rename-box input {
+  flex: 1;
+  background: #1a1a1a;
+  border: 1px solid #5d4037;
+  color: #fff;
+  padding: 8px;
+}
+.rename-box button {
+  background: #3e2723;
+  color: #fbc02d;
+  border: 1px solid #5d4037;
+  cursor: pointer;
+  width: 40px;
+}
 
 @media (max-width: 800px) {
-  .profile-content { grid-template-columns: 1fr; }
+  .profile-content {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

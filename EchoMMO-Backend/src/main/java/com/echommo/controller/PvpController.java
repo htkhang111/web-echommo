@@ -28,7 +28,7 @@ public class PvpController {
 
     @Autowired private PvpService pvpService;
     @Autowired private UserRepository userRepo;
-    @Autowired private CharacterRepository charRepo; // Tên biến là charRepo
+    @Autowired private CharacterRepository charRepo;
     @Autowired private PvpMatchRepository matchRepo;
     @Autowired private PvpQueueRepository queueRepo;
 
@@ -41,14 +41,16 @@ public class PvpController {
         MatchResponse response = new MatchResponse();
         response.setMyId(myChar.getCharId());
 
-        Optional<PvpMatch> matchOpt = matchRepo.findActiveMatchByCharId(myChar.getCharId());
+        // [FIX] Dùng helper từ Service để lấy trận mới nhất (Active hoặc Finished gần nhất)
+        PvpMatch match = pvpService.getLatestMatchForUser(myChar.getCharId());
 
-        if (matchOpt.isPresent()) {
-            PvpMatch match = matchOpt.get();
+        if (match != null) {
+            // Map dữ liệu trận đấu (kể cả đã FINISHED) ra response để Frontend xử lý
             mapMatchToResponse(match, myChar.getCharId(), response);
             return ResponseEntity.ok(response);
         }
 
+        // Nếu không có trận nào, kiểm tra xem có đang trong hàng đợi tìm trận không
         Optional<PvpQueue> queueOpt = queueRepo.findByCharId(myChar.getCharId());
         if (queueOpt.isPresent()) {
             response.setStatus("SEARCHING");
@@ -148,15 +150,19 @@ public class PvpController {
         try {
             PvpMatch match = matchRepo.findById(matchId).orElse(null);
 
-            if (match != null && "ACTIVE".equals(match.getStatus())) {
-                pvpService.surrenderMatch(matchId, myChar.getCharId());
+            if (match != null) {
+                // Nếu chưa finish thì gọi service để xử lý surrender và kết thúc trận đấu
+                if (!"FINISHED".equals(match.getStatus())) {
+                    pvpService.surrenderMatch(matchId, myChar.getCharId());
+                }
+                // Trả về thành công để Frontend tiếp tục polling và nhận status FINISHED
                 return ResponseEntity.ok(Map.of("message", "Surrender accepted"));
             } else {
-                return ResponseEntity.ok(Map.of("message", "Match already finished or not found"));
+                return ResponseEntity.ok(Map.of("message", "Match not found"));
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.ok(Map.of("message", "Force exit triggered due to error"));
+            return ResponseEntity.ok(Map.of("message", "Error processing surrender"));
         }
     }
 
@@ -173,10 +179,9 @@ public class PvpController {
         }
     }
 
-    // --- 8. BẢNG XẾP HẠNG (MỚI THÊM) ---
+    // --- 8. BẢNG XẾP HẠNG ---
     @GetMapping("/leaderboard")
     public ResponseEntity<List<CharacterDTO>> getLeaderboard() {
-        // Sử dụng charRepo thay vì characterRepository
         List<Character> topPlayers = charRepo.findTop10ByOrderByPvpWinsDesc();
 
         List<CharacterDTO> result = topPlayers.stream().map(c -> {
@@ -253,14 +258,12 @@ public class PvpController {
         public ChatMessageDTO(String s, Integer id, String c) { this.senderName = s; this.senderId = id; this.content = c; }
     }
 
-    // Class DTO cho BXH (Thêm mới ở đây)
     public static class CharacterDTO {
         private String name;
         private Integer level;
         private Integer pvpWins;
         private String avatarUrl;
 
-        // Getters Setters
         public String getName() { return name; } public void setName(String name) { this.name = name; }
         public Integer getLevel() { return level; } public void setLevel(Integer level) { this.level = level; }
         public Integer getPvpWins() { return pvpWins; } public void setPvpWins(Integer pvpWins) { this.pvpWins = pvpWins; }
@@ -288,7 +291,7 @@ public class PvpController {
 
         private List<ChatMessageDTO> messages;
 
-        // Getters and Setters (Giữ nguyên như cũ)
+        // Getters and Setters
         public String getStatus() { return status; } public void setStatus(String status) { this.status = status; }
         public Long getMatchId() { return matchId; } public void setMatchId(Long matchId) { this.matchId = matchId; }
         public Integer getMyId() { return myId; } public void setMyId(Integer myId) { this.myId = myId; }

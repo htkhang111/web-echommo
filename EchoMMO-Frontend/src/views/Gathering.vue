@@ -41,8 +41,7 @@
           </div>
         </div>
         <div v-else class="no-tool-warning">
-          <i class="fas fa-exclamation-triangle"></i> Cần trang bị: <span class="highlight">{{ currentEvent.reqTool
-            }}</span>
+          <i class="fas fa-exclamation-triangle"></i> Yêu cầu: <span class="highlight">{{ currentEvent.reqTool }}</span>
         </div>
       </div>
 
@@ -67,12 +66,11 @@
 
       <div class="progress-container">
         <div class="progress-label">
-          <span>Tiến độ</span>
-          <span>{{ maxNode > 0 ? Math.round((1 - remainingNode / maxNode) * 100) : 100 }}%</span>
+          <span>Thời gian còn lại</span>
+          <span>{{ Math.round(expiryPercent) }}%</span>
         </div>
         <div class="progress-track">
-          <div class="progress-fill"
-            :style="{ width: (maxNode > 0 ? (1 - remainingNode / maxNode) * 100 : 100) + '%' }"></div>
+          <div class="progress-fill" :style="{ width: expiryPercent + '%' }"></div>
         </div>
       </div>
 
@@ -83,27 +81,28 @@
 
         <div v-if="remainingNode <= 0" class="lock-hint">Mỏ đã cạn, hãy rời đi.</div>
         <div v-if="playerLevel < currentEvent.reqLevel" class="lock-hint">Cấp độ chưa đủ.</div>
-        <div v-if="currentTool && currentTool.currentDurability <= 0" class="lock-hint tool-broken-msg">Công cụ đã hỏng!
+        <div v-if="currentTool && currentTool.currentDurability <= 0" class="lock-hint tool-broken-msg">
+          CÔNG CỤ ĐÃ HỎNG! CẦN SỬA CHỮA.
         </div>
 
         <div class="btn-grid">
-          <button class="btn-wood action-btn" @click="handleGather(1)"
-            :disabled="isGathering || remainingNode <= 0 || (charStore.character?.currentEnergy || 0) < 1 || playerLevel < currentEvent.reqLevel || !currentTool || currentTool.currentDurability <= 0">
+          <button class="btn-wood action-btn" @click="handleGather(1)" :disabled="isDisableGather">
             <span class="btn-main">KHAI THÁC</span>
             <span class="btn-sub">Tốn 1 <i class="fas fa-bolt"></i></span>
           </button>
-          <button class="btn-seal action-btn" @click="handleGatherAll"
-            :disabled="isGathering || remainingNode <= 0 || (charStore.character?.currentEnergy || 0) < 1 || playerLevel < currentEvent.reqLevel || !currentTool || currentTool.currentDurability <= 0">
+
+          <button class="btn-seal action-btn" @click="handleGatherAll" :disabled="isDisableGather">
             <span class="btn-main">TỰ ĐỘNG</span>
             <span class="btn-sub">Gom nhanh (Max 10)</span>
           </button>
         </div>
-        <div class="feedback-text" v-if="feedbackMsg">{{ feedbackMsg }}</div>
+
+        <div class="feedback-text" v-if="feedbackMsg" :class="feedbackClass">{{ feedbackMsg }}</div>
       </div>
     </div>
 
     <div v-else class="gathering-panel" style="text-align: center; color: #aaa;">
-      <p>Đang đồng bộ dữ liệu mỏ...</p>
+      <p>Đang tìm kiếm tài nguyên...</p>
     </div>
 
     <GameToast ref="toast" />
@@ -114,60 +113,70 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useCharacterStore } from "@/stores/characterStore";
 import { useAuthStore } from "@/stores/authStore";
-import { useInventoryStore } from "@/stores/inventoryStore"; // Import thêm store inventory
+import { useInventoryStore } from "@/stores/inventoryStore";
 import { useRouter } from "vue-router";
 import axiosClient from "@/api/axiosClient";
 import { resolveItemImage, getAssetUrl } from "@/utils/assetHelper";
 import GameToast from '@/components/GameToast.vue';
 
 const charStore = useCharacterStore();
-const authStore = useAuthStore();
-const inventoryStore = useInventoryStore(); // Init store
+const inventoryStore = useInventoryStore();
 const router = useRouter();
 const toast = ref(null);
+
 let energyRefreshInterval = null;
+let expiryInterval = null;
 
 const currentEvent = ref(null);
 const remainingNode = ref(0);
 const maxNode = ref(10);
 const isGathering = ref(false);
 const feedbackMsg = ref("");
+const feedbackClass = ref("");
+const expiryPercent = ref(100);
 const bgImage = getAssetUrl("b_mountain.jpg");
 
 const playerLevel = computed(() => {
-  if (!charStore.character) return 1;
-  return charStore.character.level !== undefined ? charStore.character.level : 1;
+  return charStore.character?.level || 1;
 });
 
-// Danh sách sự kiện (Map ID -> Data)
 const EVENT_TYPES = [
-  // GỖ (w_)
   { id: "wood", codePrefix: "w_", rewardItemId: 1, name: "Cây Gỗ Sồi", image: resolveItemImage("tool/axe/w_wood.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Sồi" },
-  // ... (Giữ nguyên các loại khác, nhưng thêm codePrefix để dễ map tool)
-  // Logic tạm: Map theo rewardItemId từ DB
+  { id: "dried_wood", codePrefix: "w_", rewardItemId: 2, name: "Cây Gỗ Khô", image: resolveItemImage("w_wood-red.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Khô" },
+  { id: "cold_wood", codePrefix: "w_", rewardItemId: 3, name: "Cây Gỗ Lạnh", image: resolveItemImage("w_wood-white.png"), rarityClass: "uncommon", rarityText: "Ít Gặp", reqLevel: 10, reqTool: "Rìu", lootName: "Gỗ Lạnh" },
+  { id: "strange_wood", codePrefix: "w_", rewardItemId: 4, name: "Cây Gỗ Lạ", image: resolveItemImage("w_wood-black.png"), rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Rìu", lootName: "Gỗ Lạ" },
+  { id: "stone", codePrefix: "o_", rewardItemId: 5, name: "Mỏ Đá", image: resolveItemImage("o_coal.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cúp", lootName: "Đá/Than" },
+  { id: "copper", codePrefix: "o_", rewardItemId: 6, name: "Mạch Đồng", image: resolveItemImage("o_copper.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 5, reqTool: "Cúp", lootName: "Quặng Đồng" },
+  { id: "iron", codePrefix: "o_", rewardItemId: 7, name: "Mỏ Sắt", image: resolveItemImage("o_iron.png"), rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Cúp", lootName: "Quặng Sắt" },
+  { id: "platinum", codePrefix: "o_", rewardItemId: 8, name: "Tinh Thể Bạch Kim", image: resolveItemImage("o_platinum.png"), rarityClass: "epic", rarityText: "Cực Phẩm", reqLevel: 40, reqTool: "Cúp", lootName: "Bạch Kim" },
+  { id: "fish", codePrefix: "f_", rewardItemId: 9, name: "Hồ Cá", image: resolveItemImage("f_fish.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cần Câu", lootName: "Cá" },
+  { id: "shark", codePrefix: "f_", rewardItemId: 10, name: "Vùng Nước Nguy Hiểm", image: resolveItemImage("f_shark.png"), rarityClass: "uncommon", rarityText: "Nguy Hiểm", reqLevel: 30, reqTool: "Cần Câu", lootName: "Cá Mập" },
+  { id: "clay", codePrefix: "s_", rewardItemId: 999, name: "Đất Sét", image: resolveItemImage("s_clay.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Xẻng", lootName: "Đất Sét" }
 ];
 
-// Map ID -> Resource Code Prefix để tìm Tool
-const getSlotTypeFromItemId = (itemId) => {
-  // Logic map cứng tạm thời dựa trên ID seed_core.sql
-  // 1-4: Gỗ (AXE), 5-8: Khoáng (PICKAXE), 9-10: Cá (ROD)
-  if (itemId >= 1 && itemId <= 4) return 'AXE';
-  if (itemId >= 5 && itemId <= 8) return 'PICKAXE'; // Stone, Copper, Iron, Platinum
-  if (itemId >= 9 && itemId <= 10) return 'FISHING_ROD'; // Fish
-  if (itemId === 11 || itemId === 12) return 'SHOVEL'; // Coin, Strange -> Xẻng
-  return 'PICKAXE'; // Default
+const getSlotTypeByPrefix = (prefix) => {
+  if (prefix === "w_") return "AXE";
+  if (prefix === "o_") return "PICKAXE";
+  if (prefix === "f_") return "FISHING_ROD";
+  if (prefix === "s_") return "SHOVEL";
+  return "PICKAXE";
 };
 
-// [COMPUTED] TÌM TOOL ĐANG TRANG BỊ
 const currentTool = computed(() => {
   if (!currentEvent.value) return null;
-  const slotType = getSlotTypeFromItemId(currentEvent.value.rewardItemId);
-
-  // Tìm trong inventory (đã fetch)
+  const slotType = getSlotTypeByPrefix(currentEvent.value.codePrefix);
   return inventoryStore.items.find(i => i.isEquipped && i.item.slotType === slotType);
 });
 
-// [HELPER] ĐỘ BỀN
+const isDisableGather = computed(() => {
+  return isGathering.value ||
+    remainingNode.value <= 0 ||
+    (charStore.character?.currentEnergy || 0) < 1 ||
+    playerLevel.value < (currentEvent.value?.reqLevel || 1) ||
+    !currentTool.value ||
+    currentTool.value.currentDurability <= 0;
+});
+
 const getDurabilityPercent = (item) => {
   if (!item.maxDurability) return 100;
   return Math.max(0, (item.currentDurability / item.maxDurability) * 100);
@@ -180,7 +189,6 @@ const getDurabilityColor = (item) => {
   return 'bg-green-500';
 };
 
-// INIT EVENT
 const initEvent = () => {
   if (!charStore.character) return;
   const dbItemId = charStore.character.gatheringItemId;
@@ -191,21 +199,19 @@ const initEvent = () => {
     return;
   }
 
-  // Tìm event trong list hardcode (Cần đồng bộ với BE)
-  // Tạm thời find theo ID
   let evt = EVENT_TYPES.find(e => e.rewardItemId === dbItemId);
 
-  // Nếu không tìm thấy trong hardcode (do DB mới update), tạo object tạm
   if (!evt) {
     evt = {
       id: "unknown",
+      codePrefix: "o_",
       rewardItemId: dbItemId,
       name: "Tài Nguyên Lạ",
       image: resolveItemImage("o_strange.png"),
       rarityClass: "common",
-      rarityText: "Unknown",
+      rarityText: "Bí Ẩn",
       reqLevel: 1,
-      reqTool: "Dụng Cụ",
+      reqTool: "Cúp",
       lootName: "Vật phẩm"
     };
   }
@@ -213,64 +219,52 @@ const initEvent = () => {
   currentEvent.value = evt;
   remainingNode.value = dbAmount !== undefined ? dbAmount : 10;
   maxNode.value = 10;
+
+  startTimer();
 };
 
-// HANDLE GATHER
+const startTimer = () => {
+  let timeLeft = 180;
+  expiryPercent.value = 100;
+  if (expiryInterval) clearInterval(expiryInterval);
+  expiryInterval = setInterval(() => {
+    timeLeft--;
+    expiryPercent.value = (timeLeft / 180) * 100;
+    if (timeLeft <= 0) {
+      feedbackMsg.value = "Mỏ đã sập!";
+      setTimeout(() => router.push('/explore'), 1000);
+    }
+  }, 1000);
+};
+
 const handleGather = async (times = 1) => {
-  if (isGathering.value || remainingNode.value <= 0) return;
-
-  // Validate Tool Frontend
-  if (!currentTool.value) {
-    feedbackMsg.value = "Chưa trang bị dụng cụ!";
-    return;
-  }
-  if (currentTool.value.currentDurability <= 0) {
-    feedbackMsg.value = "Công cụ đã hỏng!";
-    return;
-  }
-
-  const currentEnergy = charStore.character?.currentEnergy || 0;
-  // Lưu ý: Tier 5 có tỷ lệ free energy, nên ở đây chỉ check sơ bộ
-  // Nếu muốn chính xác phải để BE check. Nhưng để UX tốt thì check luôn.
-  // Tuy nhiên, nếu tool xịn thì có thể đào kể cả khi energy thấp (nhờ luck), nên tạm bỏ check cứng ở đây hoặc check min 1.
+  if (isDisableGather.value) return;
 
   isGathering.value = true;
   feedbackMsg.value = "Đang khai thác...";
+  feedbackClass.value = "";
 
   try {
-    await new Promise(r => setTimeout(r, 800)); // Fake delay animation
+    await new Promise(r => setTimeout(r, 600));
 
-    const char = charStore.character;
-    const charId = char.charId;
-
-    // Gọi API Gather mới (đã update ở bước trước)
+    // Payload JSON Body
     const payload = {
-      // Note: API mới dùng @RequestParam nên dùng params trong axios config, 
-      // hoặc nếu dùng endpoint cũ thì giữ nguyên body.
-      // Ở đây dùng theo endpoint ExplorationService: gatherResource(user, itemId, amount)
-      // Check lại Controller: @PostMapping("/gather") public ... gatherResource(...)
+      itemId: currentEvent.value.rewardItemId,
+      amount: times
     };
 
-    // Gọi qua axiosClient wrapper (đã config base URL)
-    const res = await axiosClient.post("/exploration/gather", null, {
-      params: {
-        itemId: currentEvent.value.rewardItemId,
-        amount: times
-      }
-    });
-
-    // UPDATE STATE TỪ RESPONSE
-    const data = res.data; // { message, remaining, jobExp, toolDurability }
+    const res = await axiosClient.post("/exploration/gather", payload);
+    const data = res.data;
 
     remainingNode.value = data.remaining;
-    feedbackMsg.value = data.message; // Message từ BE đã bao gồm info năng lượng/free
+    feedbackMsg.value = data.message;
+    feedbackClass.value = "text-success";
 
-    // [QUAN TRỌNG] Cập nhật độ bền Tool ngay lập tức
     if (data.toolDurability !== undefined && currentTool.value) {
       currentTool.value.currentDurability = data.toolDurability;
     }
 
-    await charStore.fetchCharacter(); // Sync lại Energy/Exp
+    await charStore.fetchCharacter();
 
     if (remainingNode.value <= 0) {
       feedbackMsg.value = "Mỏ tài nguyên đã cạn!";
@@ -278,29 +272,29 @@ const handleGather = async (times = 1) => {
     }
 
   } catch (e) {
-    console.error("🔥 [LỖI KHAI THÁC]:", e);
-    const errText = e.response?.data?.message || e.response?.data || "Lỗi server";
-    feedbackMsg.value = "Lỗi: " + errText;
+    console.error("🔥 [GATHER ERROR]:", e);
+    const errText = e.response?.data?.message || "Lỗi kết nối server";
+    feedbackMsg.value = errText;
+    feedbackClass.value = "text-error";
+    if (toast.value) toast.value.show(errText, "error");
   } finally {
     isGathering.value = false;
   }
 };
 
 const handleGatherAll = () => {
-  // Logic gom nhanh: Lấy max có thể (dựa trên còn lại và energy)
-  // Thực tế BE sẽ tính toán lại, cứ gửi max request
   const possible = remainingNode.value;
   if (possible > 0) handleGather(possible);
 };
 
 const handleImgError = (e) => {
-  e.target.src = resolveItemImage("tool/pickaxe/o_coal.png"); // Fallback
+  e.target.src = resolveItemImage("o_coal.png");
 };
 
 onMounted(async () => {
   await Promise.all([
     charStore.fetchCharacter(),
-    inventoryStore.fetchInventory() // Fetch đồ để tìm Tool
+    inventoryStore.fetchInventory()
   ]);
   initEvent();
   energyRefreshInterval = setInterval(() => charStore.fetchCharacter(), 10000);
@@ -308,6 +302,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (energyRefreshInterval) clearInterval(energyRefreshInterval);
+  if (expiryInterval) clearInterval(expiryInterval);
 });
 </script>
 
@@ -346,7 +341,6 @@ onUnmounted(() => {
   border: 1px solid #5d4037;
   padding: 8px 15px;
   cursor: pointer;
-  font-family: "Noto Serif TC", serif;
   font-weight: bold;
   display: flex;
   align-items: center;
@@ -465,7 +459,6 @@ onUnmounted(() => {
   color: #ffa726;
 }
 
-/* TOOL INFO UI */
 .current-tool-info {
   background: rgba(0, 0, 0, 0.6);
   padding: 8px;
@@ -715,10 +708,17 @@ onUnmounted(() => {
 }
 
 .feedback-text {
-  color: #69f0ae;
   font-weight: bold;
   min-height: 20px;
   font-size: 0.9rem;
+}
+
+.text-success {
+  color: #69f0ae;
+}
+
+.text-error {
+  color: #ff5252;
 }
 
 .shake-anim {

@@ -89,9 +89,9 @@
 //     const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
 //     const payload = JSON.parse(window.atob(base64));
 //     const now = Math.floor(Date.now() / 1000);
-    
+
 //     // Nếu thời gian hiện tại lớn hơn thời gian hết hạn (exp) thì token die
-//     return payload.exp < now; 
+//     return payload.exp < now;
 //   } catch (e) {
 //     return true; // Lỗi định dạng coi như hết hạn để an toàn
 //   }
@@ -101,7 +101,7 @@
 // axiosClient.interceptors.request.use(
 //   (config) => {
 //     const authStore = useAuthStore();
-    
+
 //     if (authStore.token) {
 //       // KIỂM TRA TRƯỚC KHI GỬI:
 //       // Nếu phát hiện token đã hết hạn, không gửi request nữa mà đá về Login luôn
@@ -139,12 +139,12 @@
 //       if (status === 401 || (status === 403 && isTokenExpired(authStore.token))) {
 //         console.error("[AUTH] Unauthorized access. Logging out...");
 //         authStore.logout();
-        
+
 //         if (window.location.pathname !== "/login") {
 //             window.location.href = "/login";
 //         }
 //       }
-      
+
 //       // Log lỗi 403 chi tiết để debug quyền hạn (nếu token vẫn còn hạn)
 //       if (status === 403 && !isTokenExpired(authStore.token)) {
 //         console.error("--- LỖI QUYỀN HẠN (403) ---");
@@ -195,7 +195,7 @@ axiosClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 // --- RESPONSE INTERCEPTOR (Xử lý Ban ở đây) ---
@@ -203,26 +203,26 @@ axiosClient.interceptors.response.use(
   (response) => response,
   (error) => {
     const authStore = useAuthStore();
-    
+
     if (error.response) {
       const { status, data } = error.response;
 
       // [ƯU TIÊN 1] KIỂM TRA BANNED
       // Backend trả về 403 và JSON có chứa error="BANNED" hoặc message liên quan
-      const isBannedSignal = 
-        status === 403 && 
-        (
-          (data && data.error === 'BANNED') || 
-          (data && data.message && data.message.toLowerCase().includes('phong ấn'))
-        );
+      const isBannedSignal =
+        status === 403 &&
+        ((data && data.error === "BANNED") ||
+          (data &&
+            data.message &&
+            data.message.toLowerCase().includes("phong ấn")));
 
       if (isBannedSignal) {
         console.error("⛔ TÀI KHOẢN ĐÃ BỊ BAN!");
-        
+
         // Gọi action triggerBan trong store để hiện Popup
         const reason = data.message || "Vi phạm quy định thiên phủ.";
         authStore.triggerBan(reason);
-        
+
         // Trả về reject nhưng KHÔNG logout ngay để giữ popup hiện trên màn hình
         return Promise.reject(error);
       }
@@ -235,9 +235,9 @@ axiosClient.interceptors.response.use(
         return Promise.reject(error);
       }
     }
-    
+
     return Promise.reject(error);
-  }
+  },
 );
 
 export default axiosClient;

@@ -57,7 +57,7 @@
 //         console.error("Lỗi tải nhân vật:", error);
 //         if (error.response && [401, 403].includes(error.response.status)) {
 //           // Chỉ redirect nếu thực sự mất token
-//           // router.push("/login"); 
+//           // router.push("/login");
 //         }
 //       } finally {
 //         this.isLoading = false;
@@ -185,7 +185,7 @@
 //     async explore(payload = { mapId: "MAP_01" }) {
 //       if (!this.character) return;
 //       // Hành tẩu không tốn năng lượng (theo yêu cầu của bro)
-      
+
 //       try {
 //         // [NOTE] Backend đã được sửa để nhận JSON body, nên call này sẽ hoạt động OK
 //         const res = await axiosClient.post("/exploration/explore", payload);
@@ -256,11 +256,17 @@ export const useCharacterStore = defineStore("character", {
     },
     hpPercent: (state) => {
       if (!state.character || !state.character.maxHp) return 0;
-      return Math.min((state.character.currentHp / state.character.maxHp) * 100, 100);
+      return Math.min(
+        (state.character.currentHp / state.character.maxHp) * 100,
+        100,
+      );
     },
     energyPercent: (state) => {
       if (!state.character || !state.character.maxEnergy) return 0;
-      return Math.min((state.character.currentEnergy / state.character.maxEnergy) * 100, 100);
+      return Math.min(
+        (state.character.currentEnergy / state.character.maxEnergy) * 100,
+        100,
+      );
     },
   },
 
@@ -274,7 +280,7 @@ export const useCharacterStore = defineStore("character", {
       try {
         const res = await axiosClient.get("/character/me");
         if (res.data) {
-            this.character = res.data;
+          this.character = res.data;
         }
       } catch (error) {
         console.error("Lỗi fetch character:", error);
@@ -286,7 +292,7 @@ export const useCharacterStore = defineStore("character", {
     async addStats(statsMap) {
       try {
         const res = await axiosClient.post("/character/add-stats", statsMap);
-        
+
         // Cập nhật lại nhân vật với dữ liệu mới từ Server trả về
         // (Server sẽ trả về Character đã tính lại lực chiến và trừ điểm tiềm năng)
         if (res.data) {
@@ -310,14 +316,17 @@ export const useCharacterStore = defineStore("character", {
 
         // Cập nhật State ngay lập tức (Optimistic Update)
         if (this.character) {
-          if (data.currentEnergy !== undefined) this.character.currentEnergy = data.currentEnergy;
-          if (data.currentExp !== undefined) this.character.currentExp = data.currentExp;
-          if (data.currentHp !== undefined) this.character.currentHp = data.currentHp;
-          
+          if (data.currentEnergy !== undefined)
+            this.character.currentEnergy = data.currentEnergy;
+          if (data.currentExp !== undefined)
+            this.character.currentExp = data.currentExp;
+          if (data.currentHp !== undefined)
+            this.character.currentHp = data.currentHp;
+
           // [QUAN TRỌNG] Nếu server trả về GATHERING, cập nhật ngay vào character để Gathering.vue đọc được
-          if (data.type === 'GATHERING') {
-             this.character.gatheringItemId = data.rewardItemId;
-             this.character.gatheringRemainingAmount = data.rewardAmount;
+          if (data.type === "GATHERING") {
+            this.character.gatheringItemId = data.rewardItemId;
+            this.character.gatheringRemainingAmount = data.rewardAmount;
           }
 
           if (data.newLevel) {
@@ -327,10 +336,10 @@ export const useCharacterStore = defineStore("character", {
           }
         }
 
-        if (data.type !== 'GATHERING') {
-            this.addLog(data.message, data.type === "ENEMY" ? "ENEMY" : "INFO");
+        if (data.type !== "GATHERING") {
+          this.addLog(data.message, data.type === "ENEMY" ? "ENEMY" : "INFO");
         }
-        
+
         return data; // Trả về data để Component xử lý chuyển trang
       } catch (error) {
         const msg = error.response?.data?.message || "Lỗi kết nối";

@@ -1,14 +1,16 @@
 <template>
   <div class="page-container character-page wuxia-dark-theme">
     <div class="bg-layer">
-      <div class="mountain-bg" :style="{ backgroundImage: `url(${bgImage})` }"></div>
+      <div
+        class="mountain-bg"
+        :style="{ backgroundImage: `url(${bgImage})` }"
+      ></div>
       <div class="wood-overlay" :class="{ 'night-mode': isNight }"></div>
       <div class="vignette"></div>
     </div>
 
     <div class="char-wrapper">
       <div class="char-grid">
-
         <div class="panel stats-panel">
           <div class="panel-header">
             <div class="decor-line"></div>
@@ -19,10 +21,15 @@
           <div class="stats-body custom-scroll">
             <div class="stat-row level-row">
               <span class="label">Cảnh Giới</span>
-              <span class="value highlight">Cấp {{ charStore.character?.level || 1 }}</span>
+              <span class="value highlight"
+                >Cấp {{ charStore.character?.level || 1 }}</span
+              >
             </div>
 
-            <div class="potential-box" :class="{ 'has-points': availablePoints > 0 }">
+            <div
+              class="potential-box"
+              :class="{ 'has-points': availablePoints > 0 }"
+            >
               <div class="pot-label">Điểm Tiềm Năng</div>
               <div class="pot-value">{{ availablePoints }}</div>
             </div>
@@ -30,82 +37,173 @@
             <div class="divider"></div>
 
             <div class="base-stat-row">
-              <span class="stat-name text-red"><i class="fas fa-dumbbell"></i> Sức Mạnh</span>
+              <span class="stat-name text-red"
+                ><i class="fas fa-dumbbell"></i> Sức Mạnh</span
+              >
               <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat('str') }}</span>
-                <span v-if="pendingStats.str > 0" class="added-val">+{{ pendingStats.str }}</span>
-                <button v-if="availablePoints > 0" @click="increaseStat('str')" class="btn-plus"><i
-                    class="fas fa-plus"></i></button>
-                <button v-if="pendingStats.str > 0" @click="decreaseStat('str')" class="btn-minus"><i
-                    class="fas fa-minus"></i></button>
+                <span class="base-val">{{ getBaseStat("str") }}</span>
+                <span v-if="pendingStats.str > 0" class="added-val"
+                  >+{{ pendingStats.str }}</span
+                >
+                <button
+                  v-if="availablePoints > 0"
+                  @click="increaseStat('str')"
+                  class="btn-plus"
+                >
+                  <i class="fas fa-plus"></i>
+                </button>
+                <button
+                  v-if="pendingStats.str > 0"
+                  @click="decreaseStat('str')"
+                  class="btn-minus"
+                >
+                  <i class="fas fa-minus"></i>
+                </button>
               </div>
             </div>
 
             <div class="base-stat-row">
-              <span class="stat-name text-green"><i class="fas fa-heartbeat"></i> Thể Lực</span>
+              <span class="stat-name text-green"
+                ><i class="fas fa-heartbeat"></i> Thể Lực</span
+              >
               <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat('vit') }}</span>
-                <span v-if="pendingStats.vit > 0" class="added-val">+{{ pendingStats.vit }}</span>
-                <button v-if="availablePoints > 0" @click="increaseStat('vit')" class="btn-plus"><i
-                    class="fas fa-plus"></i></button>
-                <button v-if="pendingStats.vit > 0" @click="decreaseStat('vit')" class="btn-minus"><i
-                    class="fas fa-minus"></i></button>
+                <span class="base-val">{{ getBaseStat("vit") }}</span>
+                <span v-if="pendingStats.vit > 0" class="added-val"
+                  >+{{ pendingStats.vit }}</span
+                >
+                <button
+                  v-if="availablePoints > 0"
+                  @click="increaseStat('vit')"
+                  class="btn-plus"
+                >
+                  <i class="fas fa-plus"></i>
+                </button>
+                <button
+                  v-if="pendingStats.vit > 0"
+                  @click="decreaseStat('vit')"
+                  class="btn-minus"
+                >
+                  <i class="fas fa-minus"></i>
+                </button>
               </div>
             </div>
 
             <div class="base-stat-row">
-              <span class="stat-name text-blue"><i class="fas fa-wind"></i> Thân Pháp</span>
+              <span class="stat-name text-blue"
+                ><i class="fas fa-wind"></i> Thân Pháp</span
+              >
               <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat('agi') }}</span>
-                <span v-if="pendingStats.agi > 0" class="added-val">+{{ pendingStats.agi }}</span>
-                <button v-if="availablePoints > 0" @click="increaseStat('agi')" class="btn-plus"><i
-                    class="fas fa-plus"></i></button>
-                <button v-if="pendingStats.agi > 0" @click="decreaseStat('agi')" class="btn-minus"><i
-                    class="fas fa-minus"></i></button>
+                <span class="base-val">{{ getBaseStat("agi") }}</span>
+                <span v-if="pendingStats.agi > 0" class="added-val"
+                  >+{{ pendingStats.agi }}</span
+                >
+                <button
+                  v-if="availablePoints > 0"
+                  @click="increaseStat('agi')"
+                  class="btn-plus"
+                >
+                  <i class="fas fa-plus"></i>
+                </button>
+                <button
+                  v-if="pendingStats.agi > 0"
+                  @click="decreaseStat('agi')"
+                  class="btn-minus"
+                >
+                  <i class="fas fa-minus"></i>
+                </button>
               </div>
             </div>
 
             <div class="base-stat-row">
-              <span class="stat-name text-yellow"><i class="fas fa-crosshairs"></i> Khéo Léo</span>
+              <span class="stat-name text-yellow"
+                ><i class="fas fa-crosshairs"></i> Khéo Léo</span
+              >
               <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat('dex') }}</span>
-                <span v-if="pendingStats.dex > 0" class="added-val">+{{ pendingStats.dex }}</span>
-                <button v-if="availablePoints > 0" @click="increaseStat('dex')" class="btn-plus"><i
-                    class="fas fa-plus"></i></button>
-                <button v-if="pendingStats.dex > 0" @click="decreaseStat('dex')" class="btn-minus"><i
-                    class="fas fa-minus"></i></button>
+                <span class="base-val">{{ getBaseStat("dex") }}</span>
+                <span v-if="pendingStats.dex > 0" class="added-val"
+                  >+{{ pendingStats.dex }}</span
+                >
+                <button
+                  v-if="availablePoints > 0"
+                  @click="increaseStat('dex')"
+                  class="btn-plus"
+                >
+                  <i class="fas fa-plus"></i>
+                </button>
+                <button
+                  v-if="pendingStats.dex > 0"
+                  @click="decreaseStat('dex')"
+                  class="btn-minus"
+                >
+                  <i class="fas fa-minus"></i>
+                </button>
               </div>
             </div>
 
             <div class="base-stat-row">
-              <span class="stat-name text-purple"><i class="fas fa-brain"></i> Trí Tuệ</span>
+              <span class="stat-name text-purple"
+                ><i class="fas fa-brain"></i> Trí Tuệ</span
+              >
               <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat('intelligence') }}</span>
-                <span v-if="pendingStats.int > 0" class="added-val">+{{ pendingStats.int }}</span>
-                <button v-if="availablePoints > 0" @click="increaseStat('int')" class="btn-plus"><i
-                    class="fas fa-plus"></i></button>
-                <button v-if="pendingStats.int > 0" @click="decreaseStat('int')" class="btn-minus"><i
-                    class="fas fa-minus"></i></button>
+                <span class="base-val">{{ getBaseStat("intelligence") }}</span>
+                <span v-if="pendingStats.int > 0" class="added-val"
+                  >+{{ pendingStats.int }}</span
+                >
+                <button
+                  v-if="availablePoints > 0"
+                  @click="increaseStat('int')"
+                  class="btn-plus"
+                >
+                  <i class="fas fa-plus"></i>
+                </button>
+                <button
+                  v-if="pendingStats.int > 0"
+                  @click="decreaseStat('int')"
+                  class="btn-minus"
+                >
+                  <i class="fas fa-minus"></i>
+                </button>
               </div>
             </div>
 
             <div class="base-stat-row">
-              <span class="stat-name text-gold"><i class="fas fa-star"></i> Vận Khí</span>
+              <span class="stat-name text-gold"
+                ><i class="fas fa-star"></i> Vận Khí</span
+              >
               <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat('luck') }}</span>
-                <span v-if="pendingStats.luck > 0" class="added-val">+{{ pendingStats.luck }}</span>
-                <button v-if="availablePoints > 0" @click="increaseStat('luck')" class="btn-plus"><i
-                    class="fas fa-plus"></i></button>
-                <button v-if="pendingStats.luck > 0" @click="decreaseStat('luck')" class="btn-minus"><i
-                    class="fas fa-minus"></i></button>
+                <span class="base-val">{{ getBaseStat("luck") }}</span>
+                <span v-if="pendingStats.luck > 0" class="added-val"
+                  >+{{ pendingStats.luck }}</span
+                >
+                <button
+                  v-if="availablePoints > 0"
+                  @click="increaseStat('luck')"
+                  class="btn-plus"
+                >
+                  <i class="fas fa-plus"></i>
+                </button>
+                <button
+                  v-if="pendingStats.luck > 0"
+                  @click="decreaseStat('luck')"
+                  class="btn-minus"
+                >
+                  <i class="fas fa-minus"></i>
+                </button>
               </div>
             </div>
 
             <div v-if="isPendingChanges" class="save-stats-area">
-              <button @click="confirmAddStats" class="btn-wood confirm full-width">
+              <button
+                @click="confirmAddStats"
+                class="btn-wood confirm full-width"
+              >
                 <i class="fas fa-check"></i> LƯU THAY ĐỔI
               </button>
-              <button @click="resetPending" class="btn-wood cancel full-width" style="margin-top:5px">
+              <button
+                @click="resetPending"
+                class="btn-wood cancel full-width"
+                style="margin-top: 5px"
+              >
                 HỦY
               </button>
             </div>
@@ -116,15 +214,39 @@
           <div class="aura-bg"></div>
 
           <div class="equip-column left-col">
-            <div v-for="key in ['NECKLACE', 'WEAPON', 'RING']" :key="key" class="equip-slot"
-              :class="{ 'filled': equipment[key], 'target-glow': hoveredType === key }"
-              @mousedown.left="unequipSlow(key)" :title="SLOT_CONFIG[key].label">
+            <div
+              v-for="key in ['NECKLACE', 'WEAPON', 'RING']"
+              :key="key"
+              class="equip-slot"
+              :class="{
+                filled: equipment[key],
+                'target-glow': hoveredType === key,
+              }"
+              @mousedown.left="unequipSlow(key)"
+              :title="SLOT_CONFIG[key].label"
+            >
               <div class="slot-frame">
-                <img v-if="equipment[key]" :src="resolveItemImage(equipment[key].item.imageUrl)" />
-                <i v-else :class="['fas placeholder', SLOT_CONFIG[key].icon]"></i>
+                <img
+                  v-if="equipment[key]"
+                  :src="resolveItemImage(equipment[key].item.imageUrl)"
+                />
+                <i
+                  v-else
+                  :class="['fas placeholder', SLOT_CONFIG[key].icon]"
+                ></i>
 
-                <div v-if="equipment[key] && (equipment[key].enhanceLevel || equipment[key].level)"
-                  class="slot-level-tag" :class="getLevelClass(equipment[key].enhanceLevel || equipment[key].level)">
+                <div
+                  v-if="
+                    equipment[key] &&
+                    (equipment[key].enhanceLevel || equipment[key].level)
+                  "
+                  class="slot-level-tag"
+                  :class="
+                    getLevelClass(
+                      equipment[key].enhanceLevel || equipment[key].level,
+                    )
+                  "
+                >
                   +{{ equipment[key].enhanceLevel || equipment[key].level }}
                 </div>
               </div>
@@ -140,18 +262,33 @@
             <div class="tool-belt">
               <div class="tool-belt-title">BỘ CÔNG CỤ</div>
               <div class="tool-row">
-                <div v-for="key in ['PICKAXE', 'AXE', 'SHOVEL', 'FISHING_ROD']" :key="key" class="mini-tool-slot"
+                <div
+                  v-for="key in ['PICKAXE', 'AXE', 'SHOVEL', 'FISHING_ROD']"
+                  :key="key"
+                  class="mini-tool-slot"
                   :class="{
-                    'filled': equipment[key],
+                    filled: equipment[key],
                     'target-glow': hoveredType === key,
-                    'broken': equipment[key] && equipment[key].currentDurability <= 0
-                  }" @mousedown.left="unequipSlow(key)" :title="SLOT_CONFIG[key].label">
-                  <img v-if="equipment[key]" :src="resolveItemImage(equipment[key].item.imageUrl)" />
+                    broken:
+                      equipment[key] && equipment[key].currentDurability <= 0,
+                  }"
+                  @mousedown.left="unequipSlow(key)"
+                  :title="SLOT_CONFIG[key].label"
+                >
+                  <img
+                    v-if="equipment[key]"
+                    :src="resolveItemImage(equipment[key].item.imageUrl)"
+                  />
                   <i v-else :class="['fas', SLOT_CONFIG[key].icon]"></i>
 
                   <div v-if="equipment[key]" class="tool-durability-bar">
-                    <div class="tool-dur-fill" :style="{ width: getDurabilityPercent(equipment[key]) + '%' }"
-                      :class="getDurabilityColor(equipment[key])"></div>
+                    <div
+                      class="tool-dur-fill"
+                      :style="{
+                        width: getDurabilityPercent(equipment[key]) + '%',
+                      }"
+                      :class="getDurabilityColor(equipment[key])"
+                    ></div>
                   </div>
                 </div>
               </div>
@@ -159,15 +296,39 @@
           </div>
 
           <div class="equip-column right-col">
-            <div v-for="key in ['HELMET', 'ARMOR', 'BOOTS']" :key="key" class="equip-slot"
-              :class="{ 'filled': equipment[key], 'target-glow': hoveredType === key }"
-              @mousedown.left="unequipSlow(key)" :title="SLOT_CONFIG[key].label">
+            <div
+              v-for="key in ['HELMET', 'ARMOR', 'BOOTS']"
+              :key="key"
+              class="equip-slot"
+              :class="{
+                filled: equipment[key],
+                'target-glow': hoveredType === key,
+              }"
+              @mousedown.left="unequipSlow(key)"
+              :title="SLOT_CONFIG[key].label"
+            >
               <div class="slot-frame">
-                <img v-if="equipment[key]" :src="resolveItemImage(equipment[key].item.imageUrl)" />
-                <i v-else :class="['fas placeholder', SLOT_CONFIG[key].icon]"></i>
+                <img
+                  v-if="equipment[key]"
+                  :src="resolveItemImage(equipment[key].item.imageUrl)"
+                />
+                <i
+                  v-else
+                  :class="['fas placeholder', SLOT_CONFIG[key].icon]"
+                ></i>
 
-                <div v-if="equipment[key] && (equipment[key].enhanceLevel || equipment[key].level)"
-                  class="slot-level-tag" :class="getLevelClass(equipment[key].enhanceLevel || equipment[key].level)">
+                <div
+                  v-if="
+                    equipment[key] &&
+                    (equipment[key].enhanceLevel || equipment[key].level)
+                  "
+                  class="slot-level-tag"
+                  :class="
+                    getLevelClass(
+                      equipment[key].enhanceLevel || equipment[key].level,
+                    )
+                  "
+                >
                   +{{ equipment[key].enhanceLevel || equipment[key].level }}
                 </div>
               </div>
@@ -185,11 +346,15 @@
 
           <div class="combat-stats-box">
             <div class="c-stat">
-              <span class="c-label atk"><i class="fas fa-fist-raised"></i> Công</span>
+              <span class="c-label atk"
+                ><i class="fas fa-fist-raised"></i> Công</span
+              >
               <span class="c-val">{{ totalStats.atk }}</span>
             </div>
             <div class="c-stat">
-              <span class="c-label def"><i class="fas fa-shield-alt"></i> Thủ</span>
+              <span class="c-label def"
+                ><i class="fas fa-shield-alt"></i> Thủ</span
+              >
               <span class="c-val">{{ totalStats.def }}</span>
             </div>
             <div class="c-stat">
@@ -202,40 +367,62 @@
             </div>
           </div>
 
-          <div class="bag-info">
-            Vật phẩm: {{ bagItems.length }} / 50
-          </div>
+          <div class="bag-info">Vật phẩm: {{ bagItems.length }} / 50</div>
 
           <div class="mini-grid custom-scroll">
-            <div v-for="item in bagItems" :key="item.userItemId" class="mini-slot" :class="[
-              'rarity-' + (item.item.rarity || 'C'),
-              { 'is-equipped': item.isEquipped }
-            ]" @click="equip(item)" @mouseenter="hoveredType = determineSlot(item.item)"
-              @mouseleave="hoveredType = null" :title="item.item.name">
+            <div
+              v-for="item in bagItems"
+              :key="item.userItemId"
+              class="mini-slot"
+              :class="[
+                'rarity-' + (item.item.rarity || 'C'),
+                { 'is-equipped': item.isEquipped },
+              ]"
+              @click="equip(item)"
+              @mouseenter="hoveredType = determineSlot(item.item)"
+              @mouseleave="hoveredType = null"
+              :title="item.item.name"
+            >
               <img :src="resolveItemImage(item.item.imageUrl)" />
 
-              <div v-if="item.enhanceLevel || item.level" class="mini-level"
-                :class="getLevelClass(item.enhanceLevel || item.level)">
+              <div
+                v-if="item.enhanceLevel || item.level"
+                class="mini-level"
+                :class="getLevelClass(item.enhanceLevel || item.level)"
+              >
                 +{{ item.enhanceLevel || item.level }}
               </div>
 
-              <span class="qty" v-if="item.quantity > 1">{{ item.quantity }}</span>
+              <span class="qty" v-if="item.quantity > 1">{{
+                item.quantity
+              }}</span>
             </div>
 
-            <div v-for="n in Math.max(0, 20 - (bagItems.length))" :key="'e' + n" class="mini-slot empty"></div>
+            <div
+              v-for="n in Math.max(0, 20 - bagItems.length)"
+              :key="'e' + n"
+              class="mini-slot empty"
+            ></div>
           </div>
         </div>
-
       </div>
     </div>
 
     <transition name="fade">
-      <div v-if="showUnequipModal" class="modal-overlay" @click.self="closeModal">
+      <div
+        v-if="showUnequipModal"
+        class="modal-overlay"
+        @click.self="closeModal"
+      >
         <div class="dark-modal">
           <div class="modal-content">
             <h3 class="modal-title">GỠ BỎ VẬT PHẨM</h3>
             <div class="item-preview-box">
-              <img v-if="itemToUnequip" :src="resolveItemImage(itemToUnequip.item.imageUrl)" class="preview-img" />
+              <img
+                v-if="itemToUnequip"
+                :src="resolveItemImage(itemToUnequip.item.imageUrl)"
+                class="preview-img"
+              />
               <div class="preview-info" v-if="itemToUnequip">
                 <span class="p-name">
                   {{ itemToUnequip.item.name }}
@@ -244,8 +431,12 @@
               </div>
             </div>
             <div class="modal-actions">
-              <button class="btn-wood cancel" @click="closeModal">HỦY BỎ</button>
-              <button class="btn-wood confirm" @click="confirmUnequip">XÁC NHẬN</button>
+              <button class="btn-wood cancel" @click="closeModal">
+                HỦY BỎ
+              </button>
+              <button class="btn-wood confirm" @click="confirmUnequip">
+                XÁC NHẬN
+              </button>
             </div>
           </div>
         </div>
@@ -273,17 +464,32 @@ const updateDayNight = () => {
 };
 
 // Logic cộng điểm tiềm năng
-const pendingStats = reactive({ str: 0, vit: 0, agi: 0, dex: 0, int: 0, luck: 0 });
+const pendingStats = reactive({
+  str: 0,
+  vit: 0,
+  agi: 0,
+  dex: 0,
+  int: 0,
+  luck: 0,
+});
 const getBaseStat = (key) => charStore.character?.[key] || 0;
 const availablePoints = computed(() => {
   const currentPoints = charStore.character?.statPoints || 0;
   const used = Object.values(pendingStats).reduce((a, b) => a + b, 0);
   return Math.max(0, currentPoints - used);
 });
-const isPendingChanges = computed(() => Object.values(pendingStats).some(v => v > 0));
-const increaseStat = (key) => { if (availablePoints.value > 0) pendingStats[key]++; };
-const decreaseStat = (key) => { if (pendingStats[key] > 0) pendingStats[key]--; };
-const resetPending = () => { Object.keys(pendingStats).forEach(k => pendingStats[k] = 0); };
+const isPendingChanges = computed(() =>
+  Object.values(pendingStats).some((v) => v > 0),
+);
+const increaseStat = (key) => {
+  if (availablePoints.value > 0) pendingStats[key]++;
+};
+const decreaseStat = (key) => {
+  if (pendingStats[key] > 0) pendingStats[key]--;
+};
+const resetPending = () => {
+  Object.keys(pendingStats).forEach((k) => (pendingStats[k] = 0));
+};
 const confirmAddStats = async () => {
   const success = await charStore.addStats(pendingStats);
   if (success) resetPending();
@@ -314,7 +520,7 @@ const determineSlot = (item) => {
 const equipment = computed(() => {
   const mapped = {};
   const allItems = inventoryStore.items || [];
-  allItems.forEach(userItem => {
+  allItems.forEach((userItem) => {
     if (userItem && userItem.item && userItem.isEquipped) {
       const slot = determineSlot(userItem.item);
       if (slot) mapped[slot] = userItem;
@@ -325,17 +531,17 @@ const equipment = computed(() => {
 
 const bagItems = computed(() => {
   const items = inventoryStore.items || [];
-  return items.filter(ui => {
+  return items.filter((ui) => {
     if (!ui || !ui.item || ui.isEquipped) return false;
     const type = (ui.item.type || "").toUpperCase();
-    if (type === 'MATERIAL' || type === 'RESOURCE') return false;
+    if (type === "MATERIAL" || type === "RESOURCE") return false;
     return determineSlot(ui.item) !== null;
   });
 });
 
 const userSkinImg = computed(() => {
   const skin = getCurrentSkin(authStore.user?.avatarUrl);
-  return skin ? skin.sprites.idle : '';
+  return skin ? skin.sprites.idle : "";
 });
 
 const hoveredType = ref(null);
@@ -351,9 +557,9 @@ const totalStats = computed(() => {
 
   Object.values(equipment.value).forEach((slotItem) => {
     if (slotItem && slotItem.item) {
-      stats.atk += (slotItem.item.atkBonus || slotItem.item.atk || 0);
-      stats.def += (slotItem.item.defBonus || slotItem.item.def || 0);
-      stats.speed += (slotItem.item.speedBonus || slotItem.item.speed || 0);
+      stats.atk += slotItem.item.atkBonus || slotItem.item.atk || 0;
+      stats.def += slotItem.item.defBonus || slotItem.item.def || 0;
+      stats.speed += slotItem.item.speedBonus || slotItem.item.speed || 0;
       const lv = slotItem.enhanceLevel || slotItem.level || 0;
       if (lv > 0) {
         stats.atk += lv * 2;
@@ -366,7 +572,7 @@ const totalStats = computed(() => {
     atk: Math.floor(stats.atk),
     def: Math.floor(stats.def),
     speed: Math.floor(stats.speed),
-    crit: parseFloat(stats.crit.toFixed(2))
+    crit: parseFloat(stats.crit.toFixed(2)),
   };
 });
 
@@ -386,9 +592,9 @@ const getDurabilityPercent = (item) => {
 
 const getDurabilityColor = (item) => {
   const pct = getDurabilityPercent(item);
-  if (pct <= 0) return 'bg-red-600';
-  if (pct < 30) return 'bg-orange-500';
-  return 'bg-green-500';
+  if (pct <= 0) return "bg-red-600";
+  if (pct < 30) return "bg-orange-500";
+  return "bg-green-500";
 };
 
 // --- ACTION ---
@@ -398,7 +604,10 @@ const equip = async (userItem) => {
   if (slot) {
     try {
       await inventoryStore.equipItem(userItem.userItemId);
-      await Promise.all([inventoryStore.fetchInventory(), charStore.fetchCharacter()]);
+      await Promise.all([
+        inventoryStore.fetchInventory(),
+        charStore.fetchCharacter(),
+      ]);
     } catch (e) {
       console.error("Lỗi Equip:", e);
     }
@@ -422,7 +631,10 @@ const confirmUnequip = async () => {
   if (itemToUnequip.value) {
     try {
       await inventoryStore.unequipItem(itemToUnequip.value.userItemId);
-      await Promise.all([inventoryStore.fetchInventory(), charStore.fetchCharacter()]);
+      await Promise.all([
+        inventoryStore.fetchInventory(),
+        charStore.fetchCharacter(),
+      ]);
     } catch (e) {
       console.error("Lỗi Unequip:", e);
     }
@@ -439,7 +651,7 @@ onMounted(async () => {
   updateDayNight();
   await Promise.all([
     charStore.fetchCharacter(),
-    inventoryStore.fetchInventory()
+    inventoryStore.fetchInventory(),
   ]);
 });
 </script>
@@ -489,13 +701,21 @@ onMounted(async () => {
 .wood-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(62, 39, 35, 0.7), rgba(30, 20, 15, 0.9));
+  background: linear-gradient(
+    to bottom,
+    rgba(62, 39, 35, 0.7),
+    rgba(30, 20, 15, 0.9)
+  );
   mix-blend-mode: multiply;
   transition: background 2s ease;
 }
 
 .wood-overlay.night-mode {
-  background: linear-gradient(to bottom, rgba(10, 5, 20, 0.85), rgba(0, 0, 0, 0.95));
+  background: linear-gradient(
+    to bottom,
+    rgba(10, 5, 20, 0.85),
+    rgba(0, 0, 0, 0.95)
+  );
 }
 
 .vignette {
@@ -758,7 +978,11 @@ onMounted(async () => {
 }
 
 .hero-panel {
-  background: radial-gradient(circle at center, rgba(78, 52, 46, 0.8) 0%, rgba(38, 24, 21, 0.9) 100%);
+  background: radial-gradient(
+    circle at center,
+    rgba(78, 52, 46, 0.8) 0%,
+    rgba(38, 24, 21, 0.9) 100%
+  );
   border-color: var(--gold);
   display: flex;
   flex-direction: row;
@@ -805,7 +1029,11 @@ onMounted(async () => {
   position: absolute;
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, rgba(255, 236, 179, 0.1), transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(255, 236, 179, 0.1),
+    transparent 70%
+  );
   animation: pulseAura 4s infinite;
   top: 50%;
   left: 50%;
@@ -1093,7 +1321,6 @@ onMounted(async () => {
 }
 
 @keyframes pulseAura {
-
   0%,
   100% {
     opacity: 0.5;

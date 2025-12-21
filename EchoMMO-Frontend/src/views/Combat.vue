@@ -1,50 +1,89 @@
 <template>
   <div class="combat-page">
     <div class="combat-container">
-      <h2 class="combat-title"
-        :class="{ 'text-red': battleStore.status === 'DEFEAT', 'text-green': battleStore.status === 'VICTORY' }">
+      <h2
+        class="combat-title"
+        :class="{
+          'text-red': battleStore.status === 'DEFEAT',
+          'text-green': battleStore.status === 'VICTORY',
+        }"
+      >
         {{ lastLog }}
       </h2>
 
       <div class="battlefield">
         <div class="fighter enemy" :class="{ 'hit-anim': enemyHit }">
           <div class="avatar-box">
-            <img :src="getEnemyImage(battleStore.enemy?.name)" class="fighter-img" />
+            <img
+              :src="getEnemyImage(battleStore.enemy?.name)"
+              class="fighter-img"
+            />
           </div>
-          <div class="name">{{ battleStore.enemy?.name || 'Kẻ địch' }}</div>
+          <div class="name">{{ battleStore.enemy?.name || "Kẻ địch" }}</div>
           <div class="hp-bar-container">
             <div class="hp-bar" :style="{ width: enemyHpPercent + '%' }"></div>
           </div>
-          <div class="hp-text">{{ battleStore.enemyHp }}/{{ battleStore.enemyMaxHp }}</div>
+          <div class="hp-text">
+            {{ battleStore.enemyHp }}/{{ battleStore.enemyMaxHp }}
+          </div>
         </div>
 
         <div class="vs-text">VS</div>
 
         <div class="fighter player" :class="{ 'hit-anim': playerHit }">
           <div class="avatar-box">
-            <img :src="getCurrentSkin(characterStore.character?.avatarUrl).sprites.idle" class="fighter-img" />
+            <img
+              :src="
+                getCurrentSkin(characterStore.character?.avatarUrl).sprites.idle
+              "
+              class="fighter-img"
+            />
           </div>
           <div class="name">{{ characterStore.character?.name }}</div>
           <div class="hp-bar-container">
-            <div class="hp-bar player-bar" :style="{ width: playerHpPercent + '%' }"></div>
+            <div
+              class="hp-bar player-bar"
+              :style="{ width: playerHpPercent + '%' }"
+            ></div>
           </div>
-          <div class="hp-text">{{ battleStore.playerHp }}/{{ battleStore.playerMaxHp }}</div>
+          <div class="hp-text">
+            {{ battleStore.playerHp }}/{{ battleStore.playerMaxHp }}
+          </div>
         </div>
       </div>
 
       <div class="controls">
         <template v-if="battleStore.status === 'ONGOING'">
-          <button class="btn btn-attack" @click="handleAction('ATTACK')" :disabled="battleStore.isLoading">⚔️ Tấn
-            Công</button>
-          <button class="btn btn-strong" @click="handleAction('SKILL')" :disabled="battleStore.isLoading">💥 Kỹ
-            Năng</button>
-          <button class="btn btn-defend" @click="handleAction('DEFEND')" :disabled="battleStore.isLoading">🛡️ Phòng
-            Thủ</button>
+          <button
+            class="btn btn-attack"
+            @click="handleAction('ATTACK')"
+            :disabled="battleStore.isLoading"
+          >
+            ⚔️ Tấn Công
+          </button>
+          <button
+            class="btn btn-strong"
+            @click="handleAction('SKILL')"
+            :disabled="battleStore.isLoading"
+          >
+            💥 Kỹ Năng
+          </button>
+          <button
+            class="btn btn-defend"
+            @click="handleAction('DEFEND')"
+            :disabled="battleStore.isLoading"
+          >
+            🛡️ Phòng Thủ
+          </button>
         </template>
 
         <template v-else>
           <button class="btn btn-village" @click="$router.push('/village')">
-            {{ battleStore.status === 'VICTORY' ? '🎉 Về làng nhận thưởng' : '💀 Về làng dưỡng thương' }}
+            {{
+              battleStore.status === "VICTORY"
+                ? "🎉 Về làng nhận thưởng"
+                : "💀 Về làng dưỡng thương"
+            }}
           </button>
         </template>
       </div>
@@ -73,24 +112,35 @@ const lastLog = computed(() => {
 });
 
 // Tính % HP
-const enemyHpPercent = computed(() => (battleStore.enemyMaxHp > 0 ? (battleStore.enemyHp / battleStore.enemyMaxHp) * 100 : 0));
-const playerHpPercent = computed(() => (battleStore.playerMaxHp > 0 ? (battleStore.playerHp / battleStore.playerMaxHp) * 100 : 0));
+const enemyHpPercent = computed(() =>
+  battleStore.enemyMaxHp > 0
+    ? (battleStore.enemyHp / battleStore.enemyMaxHp) * 100
+    : 0,
+);
+const playerHpPercent = computed(() =>
+  battleStore.playerMaxHp > 0
+    ? (battleStore.playerHp / battleStore.playerMaxHp) * 100
+    : 0,
+);
 
 // Xử lý hành động
 const handleAction = async (action) => {
   await battleStore.sendAction(action);
   // Hiệu ứng chớp nháy kẻ địch khi bị đánh
   enemyHit.value = true;
-  setTimeout(() => enemyHit.value = false, 300);
+  setTimeout(() => (enemyHit.value = false), 300);
 };
 
 // Hiệu ứng khi người chơi bị mất máu
-watch(() => battleStore.playerHp, (newVal, oldVal) => {
-  if (newVal < oldVal) {
-    playerHit.value = true;
-    setTimeout(() => playerHit.value = false, 300);
-  }
-});
+watch(
+  () => battleStore.playerHp,
+  (newVal, oldVal) => {
+    if (newVal < oldVal) {
+      playerHit.value = true;
+      setTimeout(() => (playerHit.value = false), 300);
+    }
+  },
+);
 
 onMounted(async () => {
   // Đảm bảo có thông tin nhân vật để hiển thị tên/ảnh
@@ -243,7 +293,6 @@ onMounted(async () => {
 }
 
 @keyframes shake {
-
   0%,
   100% {
     transform: translateX(0);

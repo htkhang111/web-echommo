@@ -48,7 +48,7 @@ export const useMarketStore = defineStore("market", {
       // Backend: PlayerMarketController chờ { listingId, quantity }
       await axiosClient.post("/market/player/buy", {
         listingId: id,
-        quantity: qty
+        quantity: qty,
       });
       await this.refresh();
     },

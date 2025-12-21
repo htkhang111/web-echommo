@@ -55,7 +55,7 @@ export const useInventoryStore = defineStore("inventory", {
       try {
         const res = await axiosClient.post("/inventory/expand");
         const authStore = useAuthStore();
-        await authStore.fetchProfile(); 
+        await authStore.fetchProfile();
         return res.data;
       } catch (err) {
         throw err.response?.data || "Lỗi mở rộng";
@@ -66,10 +66,10 @@ export const useInventoryStore = defineStore("inventory", {
     async repairItem(userItemId) {
       try {
         const res = await axiosClient.post(`/inventory/repair/${userItemId}`);
-        
-        const updatedItem = this.items.find(i => i.userItemId === userItemId);
+
+        const updatedItem = this.items.find((i) => i.userItemId === userItemId);
         if (updatedItem && updatedItem.maxDurability) {
-            updatedItem.currentDurability = updatedItem.maxDurability;
+          updatedItem.currentDurability = updatedItem.maxDurability;
         }
 
         const authStore = useAuthStore();
@@ -79,6 +79,6 @@ export const useInventoryStore = defineStore("inventory", {
       } catch (err) {
         throw err.response?.data || "Lỗi sửa đồ";
       }
-    }
+    },
   },
 });

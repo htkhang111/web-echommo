@@ -1,59 +1,48 @@
 package com.echommo.controller;
 
+import com.echommo.dto.ExplorationResponse;
+import com.echommo.dto.GatherRequest; // Import DTO mới
 import com.echommo.entity.User;
-import com.echommo.repository.UserRepository;
 import com.echommo.service.ExplorationService;
+import com.echommo.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/exploration")
-@CrossOrigin(origins = "*")
-public class ExplorationController {
+public class ExplorationController extends BaseController {
 
-    @Autowired private ExplorationService explorationService;
-    @Autowired private UserRepository userRepository;
+    @Autowired
+    private ExplorationService explorationService;
 
-    private User getCurrentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
-    }
+    @Autowired
+    private UserService userService;
 
-    // 1. Explore
     @PostMapping("/explore")
-    public ResponseEntity<?> explore(@RequestBody Map<String, String> req) {
-        try {
-            int mapId = 1;
-            try { mapId = Integer.parseInt(req.get("mapId")); } catch (Exception e) {}
-
-            // [FIX] Convert ID sang Code (1 -> MAP_01)
-            String mapCode = "MAP_" + String.format("%02d", mapId);
-
-            // [FIX] Gọi đúng method service (truyền User và String Code)
-            return ResponseEntity.ok(explorationService.explore(getCurrentUser(), mapCode));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
-        }
+    public ResponseEntity<ExplorationResponse> explore(@RequestParam String mapId, Authentication auth) {
+        User user = userService.getUserFromAuth(auth);
+        return ResponseEntity.ok(explorationService.explore(user, mapId));
     }
 
-    // 2. Gather
+    // [FIX] SỬ DỤNG @RequestBody VÀ DTO ĐỂ NHẬN JSON TỪ FRONTEND
     @PostMapping("/gather")
-    public ResponseEntity<?> gather(@RequestBody Map<String, Object> req) {
+    @Transactional
+    public ResponseEntity<?> gather(@RequestBody GatherRequest request, Authentication auth) {
+        User user = userService.getUserFromAuth(auth);
         try {
-            if (req.get("itemId") == null) throw new RuntimeException("Thiếu Item ID");
-            int itemId = Integer.parseInt(req.get("itemId").toString());
-
-            int amount = 1;
-            if (req.get("amount") != null) amount = Integer.parseInt(req.get("amount").toString());
-
-            // [FIX] Gọi hàm gatherResource mới thêm trong Service
-            return ResponseEntity.ok(explorationService.gatherResource(getCurrentUser(), itemId, amount));
-        } catch (Exception e) {
+            // Gọi service với dữ liệu từ request body
+            Map<String, Object> result = explorationService.gatherResource(
+                    user,
+                    request.getItemId(),
+                    request.getAmount() != null ? request.getAmount() : 1
+            );
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }

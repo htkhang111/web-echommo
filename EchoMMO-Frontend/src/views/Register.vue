@@ -10,44 +10,77 @@
       <form @submit.prevent="handleRegister" class="auth-form">
         <div class="form-group">
           <label><i class="fas fa-id-card"></i> Họ và Tên</label>
-          <input v-model="form.fullName" type="text" placeholder="Nhập tên hiển thị" required />
+          <input
+            v-model="form.fullName"
+            type="text"
+            placeholder="Nhập tên hiển thị"
+            required
+          />
         </div>
         <div class="form-group">
           <label><i class="fas fa-user"></i> Tài khoản</label>
-          <input v-model="form.username" type="text" placeholder="Tên đăng nhập" required />
+          <input
+            v-model="form.username"
+            type="text"
+            placeholder="Tên đăng nhập"
+            required
+          />
         </div>
         <div class="form-group">
           <label><i class="fas fa-envelope"></i> Email</label>
-          <input v-model="form.email" type="email" placeholder="Địa chỉ email" required />
+          <input
+            v-model="form.email"
+            type="email"
+            placeholder="Địa chỉ email"
+            required
+          />
         </div>
         <div class="form-group">
           <label><i class="fas fa-lock"></i> Mật khẩu</label>
-          <input v-model="form.password" type="password" placeholder="Nhập mật khẩu" required />
+          <input
+            v-model="form.password"
+            type="password"
+            placeholder="Nhập mật khẩu"
+            required
+          />
         </div>
         <div class="form-group">
           <label><i class="fas fa-lock"></i> Xác nhận mật khẩu</label>
-          <input v-model="confirmPassword" type="password" placeholder="Nhập lại mật khẩu" required />
+          <input
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Nhập lại mật khẩu"
+            required
+          />
         </div>
 
-        <button type="submit" class="btn-submit" :disabled="authStore.isLoading">
-          <span v-if="authStore.isLoading"><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span>
+        <button
+          type="submit"
+          class="btn-submit"
+          :disabled="authStore.isLoading"
+        >
+          <span v-if="authStore.isLoading"
+            ><i class="fas fa-spinner fa-spin"></i> Đang xử lý...</span
+          >
           <span v-else>KHỞI TẠO NHÂN VẬT</span>
         </button>
       </form>
 
       <div class="auth-footer">
-        <p>Đã có tài khoản? <router-link to="/login">Đăng nhập ngay</router-link></p>
+        <p>
+          Đã có tài khoản? <router-link to="/login">Đăng nhập ngay</router-link>
+        </p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import { useAuthStore } from '../stores/authStore';
-import { useNotificationStore } from '../stores/notificationStore';
-import { getAppLogo, getAssetUrl } from '@/utils/assetHelper'; // [FIX]
+import { reactive, ref } from "vue";
+import { useRouter } from "vue-router";
+import { useAuthStore } from "../stores/authStore";
+import { useNotificationStore } from "../stores/notificationStore";
+import { getAppLogo, getAssetUrl } from "@/utils/assetHelper"; // [FIX]
 
 const authStore = useAuthStore();
 const notiStore = useNotificationStore();
@@ -56,8 +89,8 @@ const router = useRouter();
 const appLogo = getAppLogo();
 const bgImage = getAssetUrl("b_mountain.jpg");
 
-const form = reactive({ username: '', password: '', email: '', fullName: '' });
-const confirmPassword = ref('');
+const form = reactive({ username: "", password: "", email: "", fullName: "" });
+const confirmPassword = ref("");
 
 const handleRegister = async () => {
   if (form.password !== confirmPassword.value) {
@@ -71,12 +104,16 @@ const handleRegister = async () => {
   try {
     const success = await authStore.register(form);
     if (success) {
-      notiStore.showToast(`Chào mừng đại hiệp ${form.username} gia nhập giang hồ!`, "success");
-      router.push('/');
+      notiStore.showToast(
+        `Chào mừng đại hiệp ${form.username} gia nhập giang hồ!`,
+        "success",
+      );
+      router.push("/");
     }
   } catch (error) {
     let msg = error.response?.data?.message;
-    if (!msg && typeof error.response?.data === 'string') msg = error.response.data;
+    if (!msg && typeof error.response?.data === "string")
+      msg = error.response.data;
     if (!msg) msg = "Đăng ký thất bại! Vui lòng kiểm tra lại thông tin.";
     notiStore.showToast(msg, "error");
   }
@@ -89,16 +126,16 @@ const handleRegister = async () => {
    ========================================= */
 .auth-page {
   /* 1. Cố định chiều cao trang bằng đúng màn hình */
-  height: 100vh; 
+  height: 100vh;
   width: 100%;
-  
+
   /* 2. Bắt buộc tạo thanh cuộn nếu nội dung dài hơn màn hình */
-  overflow-y: auto; 
-  
+  overflow-y: auto;
+
   display: flex;
-  
+
   /* 3. Thêm padding để khi cuộn xuống dưới cùng không bị sát mép */
-  padding: 20px 15px; 
+  padding: 20px 15px;
   box-sizing: border-box;
 
   /* Background settings */
@@ -107,20 +144,20 @@ const handleRegister = async () => {
   background-size: cover;
   background-attachment: fixed; /* Giữ hình nền đứng yên khi cuộn */
   position: relative;
-  
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 /* Lớp phủ tối */
 .auth-page::before {
-  content: '';
+  content: "";
   /* Dùng fixed để lớp phủ luôn che toàn màn hình kể cả khi cuộn */
-  position: fixed; 
+  position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.65);
   z-index: 1;
   /* Đảm bảo lớp phủ không che mất thanh cuộn (nếu có) */
-  pointer-events: none; 
+  pointer-events: none;
 }
 
 /* Khung chứa nội dung */
@@ -129,17 +166,17 @@ const handleRegister = async () => {
   z-index: 2;
   width: 100%;
   max-width: 480px;
-  
+
   /* --- [QUAN TRỌNG] FIX SCROLL --- */
   /* margin: auto giúp căn giữa khi đủ chỗ, và đẩy nội dung đi khi thiếu chỗ */
-  margin: auto; 
+  margin: auto;
   /* ------------------------------- */
 
-  background: rgba(30, 20, 15, 0.95); 
+  background: rgba(30, 20, 15, 0.95);
   padding: 30px 35px;
   border-radius: 8px;
   border: 2px solid #5d4037;
-  
+
   box-shadow: 0 0 25px rgba(0, 0, 0, 0.9);
   backdrop-filter: blur(4px);
   color: #f3f4f6;
@@ -162,7 +199,7 @@ const handleRegister = async () => {
 .auth-header h2 {
   margin: 5px 0;
   color: #fbc02d;
-  font-family: 'UTM Thu Phap Thien An', cursive;
+  font-family: "UTM Thu Phap Thien An", cursive;
   white-space: nowrap;
   font-size: 3rem;
   font-weight: normal;
@@ -230,13 +267,13 @@ const handleRegister = async () => {
   color: #fff;
   border: 1px solid #e53935;
   border-radius: 4px;
-  font-family: 'UTM Thu Phap Thien An', cursive;
+  font-family: "UTM Thu Phap Thien An", cursive;
   font-size: 1.8rem;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .btn-submit:hover {
