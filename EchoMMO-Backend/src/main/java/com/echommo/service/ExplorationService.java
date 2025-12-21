@@ -1,11 +1,9 @@
 package com.echommo.service;
 
-import com.echommo.config.GameConstants;
 import com.echommo.dto.ExplorationResponse;
 import com.echommo.entity.*;
 import com.echommo.entity.Character;
 import com.echommo.enums.CharacterStatus;
-import com.echommo.enums.Rarity;
 import com.echommo.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,48 +24,41 @@ public class ExplorationService {
     private final ItemRepository itemRepo;
     private final UserItemRepository userItemRepo;
     private final FlavorTextRepository flavorTextRepo;
-    private final BattleSessionRepository battleSessionRepo;
-    private final ItemGenerationService itemGenService; // Inject service mới
+    private final ItemGenerationService itemGenService;
 
-    // --- CẤU HÌNH MAP (ID MỚI) ---
     public enum GameMap {
         MAP_01("MAP_01", "Đồng Bằng", 1, 19,
-                createWeightedList(Map.of(1, 40, 5, 30, 6, 20, 9, 10)), // Gỗ, Đá, Đồng, Cá
+                createWeightedList(Map.of("w_wood", 40, "o_coal", 30, "o_copper", 20, "f_fish", 10)),
                 List.of("Slime", "Sói")),
-
-        MAP_02("MAP_02", "Rừng Rậm", 20, 30,
-                createWeightedList(Map.of(1, 30, 6, 20, 7, 20, 9, 30)), // Gỗ, Đồng, Sắt, Cá
+        MAP_02("MAP_02", "Rừng Rậm", 20, 29,
+                createWeightedList(Map.of("w_wood", 30, "o_copper", 20, "o_iron", 20, "f_fish", 30)),
                 List.of("Gấu", "Nhện")),
-
-        MAP_03("MAP_03", "Sa Mạc", 30, 40,
-                createWeightedList(Map.of(2, 30, 999, 40, 7, 30)), // 999 là Code Quặng Vàng
+        MAP_03("MAP_03", "Sa Mạc", 30, 39,
+                createWeightedList(Map.of("w_woodRed", 30, "GOLD_MINE_SPECIAL", 40, "o_iron", 30)),
                 List.of("Bọ Cạp", "Rắn")),
-
-        MAP_04("MAP_04", "Núi Cao", 40, 50,
-                createWeightedList(Map.of(5, 30, 7, 30, 8, 20, 3, 20)), // Đá, Sắt, Bạch Kim, Gỗ Lạnh
+        MAP_04("MAP_04", "Núi Cao", 40, 49,
+                createWeightedList(Map.of("o_coal", 30, "o_iron", 30, "o_platinum", 20, "w_woodWhite", 20)),
                 List.of("Golem", "Rồng Đá")),
-
-        MAP_05("MAP_05", "Băng Đảo", 50, 60,
-                createWeightedList(Map.of(3, 40, 8, 40, 13, 20)), // Gỗ Lạnh, Bạch Kim, Cá Mập Trắng
+        MAP_05("MAP_05", "Băng Đảo", 50, 59,
+                createWeightedList(Map.of("w_woodWhite", 40, "o_platinum", 40, "f_whiteshark", 20)),
                 List.of("Yeti", "Sói Tuyết")),
-
         MAP_06("MAP_06", "Vùng Đất Chết", 60, 70,
-                createWeightedList(Map.of(4, 30, 12, 30, 14, 20, 11, 20)), // Gỗ Lạ, Quặng Lạ, Megalodon, EchoItem
+                createWeightedList(Map.of("w_woodBlack", 30, "o_strange", 30, "f_megalodon", 20, "r_coinEcho", 20)),
                 List.of("Bóng Ma", "Lich King"));
 
         public final String id; public final String name;
         public final int minLv; public final int maxLv;
-        public final List<Integer> resourceIds;
+        public final List<String> resourceCodes;
         public final List<String> enemies;
 
-        GameMap(String id, String name, int minLv, int maxLv, List<Integer> resourceIds, List<String> enemies) {
+        GameMap(String id, String name, int minLv, int maxLv, List<String> resourceCodes, List<String> enemies) {
             this.id = id; this.name = name; this.minLv = minLv; this.maxLv = maxLv;
-            this.resourceIds = resourceIds; this.enemies = enemies;
+            this.resourceCodes = resourceCodes; this.enemies = enemies;
         }
 
-        private static List<Integer> createWeightedList(Map<Integer, Integer> weights) {
-            List<Integer> list = new ArrayList<>();
-            weights.forEach((id, count) -> { for(int i=0; i<count; i++) list.add(id); });
+        private static List<String> createWeightedList(Map<String, Integer> weights) {
+            List<String> list = new ArrayList<>();
+            weights.forEach((code, count) -> { for(int i=0; i<count; i++) list.add(code); });
             return list;
         }
         public static GameMap findById(String id) {
@@ -80,6 +71,7 @@ public class ExplorationService {
         Character c = characterService.getMyCharacter();
         if (c == null) throw new RuntimeException("Chưa có nhân vật!");
         c = characterRepository.findByUser_UserIdWithUserAndWallet(c.getUser().getUserId()).orElseThrow();
+
         captchaService.checkLockStatus(c.getUser());
         if (c.getCurrentEnergy() < 1) throw new RuntimeException("Hết năng lượng!");
 
@@ -96,88 +88,52 @@ public class ExplorationService {
         String type; String msg;
         String rewardName = null; Integer rewardAmount = 0; Integer rewardItemId = null;
 
-        // Logic Drop
         if (roll < 60) {
-            type = "TEXT"; msg = flavorTextRepo.findRandomContent().orElse("Không có gì.");
+            type = "TEXT"; msg = flavorTextRepo.findRandomContent().orElse("Bạn đi dạo quanh map.");
             clearGatheringState(c);
         } else if (roll < 85) { // RESOURCE
             type = "GATHERING";
-            Integer resId = map.resourceIds.get(r.nextInt(map.resourceIds.size()));
+            String resCode = map.resourceCodes.get(r.nextInt(map.resourceCodes.size()));
 
-            // XỬ LÝ ĐẶC BIỆT: QUẶNG VÀNG (Code 999) - Map Sa Mạc
-            if (resId == 999) {
-                type = "GOLD_MINE";
-                BigDecimal bonusGold = BigDecimal.valueOf(50 + r.nextInt(100)); // 50-150 Gold
-                w.setGold(w.getGold().add(bonusGold));
-                msg = "Trúng mánh! Tìm thấy Quặng Vàng! (+" + bonusGold + " Gold)";
-                rewardName = "Quặng Vàng";
-                clearGatheringState(c);
+            if ("GOLD_MINE_SPECIAL".equals(resCode)) {
+                BigDecimal gold = BigDecimal.valueOf(50 + r.nextInt(100));
+                w.setGold(w.getGold().add(gold));
+                msg = "Tìm thấy mỏ vàng! (+" + gold + " Vàng)";
+                type = "GOLD_MINE"; clearGatheringState(c);
             } else {
-                Item item = itemRepo.findById(resId).orElse(null);
+                Item item = itemRepo.findByCode(resCode).orElse(null);
                 if (item != null) {
-                    // Logic Drop Echo Coin Lẻ (Map 6)
-                    // Nếu farm trúng Quặng Lạ/Gỗ Lạ -> Có cơ hội rớt Echo Coin lẻ
-                    if (resId == 12 || resId == 4 || resId == 14) {
-                        if (r.nextInt(100) < 10) { // 10% cơ hội
-                            double echoFrac = 0.001 + (0.499 * r.nextDouble()); // 0.001 -> 0.500
-                            BigDecimal echoVal = BigDecimal.valueOf(echoFrac);
-                            w.setEchoCoin(w.getEchoCoin().add(echoVal));
-                            msg = "Kỳ tích! Tìm thấy " + String.format("%.4f", echoFrac) + " Echo Coin trong quặng!";
-                        }
+                    // Logic rớt Echo lẻ ở Map 6
+                    if (map == GameMap.MAP_06 && r.nextInt(100) < 10) {
+                        double echoFrac = 0.001 + (0.009 * r.nextDouble());
+                        w.setEchoCoin(w.getEchoCoin().add(BigDecimal.valueOf(echoFrac)));
                     }
 
-                    int amount = 5 + r.nextInt(21); // 5 -> 25
-                    c.setGatheringItemId(resId);
+                    int amount = 5 + r.nextInt(16);
+                    c.setGatheringItemId(item.getItemId());
                     c.setGatheringRemainingAmount(amount);
                     c.setGatheringExpiry(LocalDateTime.now().plusMinutes(3));
 
-                    msg = "Phát hiện " + item.getName() + " (SL: " + amount + ")";
-                    rewardName = item.getName();
-                    rewardAmount = amount;
-                    rewardItemId = resId;
+                    msg = "Phát hiện " + item.getName();
+                    rewardName = item.getName(); rewardAmount = amount; rewardItemId = item.getItemId();
                 } else {
-                    type = "TEXT"; msg = "Tài nguyên ảo ảnh.";
+                    type = "TEXT"; msg = "Không thấy gì.";
                     clearGatheringState(c);
                 }
             }
-        } else if (roll < 95) { // ENEMY
-            type = "ENEMY";
-            String enemy = map.enemies.get(r.nextInt(map.enemies.size()));
-            BattleSession s = createBattleSession(c, enemy, map);
-            msg = "Gặp " + s.getEnemyName();
-            c.setStatus(CharacterStatus.IN_COMBAT);
-            clearGatheringState(c);
-        } else { // EQUIPMENT
-            type = "ITEM";
-            List<Item> equips = itemRepo.findAll().stream().filter(i -> i.getItemId() >= 20).toList();
-            if (!equips.isEmpty()) {
-                Item eq = equips.get(r.nextInt(equips.size()));
-                addItemToInventory(c, eq, 1); // Hàm này sẽ random visual/stats
-                msg = "Nhặt được " + eq.getName();
-                rewardName = eq.getName();
-                rewardItemId = eq.getItemId();
-            } else {
-                type = "TEXT"; msg = "Rương rỗng.";
-            }
+        } else {
+            type = "TEXT"; msg = "Một cơn gió thoảng qua.";
             clearGatheringState(c);
         }
 
         checkLevelUp(c);
         characterRepository.save(c);
         walletRepository.save(w);
-
-        return ExplorationResponse.builder()
-                .message(msg).type(type).goldGained(BigDecimal.ZERO)
-                .currentExp(c.getCurrentExp()).currentLv(c.getLevel())
-                .currentEnergy(c.getCurrentEnergy()).maxEnergy(c.getMaxEnergy())
-                .rewardName(rewardName).rewardAmount(rewardAmount).rewardItemId(rewardItemId)
-                .build();
+        return ExplorationResponse.builder().message(msg).type(type).currentLv(c.getLevel()).currentExp(c.getCurrentExp()).currentEnergy(c.getCurrentEnergy()).maxEnergy(c.getMaxEnergy()).rewardName(rewardName).rewardAmount(rewardAmount).rewardItemId(rewardItemId).build();
     }
 
-    // --- HELPER: THÊM ITEM VÀO TÚI (CÓ RANDOM) ---
     private void addItemToInventory(Character character, Item item, int amount) {
-        // Nếu là nguyên liệu -> Cộng dồn
-        if (item.getType().equals("MATERIAL") || item.getType().equals("CONSUMABLE")) {
+        if (List.of("MATERIAL", "CONSUMABLE").contains(item.getType())) {
             Optional<UserItem> exist = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), item.getItemId())
                     .stream().filter(ui -> !ui.getIsEquipped()).findFirst();
             if (exist.isPresent()) {
@@ -187,51 +143,30 @@ public class ExplorationService {
             }
         }
 
-        // Nếu là trang bị -> Tạo mới với Random Assets & Stats
         UserItem ui = new UserItem();
-        ui.setCharacter(character);
-        ui.setItem(item);
-        ui.setQuantity(amount);
-        ui.setIsEquipped(false);
-        ui.setEnhanceLevel(0);
-        ui.setAcquiredAt(LocalDateTime.now());
+        ui.setCharacter(character); ui.setItem(item);
+        ui.setQuantity(amount); ui.setIsEquipped(false);
+        ui.setEnhanceLevel(0); ui.setAcquiredAt(LocalDateTime.now());
+        ui.setMainStatValue(BigDecimal.valueOf(10));
 
-        // Gán chỉ số mặc định từ Item gốc trước
-        ui.setMainStatValue(new BigDecimal(10)); // Giá trị tạm
-
-        // Gọi Service Random hóa
-        if (item.getType().equals("WEAPON") || item.getType().equals("ARMOR")) {
+        if (List.of("WEAPON", "ARMOR").contains(item.getType())) {
             itemGenService.randomizeNewItem(ui);
         }
-
         userItemRepo.save(ui);
     }
 
-    // ... (Giữ nguyên các hàm gatherResource, addItemToWallet mapping ID mới 1->14) ...
-    // Lưu ý: addItemToWallet cần switch case chuẩn theo GameConstants mới
-    private void addItemToWallet(Wallet w, int itemId, int amount) {
-        switch (itemId) {
-            case 1: w.setWood(w.getWood() + amount); break;
-            case 2: w.setDriedWood(w.getDriedWood() + amount); break;
-            case 3: w.setColdWood(w.getColdWood() + amount); break;
-            case 4: w.setStrangeWood(w.getStrangeWood() + amount); break;
-            case 5: w.setCoal(w.getCoal() + amount); break;
-            case 6: w.setCopperOre(w.getCopperOre() + amount); break;
-            case 7: w.setIronOre(w.getIronOre() + amount); break;
-            case 8: w.setPlatinum(w.getPlatinum() + amount); break;
-            case 9: w.setFish(w.getFish() + amount); break;
-            case 10: w.setShark(w.getShark() + amount); break;
-            case 12: w.setUnknownMaterial(w.getUnknownMaterial() + amount); break;
-            case 11: // Echo Coin Item (nếu drop dạng item thì cộng vào số lẻ wallet)
-                w.setEchoCoin(w.getEchoCoin().add(BigDecimal.valueOf(amount)));
-                break;
-        }
-    }
-
-    // ... (Giữ nguyên checkLevelUp, createBattleSession) ...
     private void clearGatheringState(Character c) {
         c.setGatheringItemId(null); c.setGatheringRemainingAmount(0); c.setGatheringExpiry(null);
     }
-    private Integer checkLevelUp(Character c) { /* Logic cũ */ return c.getLevel(); }
-    private BattleSession createBattleSession(Character p, String n, GameMap m) { /* Logic cũ */ return new BattleSession(); }
+
+    private void checkLevelUp(Character c) {
+        long req = c.getLevel() * 100L;
+        if (c.getCurrentExp() >= req) {
+            c.setLevel(c.getLevel() + 1);
+            c.setCurrentExp(c.getCurrentExp() - req);
+            c.setStatPoints(c.getStatPoints() + 5);
+            c.setMaxHp(c.getMaxHp() + 20);
+            c.setCurrentHp(c.getMaxHp());
+        }
+    }
 }

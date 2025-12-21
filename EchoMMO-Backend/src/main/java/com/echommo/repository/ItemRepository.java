@@ -12,6 +12,9 @@ public interface ItemRepository extends JpaRepository<Item, Integer> {
     // Tìm item theo tên (ví dụ: "Kiếm Gỗ")
     Optional<Item> findByName(String name);
 
+    // [FIX] Thêm tìm kiếm theo Code
+    Optional<Item> findByCode(String code);
+
     // Tìm item theo loại (ví dụ: "WEAPON")
     boolean existsByType(String type);
 

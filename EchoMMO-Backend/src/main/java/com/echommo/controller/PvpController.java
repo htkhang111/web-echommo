@@ -71,18 +71,22 @@ public class PvpController {
         }
     }
 
+    // Trong PvpController.java
+
     // --- 3. CHẤP NHẬN TRẬN ---
     @PostMapping("/accept")
     public ResponseEntity<?> acceptMatch(@AuthenticationPrincipal UserDetails userDetails,
                                          @RequestBody Map<String, Long> payload) {
-        // Hàm này đơn giản nên giữ Map cũng được, hoặc tạo DTO nếu muốn chuẩn chỉ
         Character myChar = getCharacterFromUser(userDetails);
         Long matchId = payload.get("matchId");
-        PvpMatch match = matchRepo.findById(matchId).orElse(null);
 
-        if (match == null) return ResponseEntity.badRequest().body("Match not found");
-        // ... (Logic giữ nguyên)
-        return ResponseEntity.ok("Accepted");
+        try {
+            // Gọi hàm accept trong Service
+            pvpService.acceptMatch(matchId, myChar.getCharId());
+            return ResponseEntity.ok("Accepted");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     // --- [QUAN TRỌNG] 4. RA CHIÊU (ĐÃ SỬA DÙNG DTO) ---

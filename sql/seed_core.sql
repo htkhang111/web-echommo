@@ -126,68 +126,35 @@ VALUES (1, 55, 1, TRUE, 'MYTHIC', 50, TRUE, 10, 'ATK_FLAT', 9999, 5000,
 
 USE echommo_db;
 
--- Xóa dữ liệu cũ để tránh trùng lặp
 SET FOREIGN_KEY_CHECKS = 0;
 TRUNCATE TABLE user_items;
-TRUNCATE TABLE market_listings;
 TRUNCATE TABLE items;
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- =======================================================
--- 1. NGUYÊN LIỆU (MATERIALS) - ID 1 -> 12
+-- 1. NGUYÊN LIỆU (MATERIALS)
 -- =======================================================
-
--- GỖ
-INSERT INTO items (item_id, name, type, base_rarity, image_url, description, tier)
-VALUES (1, 'Gỗ Sồi', 'MATERIAL', 'COMMON', 'w_wood.png', 'Gỗ thông thường, dùng chế tạo cơ bản.', 1),
-       (2, 'Gỗ Khô', 'MATERIAL', 'COMMON', 'w_woodred.png', 'Gỗ cứng và khô, chịu nhiệt tốt.', 2),
-       (3, 'Gỗ Lạnh', 'MATERIAL', 'UNCOMMON', 'w_woodwhite.png', 'Tỏa ra hơi lạnh, rất bền.', 3),
-       (4, 'Gỗ Lạ', 'MATERIAL', 'RARE', 'w_woodblack.png', 'Gỗ đen tuyền, chứa năng lượng hắc ám.', 4);
-
--- KHOÁNG SẢN
-INSERT INTO items (item_id, name, type, base_rarity, image_url, description, tier)
-VALUES (5, 'Đá Than', 'MATERIAL', 'COMMON', 'o_coal.png', 'Dùng làm nhiên liệu hoặc đập đồ cấp thấp.', 1),
-       (6, 'Quặng Đồng', 'MATERIAL', 'COMMON', 'o_copper.png', 'Kim loại cơ bản để rèn vũ khí.', 1),
-       (7, 'Quặng Sắt', 'MATERIAL', 'UNCOMMON', 'o_iron.png', 'Cứng hơn đồng, dùng cho trang bị trung cấp.', 2),
-       (8, 'Bạch Kim', 'MATERIAL', 'EPIC', 'o_platinum.png', 'Kim loại quý hiếm, cực kỳ cứng.', 3);
-
--- THỰC PHẨM (CÁ) - Dùng cho Hồ Ước Nguyện
-INSERT INTO items (item_id, name, type, base_rarity, image_url, description, tier)
-VALUES (9, 'Cá Thường', 'MATERIAL', 'COMMON', 'f_fish.png', 'Cá bắt ở sông hồ. Có thể bán hoặc ước nguyện.', 1),
-       (10, 'Cá Mập', 'MATERIAL', 'UNCOMMON', 'f_shark.png', 'Hung dữ. Giá trị cao hơn cá thường.', 2);
-
--- ĐẶC BIỆT (END GAME)
-INSERT INTO items (item_id, name, type, base_rarity, image_url, description, tier)
-VALUES (11, 'Echo Coin', 'MATERIAL', 'LEGENDARY', 'r_coinecho.png', 'Đồng tiền cổ xưa chứa sức mạnh thần bí.', 5),
-       (12, 'Quặng Lạ', 'MATERIAL', 'EPIC', 'o_strange.png', 'Quặng phát sáng kỳ dị, rơi từ map cuối.', 4);
-
--- NEW ASSETS MAPPING
--- ID 13: Cá Mập Trắng (Hiếm)
-INSERT INTO items (item_id, name, type, base_rarity, image_url, description, tier)
-VALUES (13, 'Cá Mập Trắng', 'MATERIAL', 'RARE', 'f_whiteshark.png', 'Chúa tể vùng nước ngọt? Hiếm gặp.', 3);
-
--- ID 14: Megalodon (Siêu hiếm - End game material)
-INSERT INTO items (item_id, name, type, base_rarity, image_url, description, tier)
-VALUES (14, 'Megalodon', 'MATERIAL', 'LEGENDARY', 'f_megalodon.png', 'Quái vật tiền sử. Dùng để hiến tế cao cấp.', 5);
+INSERT INTO items (item_id, code, name, type, slot_type, base_rarity, tier, base_price, description, image_url)
+VALUES (1, 'w_wood', 'Gỗ Sồi', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 10, 'Gỗ thông thường.', 'w_wood.png'),
+       (2, 'w_woodRed', 'Gỗ Khô', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 15, 'Gỗ đã qua xử lý.', 'w_woodRed.png'),
+       (3, 'w_woodWhite', 'Gỗ Lạnh', 'MATERIAL', 'MATERIAL', 'UNCOMMON', 2, 50, 'Gỗ từ vùng băng giá.', 'w_woodWhite.png'),
+       (4, 'w_woodBlack', 'Gỗ Hắc Ám', 'MATERIAL', 'MATERIAL', 'MYTHIC', 5, 500, 'Gỗ đen tuyền, cực hiếm.', 'w_woodBlack.png'),
+       (5, 'o_coal', 'Than', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 5, 'Nhiên liệu đen.', 'o_coal.png'),
+       (6, 'o_copper', 'Quặng Đồng', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 10, 'Nguyên liệu đúc đồng.', 'o_copper.png'),
+       (7, 'o_iron', 'Sắt', 'MATERIAL', 'MATERIAL', 'RARE', 2, 50, 'Kim loại cứng cáp.', 'o_iron.png'),
+       (8, 'o_platinum', 'Bạch Kim', 'MATERIAL', 'MATERIAL', 'EPIC', 3, 300, 'Kim loại quý hiếm.', 'o_platinum.png'),
+       (9, 'f_fish', 'Cá', 'MATERIAL', 'MATERIAL', 'COMMON', 1, 10, 'Cá sông tươi ngon.', 'f_fish.png'),
+       (10, 'f_shark', 'Cá Mập', 'MATERIAL', 'MATERIAL', 'UNCOMMON', 2, 100, 'Thịt cá mập.', 'f_shark.png'),
+       (11, 'r_coinEcho', 'Echo Coin', 'MATERIAL', 'MATERIAL', 'LEGENDARY', 5, 1000, 'Đồng xu quyền năng.', 'r_coinEcho.png'),
+       (12, 'o_strange', 'Nguyên liệu lạ', 'MATERIAL', 'MATERIAL', 'MYTHIC', 5, 1000, 'Vật phẩm bí ẩn.', 'o_strange.png'),
+       (13, 'f_whiteshark', 'Cá Mập Trắng', 'MATERIAL', 'MATERIAL', 'RARE', 3, 500, 'Chúa tể vùng nước ngọt.', 'f_whiteshark.png'),
+       (14, 'f_megalodon', 'Megalodon', 'MATERIAL', 'MATERIAL', 'LEGENDARY', 5, 2000, 'Quái vật tiền sử.', 'f_megalodon.png');
 
 -- =======================================================
--- 2. TRANG BỊ (EQUIPMENT) - ID 20+
+-- 2. TRANG BỊ (EQUIPMENT)
 -- =======================================================
-
--- VŨ KHÍ (SWORD) - Tier 1
-INSERT INTO items (item_id, name, type, slot_type, base_rarity, image_url, description, tier, atk_bonus)
-VALUES (20, 'Kiếm Tập Sự', 'WEAPON', 'WEAPON', 'COMMON', 's_sword_0.png', 'Kiếm gỗ đơn giản.', 1,
-        '{"ATK_FLAT": [5, 10]}'),
-       (21, 'Kiếm Sắt', 'WEAPON', 'WEAPON', 'UNCOMMON', 's_sword_1.png', 'Sắc bén hơn kiếm gỗ.', 2,
-        '{"ATK_FLAT": [15, 25]}');
-
--- GIÁP (ARMOR)
-INSERT INTO items (item_id, name, type, slot_type, base_rarity, image_url, description, tier, def_bonus)
-VALUES (30, 'Áo Vải', 'ARMOR', 'ARMOR', 'COMMON', 'a_armor_0.png', 'Áo vải thô sơ.', 1, '{"DEF_FLAT": [2, 5]}'),
-       (31, 'Giáp Da', 'ARMOR', 'ARMOR', 'UNCOMMON', 'a_armor_1.png', 'Làm từ da thú cứng.', 2,
-        '{"DEF_FLAT": [8, 15]}');
-
--- CONSUMABLE
-INSERT INTO items (item_id, name, type, slot_type, base_rarity, image_url, description)
-VALUES (40, 'Bình Máu', 'CONSUMABLE', 'CONSUMABLE', 'COMMON', 'r_potion.png', 'Hồi phục 50 HP.');
-
+INSERT INTO items (item_id, code, name, description, type, slot_type, tier, base_rarity, base_price, image_url, atk_bonus, def_bonus, hp_bonus, speed_bonus)
+VALUES (51, 's_sword_0', 'Kiếm Gỗ', 'Tập luyện.', 'WEAPON', 'WEAPON', 1, 'COMMON', 50, 's_sword_0.png', 5, 0, 0, 0),
+       (52, 's_sword_1', 'Kiếm Sắt', 'Sắc bén.', 'WEAPON', 'WEAPON', 1, 'RARE', 200, 's_sword_1.png', 15, 0, 0, 0),
+       (81, 'a_armor_0', 'Áo Vải', 'Thô sơ.', 'ARMOR', 'ARMOR', 1, 'COMMON', 40, 'a_armor_0.png', 0, 5, 10, 0),
+       (231, 'r_potion', 'Bình Máu Nhỏ', 'Hồi 50 HP', 'CONSUMABLE', 'CONSUMABLE', 1, 'COMMON', 20, 'r_potion.png', 0, 0, 0, 0);

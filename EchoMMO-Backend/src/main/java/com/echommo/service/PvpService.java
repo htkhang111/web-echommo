@@ -23,16 +23,14 @@ public class PvpService {
     @Autowired private PvpQueueRepository queueRepo;
     @Autowired private PvpChatRepository chatRepo;
 
-    // 1. TÌM TRẬN
+    // --- 1. TÌM TRẬN (SỬA LẠI ĐỂ CHỜ XÁC NHẬN) ---
     @Transactional
     public PvpMatch findOrCreateMatch(Integer charId) {
-        // Tìm trận đang Active (nếu user F5 lại trang)
         Optional<PvpMatch> existingMatch = matchRepo.findActiveMatchByCharId(charId);
         if (existingMatch.isPresent()) return existingMatch.get();
 
         Character myChar = charRepo.findById(charId).orElseThrow(() -> new RuntimeException("Character not found"));
 
-        // Kiểm tra xem chính mình có đang trong hàng chờ không
         Optional<PvpQueue> myQueue = queueRepo.findByCharId(charId);
         if (myQueue.isPresent()) return null;
 
@@ -41,29 +39,30 @@ public class PvpService {
                 .filter(q -> !q.getCharId().equals(charId));
 
         if (opponentQueue.isPresent()) {
-            // --- TRƯỜNG HỢP 1: TÌM THẤY ĐỐI THỦ ---
+            // TÌM THẤY -> TẠO TRẬN Ở TRẠNG THÁI PENDING
             PvpQueue opponent = opponentQueue.get();
             Character enemyChar = charRepo.findById(opponent.getCharId()).orElseThrow();
-            queueRepo.delete(opponent); // Xóa đối thủ khỏi hàng chờ
+            queueRepo.delete(opponent);
 
             PvpMatch newMatch = new PvpMatch();
             newMatch.setPlayer1(myChar);
             newMatch.setPlayer2(enemyChar);
 
-            // [SỬA QUAN TRỌNG] Set luôn là ACTIVE để đánh được ngay
-            newMatch.setStatus("ACTIVE");
+            // [QUAN TRỌNG] Set là PENDING để chờ người chơi bấm chấp nhận
+            newMatch.setStatus("PENDING");
+
             newMatch.setCreatedAt(LocalDateTime.now());
             newMatch.setTurnCount(1);
             newMatch.setP1CurrentHp(myChar.getMaxHp());
             newMatch.setP2CurrentHp(enemyChar.getMaxHp());
 
-            // [SỬA QUAN TRỌNG] Coi như đã chấp nhận luôn
-            newMatch.setP1Accepted(true);
-            newMatch.setP2Accepted(true);
+            // Chưa ai chấp nhận cả
+            newMatch.setP1Accepted(false);
+            newMatch.setP2Accepted(false);
 
             return matchRepo.save(newMatch);
         } else {
-            // --- TRƯỜNG HỢP 2: KHÔNG THẤY AI -> VÀO HÀNG CHỜ ---
+            // KHÔNG THẤY -> VÀO HÀNG CHỜ
             PvpQueue newQueue = new PvpQueue();
             newQueue.setCharId(charId);
             newQueue.setLevel(myChar.getLevel());
@@ -75,24 +74,36 @@ public class PvpService {
         }
     }
 
-    // 2. GỬI NƯỚC ĐI
+    // --- [MỚI] 2. CHẤP NHẬN TRẬN ĐẤU ---
+    @Transactional
+    public void acceptMatch(Long matchId, Integer charId) {
+        PvpMatch match = matchRepo.findById(matchId).orElseThrow(() -> new RuntimeException("Match not found"));
+
+        // Xác định ai đang bấm chấp nhận
+        if (match.getPlayer1().getCharId().equals(charId)) {
+            match.setP1Accepted(true);
+        } else if (match.getPlayer2().getCharId().equals(charId)) {
+            match.setP2Accepted(true);
+        }
+
+        // Nếu CẢ HAI đều đã chấp nhận -> Chuyển sang ACTIVE (Vào đánh)
+        if (Boolean.TRUE.equals(match.isP1Accepted()) && Boolean.TRUE.equals(match.isP2Accepted())) {
+            match.setStatus("ACTIVE");
+        }
+        matchRepo.save(match);
+    }
+
+    // --- 3. GỬI NƯỚC ĐI ---
     @Transactional
     public PvpMatch submitMove(Long matchId, Integer charId, String move) {
         PvpMatch match = matchRepo.findById(matchId).orElseThrow(() -> new RuntimeException("Match not found"));
 
-        // [SỬA QUAN TRỌNG] Nếu trận đang PENDING (do code cũ tạo ra), tự động chuyển sang ACTIVE
-        if ("PENDING".equals(match.getStatus())) {
-            match.setStatus("ACTIVE");
-            match.setP1Accepted(true);
-            match.setP2Accepted(true);
-        }
-
-        // Chỉ chặn nếu status KHÁC ACTIVE (ví dụ FINISHED)
+        // Nếu trận chưa ACTIVE mà cố tình đánh -> Báo lỗi hoặc tự kích hoạt (tùy logic)
+        // Ở đây ta bắt buộc phải ACTIVE mới được đánh
         if (!"ACTIVE".equals(match.getStatus())) {
             throw new RuntimeException("Match is not active (Status: " + match.getStatus() + ")");
         }
 
-        // Xác định ai đang đánh
         if (match.getPlayer1().getCharId().equals(charId)) {
             match.setP1Move(move);
         } else if (match.getPlayer2().getCharId().equals(charId)) {
@@ -101,14 +112,13 @@ public class PvpService {
 
         matchRepo.save(match);
 
-        // Nếu cả 2 đã ra đòn -> Xử lý kết quả
         if (match.getP1Move() != null && match.getP2Move() != null) {
             resolveTurn(match);
         }
         return match;
     }
 
-    // 3. XỬ LÝ LƯỢT ĐÁNH
+    // --- 4. XỬ LÝ LƯỢT ĐÁNH ---
     private void resolveTurn(PvpMatch match) {
         String m1 = match.getP1Move();
         String m2 = match.getP2Move();
@@ -134,7 +144,6 @@ public class PvpService {
             log.append("⚔️ ").append(attacker.getName()).append(" ra ").append(translateMove(winMove))
                     .append(" thắng! -> TẤN CÔNG.\n");
 
-            // Công thức damage đơn giản: (Atk - Def), tối thiểu 10 damage
             int damage = Math.max(10, attacker.getBaseAtk() - defender.getBaseDef());
 
             if (p1WinsRps) {
@@ -147,14 +156,13 @@ public class PvpService {
                 log.append("💥 ").append(p2.getName()).append(" gây ").append(damage).append(" sát thương!");
             }
 
-            // CHECK KẾT THÚC TRẬN ĐẤU
+            // CHECK KẾT THÚC
             if (hp1 <= 0 || hp2 <= 0) {
                 Integer winnerCharId = hp1 <= 0 ? p2.getCharId() : p1.getCharId();
                 Integer loserCharId = hp1 <= 0 ? p1.getCharId() : p2.getCharId();
 
                 match.setStatus("FINISHED");
                 match.setWinnerId(Long.valueOf(winnerCharId));
-
                 log.append("\n🏆 ").append(hp1 <= 0 ? p2.getName() : p1.getName()).append(" ĐÃ CHIẾN THẮNG!");
 
                 updatePvpStats(winnerCharId, loserCharId);
@@ -168,27 +176,24 @@ public class PvpService {
         matchRepo.save(match);
     }
 
-    // 4. HÀM LƯU CHAT
+    // --- 5. CHAT ---
     @Transactional
     public void saveChatMessage(Long matchId, Integer senderId, String message) {
         PvpMatch match = matchRepo.findById(matchId).orElseThrow(() -> new RuntimeException("Match not found"));
         Character sender = charRepo.findById(senderId).orElseThrow(() -> new RuntimeException("Character not found"));
-
         PvpChat chat = new PvpChat();
         chat.setMatch(match);
         chat.setSender(sender);
         chat.setMessage(message);
         chat.setTimestamp(new Date());
-
         chatRepo.save(chat);
     }
 
-    // 5. XỬ LÝ KẾT QUẢ KHI CÓ NGƯỜI ĐẦU HÀNG
+    // --- 6. XỬ LÝ ĐẦU HÀNG ---
     @Transactional
     public void processMatchResult(PvpMatch match) {
         if (match.getWinnerId() != null) {
             Integer winnerId = match.getWinnerId().intValue();
-
             Integer loserId = match.getPlayer1().getCharId().equals(winnerId)
                     ? match.getPlayer2().getCharId()
                     : match.getPlayer1().getCharId();
@@ -196,7 +201,7 @@ public class PvpService {
         }
     }
 
-    // 6. HỦY TÌM TRẬN
+    // --- 7. HỦY TÌM TRẬN ---
     @Transactional
     public void cancelQueue(Integer charId) {
         Optional<PvpQueue> queueEntry = queueRepo.findByCharId(charId);
@@ -209,13 +214,11 @@ public class PvpService {
         charRepo.findById(winnerId).ifPresent(c -> {
             c.setPvpWins((c.getPvpWins() == null ? 0 : c.getPvpWins()) + 1);
             c.setPvpMatchesPlayed((c.getPvpMatchesPlayed() == null ? 0 : c.getPvpMatchesPlayed()) + 1);
-            // Cộng điểm rank
             c.setPvpPoints(c.getPvpPoints() + 25);
             charRepo.save(c);
         });
         charRepo.findById(loserId).ifPresent(c -> {
             c.setPvpMatchesPlayed((c.getPvpMatchesPlayed() == null ? 0 : c.getPvpMatchesPlayed()) + 1);
-            // Trừ điểm rank (không dưới 0)
             c.setPvpPoints(Math.max(0, c.getPvpPoints() - 10));
             charRepo.save(c);
         });
