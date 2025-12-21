@@ -13,27 +13,15 @@
         <div class="subtitle">--- Thiên Hạ Đệ Nhất Nhân ---</div>
 
         <div class="wuxia-tabs">
-          <button
-            :class="{ active: activeTab === 'level' }"
-            @click="switchTab('level')"
-            class="tab-btn"
-          >
+          <button :class="{ active: activeTab === 'level' }" @click="switchTab('level')" class="tab-btn">
             <i class="fas fa-fist-raised"></i> CAO THỦ
           </button>
           <div class="tab-divider"></div>
-          <button
-            :class="{ active: activeTab === 'wealth' }"
-            @click="switchTab('wealth')"
-            class="tab-btn"
-          >
+          <button :class="{ active: activeTab === 'wealth' }" @click="switchTab('wealth')" class="tab-btn">
             <i class="fas fa-coins"></i> PHÚ HỘ
           </button>
           <div class="tab-divider"></div>
-          <button
-            :class="{ active: activeTab === 'kills', 'text-red': activeTab === 'kills' }"
-            @click="switchTab('kills')"
-            class="tab-btn"
-          >
+          <button :class="{ active: activeTab === 'kills', 'text-red': activeTab === 'kills' }" @click="switchTab('kills')" class="tab-btn">
             <i class="fas fa-skull"></i> TRẢM YÊU
           </button>
         </div>
@@ -52,7 +40,7 @@
             <div class="avatar-group">
               <div class="rank-badge silver">NHÌ</div>
               <div class="avatar-frame silver-border">
-                <span class="char-emoji">{{ currentList[1].avatar || "👤" }}</span>
+                <img :src="resolveAvatar(currentList[1].avatar)" class="podium-img" />
               </div>
             </div>
             <div class="podium-base silver-base">
@@ -67,7 +55,7 @@
                 <i class="fas fa-crown"></i>
               </div>
               <div class="avatar-frame gold-border">
-                <span class="char-emoji">{{ currentList[0].avatar || "🐲" }}</span>
+                <img :src="resolveAvatar(currentList[0].avatar)" class="podium-img" />
               </div>
               <div class="radiance"></div>
             </div>
@@ -86,7 +74,7 @@
             <div class="avatar-group">
               <div class="rank-badge bronze">BA</div>
               <div class="avatar-frame bronze-border">
-                <span class="char-emoji">{{ currentList[2].avatar || "👤" }}</span>
+                <img :src="resolveAvatar(currentList[2].avatar)" class="podium-img" />
               </div>
             </div>
             <div class="podium-base bronze-base">
@@ -105,7 +93,11 @@
             :style="{ animationDelay: index * 0.05 + 's' }"
           >
             <div class="row-rank">{{ entry.rank }}</div>
-            <div class="row-avatar">{{ entry.avatar || "👤" }}</div>
+            
+            <div class="row-avatar-box">
+              <img :src="resolveAvatar(entry.avatar)" class="row-img" />
+            </div>
+
             <div class="row-info">
               <div class="row-name">{{ entry.username }}</div>
               <div class="ink-bar-track">
@@ -131,12 +123,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { useLeaderboardStore } from "@/stores/leaderboardStore"; // Đảm bảo đúng đường dẫn file store
+import { useLeaderboardStore } from "@/stores/leaderboardStore";
+import { getCurrentSkin } from "@/utils/assetHelper"; // [IMPORT] Để lấy asset pixel
 
 const activeTab = ref("level");
 const lbStore = useLeaderboardStore();
 
-// Computed: Kiểm tra loading dựa trên tab đang chọn
 const isLoading = computed(() => {
   if (activeTab.value === 'level') return lbStore.loadingLevels;
   if (activeTab.value === 'wealth') return lbStore.loadingWealth;
@@ -144,15 +136,13 @@ const isLoading = computed(() => {
   return false;
 });
 
-// Computed: Lấy danh sách dựa trên tab (Có fallback || [] để tránh lỗi .length)
 const currentList = computed(() => {
   if (activeTab.value === "level") return lbStore.topLevels || [];
   if (activeTab.value === "wealth") return lbStore.topWealth || [];
-  if (activeTab.value === "kills") return lbStore.topMonsters || []; // [FIX] Map đúng biến Store
+  if (activeTab.value === "kills") return lbStore.topMonsters || [];
   return [];
 });
 
-// Computed: Tiêu đề danh hiệu Top 1
 const rankTitle = computed(() => {
   if (activeTab.value === "level") return "MINH CHỦ";
   if (activeTab.value === "wealth") return "PHÚ GIA";
@@ -160,26 +150,21 @@ const rankTitle = computed(() => {
   return "TOP 1";
 });
 
-// Helper: Tìm giá trị lớn nhất để vẽ thanh bar (%)
 const maxVal = computed(() => {
   if (!currentList.value || currentList.value.length === 0) return 1;
-  // Regex để lấy số từ chuỗi (VD: "10,500 Quái" -> 10500)
   return Math.max(...currentList.value.map((e) => {
     if(!e.value) return 0;
-    // Xóa tất cả ký tự không phải số
     const num = Number(e.value.toString().replace(/[^0-9]/g, '')); 
     return num || 0;
   }));
 });
 
-// Computed: Danh sách từ hạng 4 trở đi
 const rankedRestOfList = computed(() => {
   if (!currentList.value || currentList.value.length < 3) return [];
   const list = currentList.value.slice(3);
   const max = maxVal.value;
 
   return list.map((entry, index) => {
-    // Parse số để tính % width
     const num = Number(entry.value.toString().replace(/[^0-9]/g, '')) || 0;
     return {
       ...entry,
@@ -189,22 +174,27 @@ const rankedRestOfList = computed(() => {
   });
 });
 
-// Helper: Format hiển thị (Thực ra Backend đã format rồi, hàm này chỉ để đảm bảo)
-const formatVal = (val) => {
-  return val; // Backend đã trả về string đẹp ("Lv 10", "1,000 Vàng", "500 Quái") nên cứ thế hiển thị
+const formatVal = (val) => val;
+
+// [NEW] Hàm xử lý Avatar: URL -> Giữ nguyên, SkinID -> Lấy Asset
+const resolveAvatar = (avatarStr) => {
+  if (!avatarStr) return getCurrentSkin("default").sprites.idle;
+  
+  // Nếu là Link ảnh (Upload từ imgur, cloudinary...)
+  if (avatarStr.startsWith("http")) return avatarStr;
+  
+  // Nếu là Skin ID (skin_yasou, etc.) hoặc Default
+  const skin = getCurrentSkin(avatarStr);
+  return skin ? skin.sprites.idle : avatarStr;
 };
 
-// Action: Chuyển tab và gọi API tương ứng
 const switchTab = async (tab) => {
   activeTab.value = tab;
   if (tab === "level") await lbStore.fetchLevelBoard();
   else if (tab === "wealth") await lbStore.fetchWealthBoard();
-  
-  // [FIX QUAN TRỌNG] Gọi đúng tên hàm trong Store
   else if (tab === "kills") await lbStore.fetchMonsterBoard(); 
 };
 
-// Init: Tải mặc định tab Level
 onMounted(() => {
   lbStore.fetchLevelBoard();
 });
@@ -245,7 +235,6 @@ onMounted(() => {
 }
 .fog-anim { background: linear-gradient(to top, #261815 10%, transparent 90%); }
 
-/* Wrapper & Header */
 .lb-wrapper {
   position: relative; z-index: 10; max-width: 600px; margin: 0 auto;
   padding: 30px 20px; display: flex; flex-direction: column; height: 100vh;
@@ -260,7 +249,6 @@ onMounted(() => {
 .header-decor { width: 50px; height: 2px; background: var(--gold); position: absolute; top: 35px; }
 .left { left: 20%; } .right { right: 20%; }
 
-/* Tabs */
 .wuxia-tabs { display: flex; justify-content: center; align-items: center; gap: 10px; }
 .tab-btn {
   background: transparent; border: none; color: var(--text-dim);
@@ -270,23 +258,29 @@ onMounted(() => {
 }
 .tab-btn:hover, .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
 .tab-divider { width: 1px; height: 15px; background: #555; }
-/* Style riêng cho Sát Thần */
 .tab-btn.text-red:hover, .tab-btn.text-red.active { color: #ff5252; border-bottom-color: #ff5252; text-shadow: 0 0 8px rgba(255, 0, 0, 0.6); }
 
-/* Content & Loading */
 .content-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .loading-state, .empty-msg { text-align: center; padding: 50px; color: var(--text-dim); }
 .ink-spinner { width: 40px; height: 40px; border: 3px solid var(--wood-light); border-top-color: var(--gold); border-radius: 50%; margin: 0 auto 15px; animation: spin 1s linear infinite; }
 
-/* Podium (Bục vinh quang) */
 .podium-section { display: flex; align-items: flex-end; justify-content: center; height: 280px; gap: 15px; margin-bottom: 20px; }
 .podium-col { display: flex; flex-direction: column; align-items: center; position: relative; }
 
-.avatar-frame { width: 60px; height: 60px; border-radius: 50%; background: #261815; display: flex; align-items: center; justify-content: center; font-size: 1.8em; border: 3px solid; z-index: 2; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-.rank-1 .avatar-frame { width: 90px; height: 90px; font-size: 3em; border-width: 4px; }
+.avatar-frame { width: 60px; height: 60px; border-radius: 50%; background: #261815; display: flex; align-items: center; justify-content: center; border: 3px solid; z-index: 2; box-shadow: 0 5px 15px rgba(0,0,0,0.5); overflow: hidden; }
+.rank-1 .avatar-frame { width: 90px; height: 90px; border-width: 4px; }
 .gold-border { border-color: var(--gold); }
 .silver-border { border-color: #e0e0e0; }
 .bronze-border { border-color: #cd7f32; }
+
+/* [UPDATE] Style cho ảnh trong khung podium */
+.podium-img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+/* Nếu là pixel art (nhận diện qua tên file) thì scale to lên chút cho rõ */
+.podium-img[src*="resource"], .podium-img[src*="character"] {
+  width: 130%; height: 130%; object-fit: contain; image-rendering: pixelated;
+}
 
 .rank-badge { position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); background: #261815; font-size: 0.7em; padding: 2px 8px; border-radius: 4px; border: 1px solid; z-index: 3; font-weight: bold; }
 .silver { border-color: #e0e0e0; color: #e0e0e0; }
@@ -299,8 +293,8 @@ onMounted(() => {
 .rank-1 .podium-base { width: 140px; height: 150px; border-color: var(--gold); background: linear-gradient(to bottom, rgba(255, 236, 179, 0.1), rgba(0, 0, 0, 0.8)); }
 .rank-2 .podium-base { height: 110px; border-color: #e0e0e0; background: linear-gradient(to bottom, rgba(224, 224, 224, 0.1), rgba(0, 0, 0, 0.8)); }
 .rank-3 .podium-base { height: 90px; border-color: #cd7f32; background: linear-gradient(to bottom, rgba(205, 127, 50, 0.1), rgba(0, 0, 0, 0.8)); }
-
 .podium-base.red-base { border-color: #ff5252; background: linear-gradient(to bottom, rgba(255, 0, 0, 0.2), #000); }
+
 .seal-rank { background: var(--red-seal); color: #fff; font-size: 0.7em; padding: 2px 8px; margin-bottom: auto; align-self: center; border-radius: 2px; }
 .seal-rank.bg-black { background: #000; border: 1px solid #ff5252; color: #ff5252; }
 
@@ -309,14 +303,20 @@ onMounted(() => {
 .p-val { font-size: 0.8em; color: var(--text-dim); }
 .highlight { color: #fff; font-weight: bold; }
 
-/* Scroll List */
 .rank-scroll { flex: 1; overflow-y: auto; padding: 10px; }
 .list-row { display: flex; align-items: center; gap: 15px; background: rgba(30, 20, 15, 0.8); border: 1px solid var(--wood-light); margin-bottom: 8px; padding: 10px 15px; border-radius: 4px; transition: 0.2s; animation: slideIn 0.4s ease-out forwards; opacity: 0; transform: translateY(10px); }
 .list-row:hover { border-color: var(--gold); background: rgba(255, 255, 255, 0.05); }
 .list-row.kill-row:hover { border-color: #ff5252; background: rgba(255, 0, 0, 0.1); }
 
 .row-rank { font-weight: 900; font-size: 1.2em; color: var(--text-dim); width: 30px; text-align: center; }
-.row-avatar { font-size: 1.2em; }
+
+/* [UPDATE] Row Avatar Style */
+.row-avatar-box {
+  width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: 2px solid #5d4037; background: #000;
+}
+.row-img { width: 100%; height: 100%; object-fit: cover; }
+.row-img[src*="resource"], .row-img[src*="character"] { width: 130%; height: 130%; object-fit: contain; image-rendering: pixelated; }
+
 .row-info { flex: 1; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .row-name { font-weight: bold; color: var(--text-light); }
 .row-val { font-weight: bold; color: var(--gold); font-size: 0.9em; text-align: right; white-space: nowrap;}

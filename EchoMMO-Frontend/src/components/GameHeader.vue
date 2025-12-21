@@ -57,7 +57,7 @@
             </div>
           </div>
           <div class="avatar-frame">
-            <img :src="userSkinAvatar" class="pixel-focus" @error="handleAvatarError" />
+            <img :src="userSkinAvatar" class="user-avatar" @error="handleAvatarError" />
           </div>
         </router-link>
       </div>
@@ -76,7 +76,6 @@ import { useChatStore } from "../stores/chatStore";
 import { getCurrentSkin, getAssetUrl } from "@/utils/assetHelper";
 import ChatWidget from "./ChatWidget.vue";
 
-// Giữ lại defineEmits để tránh warning từ Vue nếu parent component vẫn truyền sự kiện xuống
 const emit = defineEmits(['toggle-sidebar']);
 
 const authStore = useAuthStore();
@@ -90,8 +89,18 @@ const walletStore = {
   wallet: computed(() => authStore.user?.wallet)
 };
 
+// [UPDATE] Logic chọn Avatar hiển thị
 const userSkinAvatar = computed(() => {
-  const skin = getCurrentSkin(authStore.user?.avatarUrl);
+  const user = authStore.user;
+  if (!user) return 'https://placehold.co/50?text=U';
+
+  // 1. Nếu user có ảnh upload -> Dùng ảnh upload
+  if (user.profileImageUrl) {
+    return user.profileImageUrl;
+  }
+
+  // 2. Nếu không, dùng Skin Asset (Yasuo, v.v.)
+  const skin = getCurrentSkin(user.avatarUrl);
   return skin ? skin.sprites.idle : 'https://placehold.co/50?text=U';
 });
 
@@ -166,8 +175,6 @@ onMounted(() => {
 .spacer {
   flex: 1;
 }
-
-/* Đã xóa class .menu-toggle */
 
 .hud-container {
   display: flex;
@@ -350,11 +357,18 @@ onMounted(() => {
   align-items: center;
 }
 
-.pixel-focus {
+/* [UPDATE] Class mới cho avatar */
+.user-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Ảnh upload sẽ cover khung tròn */
+}
+
+/* Nếu là pixel art (nhận diện qua tên file/url) thì dùng contain */
+.user-avatar[src*="resource"], .user-avatar[src*="character"] {
   width: 130%;
   height: 130%;
   object-fit: contain;
-  object-position: center;
   image-rendering: pixelated;
 }
 

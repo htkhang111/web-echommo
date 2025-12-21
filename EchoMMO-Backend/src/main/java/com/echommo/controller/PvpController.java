@@ -151,6 +151,20 @@ public class PvpController {
         return ResponseEntity.ok("Surrendered");
     }
 
+    // [NEW] 7. HỦY TÌM TRẬN
+    @PostMapping("/cancel")
+    public ResponseEntity<?> cancelSearch(@AuthenticationPrincipal UserDetails userDetails) {
+        Character myChar = getCharacterFromUser(userDetails);
+        if (myChar == null) return ResponseEntity.badRequest().body("Character not found");
+
+        try {
+            pvpService.cancelQueue(myChar.getCharId());
+            return ResponseEntity.ok("Search canceled");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     // ================= HELPER METHODS =================
     private Character getCharacterFromUser(UserDetails userDetails) {
         User user = userRepo.findByUsername(userDetails.getUsername()).orElse(null);

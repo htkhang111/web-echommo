@@ -161,8 +161,9 @@
 import axios from "axios";
 import { useAuthStore } from "../stores/authStore";
 
+// [FIX] Đổi localhost -> 127.0.0.1 để tránh lỗi kết nối trên Windows
 const axiosClient = axios.create({
-  baseURL: "http://localhost:8080/api",
+  baseURL: "http://127.0.0.1:8080/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -223,12 +224,10 @@ axiosClient.interceptors.response.use(
         authStore.triggerBan(reason);
         
         // Trả về reject nhưng KHÔNG logout ngay để giữ popup hiện trên màn hình
-        // AuthStore sẽ tự xử lý việc clear state hoặc chuyển hướng sau khi user đóng popup
         return Promise.reject(error);
       }
 
       // [ƯU TIÊN 2] HẾT HẠN PHIÊN (401)
-      // Chỉ chạy vào đây nếu KHÔNG phải là lỗi Ban
       if (status === 401) {
         console.warn("⚠️ Phiên đăng nhập hết hạn (401).");
         authStore.logout();

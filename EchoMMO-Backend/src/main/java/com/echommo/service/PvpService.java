@@ -185,6 +185,15 @@ public class PvpService {
         }
     }
 
+    // [NEW] 6. HỦY TÌM TRẬN
+    @Transactional
+    public void cancelQueue(Integer charId) {
+        Optional<PvpQueue> queueEntry = queueRepo.findByCharId(charId);
+        if (queueEntry.isPresent()) {
+            queueRepo.delete(queueEntry.get());
+        }
+    }
+
     private void updatePvpStats(Integer winnerId, Integer loserId) {
         charRepo.findById(winnerId).ifPresent(c -> {
             c.setPvpWins((c.getPvpWins() == null ? 0 : c.getPvpWins()) + 1);
