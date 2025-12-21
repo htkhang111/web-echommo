@@ -11,7 +11,6 @@ import ForgotPassword from '../views/ForgotPassword.vue'
 import Character from '../views/Character.vue'
 import CreateCharacter from '../views/CreateCharacter.vue'
 import Village from '../views/Village.vue'
-import Adventure from '../views/Adventure.vue'
 import Battle from '../views/Battle.vue'
 import Combat from '../views/Combat.vue'
 import Explore from '../views/Explore.vue'
@@ -50,7 +49,6 @@ const router = createRouter({
     { path: '/character', name: 'Character', component: Character, meta: { requiresAuth: true } },
     { path: '/create-character', name: 'CreateCharacter', component: CreateCharacter, meta: { requiresAuth: true } },
     { path: '/village', name: 'Village', component: Village, meta: { requiresAuth: true } },
-    { path: '/adventure', name: 'Adventure', component: Adventure, meta: { requiresAuth: true } },
     { path: '/battle', name: 'Battle', component: Battle, meta: { requiresAuth: true } },
     { path: '/combat', name: 'Combat', component: Combat, meta: { requiresAuth: true } },
     { path: '/explore', name: 'Explore', component: Explore, meta: { requiresAuth: true } },

@@ -3,11 +3,12 @@ package com.echommo.enums;
 import java.math.BigDecimal;
 
 public enum SpaPackage {
-    // Gói Lỏ: 60 giây, 50 Vàng
-    STANDARD("Gói Bình Dân", new BigDecimal("50"), 60),
+    // [FIX] Đổi tên STANDARD thành BASIC để khớp với SpaService
+    // Gói Cơ Bản: 500 Vàng, 30 phút (1800 giây)
+    BASIC("Gói Cơ Bản", new BigDecimal("500"), 1800),
 
-    // Gói Xịn: 10 giây, 200 Echo (Hoặc Vàng tùy logic, ở đây set tạm BigDecimal để tính toán)
-    VIP("Gói Thượng Hạng", new BigDecimal("200"), 10);
+    // Gói VIP: 5 Coin, 60 phút (3600 giây)
+    VIP("Gói Thượng Hạng", new BigDecimal("5"), 3600);
 
     private final String name;
     private final BigDecimal cost;
@@ -19,11 +20,10 @@ public enum SpaPackage {
         this.durationSeconds = durationSeconds;
     }
 
-    // [FIX] Getter chuẩn để Service gọi
     public String getName() { return name; }
     public BigDecimal getCost() { return cost; }
     public int getDurationSeconds() { return durationSeconds; }
 
-    // Alias cho getCost nếu code cũ lỡ gọi getPrice
+    // Alias để tránh lỗi nếu code cũ gọi getPrice
     public BigDecimal getPrice() { return cost; }
 }

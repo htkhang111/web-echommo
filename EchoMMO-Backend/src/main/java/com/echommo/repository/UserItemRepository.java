@@ -13,7 +13,9 @@ import java.util.Optional;
 @Repository
 public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
-    // [THÊM MỚI] Hàm cơ bản để tìm theo CharId (Sửa lỗi cannot find symbol)
+    // [FIX] Thêm hàm đếm số lượng item của nhân vật để check Inventory Limit
+    int countByCharacter_CharId(Integer charId);
+
     List<UserItem> findByCharacter_CharId(Integer charId);
 
     // 1. Get Inventory (Newest items first)

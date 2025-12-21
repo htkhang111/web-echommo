@@ -4,29 +4,45 @@
     <div v-if="gameState !== 'BATTLE'" class="lobby-overlay">
         <div class="lobby-content">
             <h1 class="wuxia-title">VÕ ĐÀI TRANH HÙNG</h1>
+            
             <div class="hero-card">
-                <div class="avatar-frame gold-border"><img :src="mySprite" class="pixel-art" /></div>
+                <div class="avatar-frame gold-border">
+                    <img :src="mySprite" class="pixel-art" />
+                </div>
                 <div class="hero-info">
                     <h2>{{ characterName }}</h2>
                     <div class="stats-row">
                         <span class="stat-badge level">Cấp {{ characterLevel }}</span>
                         <span class="stat-badge wins">🏆 Thắng: {{ characterWins }}</span>
-                        <button class="refresh-btn" @click="manualRefresh"><i class="fas fa-sync-alt"></i></button>
+                        <button class="refresh-btn" @click="manualRefresh" title="Cập nhật thông tin">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
                     </div>
                 </div>
             </div>
+
             <div class="action-area">
-                <button v-if="gameState === 'LOBBY'" class="btn-start" @click="toggleSearch"><i class="fas fa-swords"></i> TÌM ĐỐI THỦ</button>
-                <button v-else-if="gameState === 'SEARCHING'" class="btn-cancel" @click="cancelSearch"><i class="fas fa-spinner fa-spin"></i> HỦY TÌM ({{ searchTimer }}s)</button>
+                <button v-if="gameState === 'LOBBY'" class="btn-start" @click="toggleSearch">
+                    <i class="fas fa-swords"></i> TÌM ĐỐI THỦ
+                </button>
+                
+                <button v-else-if="gameState === 'SEARCHING'" class="btn-cancel" @click="cancelSearch">
+                    <i class="fas fa-spinner fa-spin"></i> HỦY TÌM ({{ searchTimer }}s)
+                </button>
             </div>
+
             <div v-if="gameState === 'MATCH_FOUND'" class="match-popup">
                 <h3>⚔️ ĐỐI THỦ ĐÃ XUẤT HIỆN ⚔️</h3>
                 <div class="enemy-preview">
-                    <div class="preview-avatar-box"><img :src="enemySprite" class="pixel-art" /></div>
+                    <div class="preview-avatar-box">
+                        <img :src="enemySprite" class="pixel-art" />
+                    </div>
                     <p>{{ enemyName }} (Lv.{{ enemyLevel }})</p>
                 </div>
+                
                 <div class="popup-actions">
                     <button class="btn-decline" @click="declineMatch">BỎ QUA</button>
+                    
                     <button class="btn-accept" @click="acceptMatch" :disabled="hasAccepted" :class="{'accepted': hasAccepted}">
                         {{ hasAccepted ? 'ĐANG CHỜ ĐỐI THỦ...' : 'CHẤP NHẬN CHIẾN ĐẤU' }} 
                         <span v-if="!hasAccepted">({{ acceptTimer }}s)</span>
@@ -121,7 +137,7 @@
                 <div v-else class="waiting-square">
                     <div class="spinner-box">
                         <i class="fas fa-yin-yang fa-spin"></i>
-                        <p v-if="battlePhase === 'RPS_REVEAL'">ĐANG XỬ LÝ KẾT QUẢ...</p>
+                        <p v-if="battlePhase === 'RPS_REVEAL'">ĐANG SO CHIÊU...</p>
                         <p v-else>CHỜ ĐỐI THỦ RA CHIÊU...</p>
                     </div>
                 </div>
@@ -144,39 +160,43 @@ const authStore = useAuthStore();
 const charStore = useCharacterStore(); 
 
 // --- HELPER SKIN ---
+// Lấy ảnh idle từ ID skin
 const getSpriteUrl = (skinId) => {
     const skin = CHARACTER_SKINS[skinId] || CHARACTER_SKINS['skin_yasou'];
     return skin.sprites.idle;
 };
 
-// --- COMPUTED ---
+// --- COMPUTED DATA ---
 const characterName = computed(() => authStore.character?.name || authStore.user?.username || 'Đại Hiệp');
 const characterLevel = computed(() => authStore.character?.level || 1);
 const characterWins = computed(() => authStore.character?.pvpWins || 0);
 const mySprite = computed(() => getSpriteUrl(authStore.user?.avatarUrl));
 const enemySprite = computed(() => getSpriteUrl(enemySkinId.value));
 
-// --- STATE ---
-const gameState = ref('LOBBY'); 
+// --- STATE QUAN TRỌNG ---
+const gameState = ref('LOBBY'); // LOBBY | SEARCHING | MATCH_FOUND | BATTLE
 const matchId = ref(null);
-const battlePhase = ref('RPS_WAIT'); 
+const battlePhase = ref('RPS_WAIT'); // RPS_WAIT | RPS_PENDING | RPS_REVEAL
 
+// --- BIẾN LOGIC ---
 const turnTimer = ref(30);
 const lastResultText = ref('');
 const hasAccepted = ref(false); 
 const showLog = ref(false); 
-const isActionPending = ref(false); 
+const isActionPending = ref(false); // Chặn click liên tục
 const searchTimer = ref(0);
 const acceptTimer = ref(10);
-const ignoredMatchIds = ref(new Set()); 
+const ignoredMatchIds = ref(new Set()); // Danh sách trận đã bỏ qua/đầu hàng
 
 // --- BATTLE DATA ---
 const enemyName = ref("Đối thủ"); const enemyLevel = ref(1); const enemySkinId = ref(null);
-const myHp = ref(100); const myMaxHp = ref(100); const enemyHp = ref(100); const enemyMaxHp = ref(100); 
-const isMyHit = ref(false); const isEnemyHit = ref(false);
+const myHp = ref(100); const myMaxHp = ref(100); 
+const enemyHp = ref(100); const enemyMaxHp = ref(100); 
+const isMyHit = ref(false); const isEnemyHit = ref(false); // Trigger animation rung
 const battleLogs = ref([]); const matchMessages = ref([]); const chatInput = ref('');
 const chatBoxRef = ref(null);
 
+// Variables cho Animation
 const displayedMyMove = ref(null);
 const displayedEnemyMove = ref(null); 
 const lastProcessedTurn = ref(-1);
@@ -228,9 +248,10 @@ const toggleSearch = async () => {
   gameState.value = 'SEARCHING'; 
   searchTimer.value = 0;
   searchInterval = setInterval(() => searchTimer.value++, 1000);
+  
   try { 
       await axios.post(`${API_URL}/find`, {}, { headers: getHeaders() }); 
-      startPolling(); 
+      startPolling(); // Bắt đầu lắng nghe
   } catch(e) { resetToLobby(); }
 };
 
@@ -253,11 +274,10 @@ const startTurnTimer = () => {
   turnTimer.value = 30;
   turnTimerInterval = setInterval(() => {
     if (turnTimer.value > 0) turnTimer.value--;
-    if (turnTimer.value <= 0) {
-       if(battlePhase.value === 'RPS_WAIT') {
-           const moves = ['ROCK', 'PAPER', 'SCISSORS'];
-           submitRps(moves[Math.floor(Math.random() * moves.length)]);
-       }
+    // Auto đánh nếu hết giờ
+    if (turnTimer.value <= 0 && battlePhase.value === 'RPS_WAIT') {
+       const moves = ['ROCK', 'PAPER', 'SCISSORS'];
+       submitRps(moves[Math.floor(Math.random() * moves.length)]);
     }
   }, 1000);
 };
@@ -266,13 +286,15 @@ const submitRps = async (move) => {
   if (isActionPending.value || battlePhase.value !== 'RPS_WAIT') return; 
   
   isActionPending.value = true; 
-  battlePhase.value = 'RPS_PENDING'; // Chuyển sang chờ ngay lập tức
+  battlePhase.value = 'RPS_PENDING'; // Ẩn nút đi
 
   try { 
       await axios.post(`${API_URL}/move`, { matchId: matchId.value, move }, { headers: getHeaders() }); 
   } catch (e) { 
+      // Nếu lỗi mạng hoặc lỗi game, reset lại để người dùng thử lại hoặc thoát
+      console.error(e);
       isActionPending.value = false;
-      battlePhase.value = 'RPS_WAIT'; 
+      // Nếu server báo lỗi FINISHED, polling sẽ tự xử lý việc thoát
   }
 };
 
@@ -285,7 +307,7 @@ const handleSurrender = async () => {
     }
 };
 
-// --- SYNC LOGIC (SỬA LỖI GLITCH TẠI ĐÂY) ---
+// --- SYNC LOGIC (SỬA LỖI GLITCH) ---
 const startPolling = () => {
   if (pollId) return;
   pollId = setInterval(async () => {
@@ -296,13 +318,14 @@ const startPolling = () => {
 
       if (data.matchId && ignoredMatchIds.value.has(Number(data.matchId))) return;
 
-      // 1. MATCH FOUND
+      // 1. TÌM THẤY (PENDING)
       if (data.status === 'PENDING') {
          if (gameState.value !== 'MATCH_FOUND' && gameState.value !== 'BATTLE') {
              gameState.value = 'MATCH_FOUND';
              if(searchInterval) clearInterval(searchInterval);
              matchId.value = data.matchId;
              
+             // Sync info địch
              const isP1 = checkIsPlayer1(data);
              enemyName.value = (isP1 ? data.p2Name : data.p1Name) || "Đối thủ";
              enemyLevel.value = (isP1 ? data.p2Level : data.p1Level) || 1;
@@ -319,7 +342,7 @@ const startPolling = () => {
          }
       }
       
-      // 2. ACTIVE
+      // 2. VÀO TRẬN (ACTIVE)
       else if (data.status === 'ACTIVE') {
          if (gameState.value !== 'BATTLE') {
             gameState.value = 'BATTLE'; 
@@ -330,36 +353,43 @@ const startPolling = () => {
          syncBattleData(data); 
       }
       
-      // 3. FINISHED
+      // 3. KẾT THÚC (FINISHED)
       else if (data.status === 'FINISHED' && gameState.value === 'BATTLE') {
          syncBattleData(data); 
          if(pollId) clearInterval(pollId); pollId = null; 
          
          const myCharId = Number(authStore.character?.id || authStore.user?.id);
-         const winnerId = Number(data.winnerId);
-         const msg = (winnerId === myCharId) ? "🏆 CHIẾN THẮNG!" : "💀 THẤT BẠI!";
+         let msg = "";
+         
+         // Xử lý thông báo kết quả
+         if (data.winnerId === null) {
+             msg = "💀 LƯỠNG BẠI CÂU THƯƠNG! Cả hai cùng gục ngã!";
+         } else {
+             msg = (data.winnerId === myCharId) ? "🏆 CHIẾN THẮNG!" : "💀 THẤT BẠI!";
+         }
+         
          setTimeout(() => { alert(msg); resetToLobby(); }, 3000); 
       }
     } catch (e) {}
   }, 1000);
 };
 
-// --- HÀM SYNC DATA ---
+// --- HÀM SYNC DATA CHI TIẾT ---
 const syncBattleData = (data) => {
   const isP1 = checkIsPlayer1(data);
   
-  // 1. Cập nhật Máu
+  // Cập nhật HP
   const newMyHp = isP1 ? data.p1Hp : data.p2Hp;
   const newEnemyHp = isP1 ? data.p2Hp : data.p1Hp;
   
-  // Hiệu ứng mất máu: Kích hoạt khi máu giảm
+  // Kích hoạt hiệu ứng rung khi máu giảm (bao gồm cả khi hòa trừ máu)
   if(newMyHp < myHp.value) { isMyHit.value = true; setTimeout(()=>isMyHit.value=false, 300); }
   if(newEnemyHp < enemyHp.value) { isEnemyHit.value = true; setTimeout(()=>isEnemyHit.value=false, 300); }
   
   myHp.value = newMyHp; myMaxHp.value = isP1 ? data.p1MaxHp : data.p2MaxHp;
   enemyHp.value = newEnemyHp; enemyMaxHp.value = isP1 ? data.p2MaxHp : data.p1MaxHp;
 
-  // 2. Chat
+  // Chat
   if(data.messages && data.messages.length > matchMessages.value.length) {
     data.messages.slice(matchMessages.value.length).forEach(m => matchMessages.value.push({ 
        sender: m.senderName, text: m.content, isMe: (checkIsPlayer1(data) ? data.p1Id : data.p2Id) == m.senderId 
@@ -367,15 +397,13 @@ const syncBattleData = (data) => {
     nextTick(() => { if(chatBoxRef.value) chatBoxRef.value.scrollTop = chatBoxRef.value.scrollHeight; });
   }
 
-  // 3. XỬ LÝ LOGIC TURN (Đã fix lỗi glitch)
-  // Nếu đang diễn hoạt thì KHÔNG cập nhật state để tránh giật
-  if (battlePhase.value === 'RPS_REVEAL') return;
+  // --- LOGIC DIỄN HOẠT TURN ---
+  if (battlePhase.value === 'RPS_REVEAL') return; // Đang diễn thì không làm gì
 
   const currentTurn = data.turnCount;
-
-  // Logic phát hiện turn mới: Dựa vào turnCount tăng
+  // Có kết quả mới khi: Turn tăng HOẶC (Turn=1 và backend đã log kết quả)
   const isNewTurnProcessed = currentTurn > lastProcessedTurn.value;
-  // Hoặc dựa vào việc cả 2 đã đánh (trong trường hợp turn 1)
+  // Kiểm tra backend đã gửi move của cả 2 chưa (Last Move)
   const bothMoved = data.lastP1Move && data.lastP2Move;
 
   if (bothMoved && isNewTurnProcessed) {
@@ -383,28 +411,25 @@ const syncBattleData = (data) => {
       lastProcessedTurn.value = currentTurn;
       isActionPending.value = false;
 
-      // Lấy move để hiển thị
       const p1M = data.lastP1Move; 
       const p2M = data.lastP2Move;
       
       if (isP1) { displayedMyMove.value = p1M; displayedEnemyMove.value = p2M; } 
       else { displayedMyMove.value = p2M; displayedEnemyMove.value = p1M; }
 
-      // Log & Text
+      // Cập nhật text kết quả
       if (data.lastLog) {
           battleLogs.value.push(data.lastLog);
-          // Logic Text hiển thị
           if (data.lastLog.includes("thắng")) lastResultText.value = "THẮNG";
           else if (data.lastLog.includes("thua")) lastResultText.value = "THUA";
-          else lastResultText.value = "XUNG KHẮC"; // Hòa -> Cả 2 cùng đau
+          else lastResultText.value = "XUNG KHẮC"; // Text cho hòa
       }
 
-      // Kích hoạt diễn hoạt REVEAL
       battlePhase.value = 'RPS_REVEAL';
       
       if (revealTimeout) clearTimeout(revealTimeout);
       revealTimeout = setTimeout(() => {
-          // Sau 3s -> Reset về WAIT
+          // Sau 3s -> Reset về cho đánh tiếp
           battlePhase.value = 'RPS_WAIT';
           displayedMyMove.value = null;
           displayedEnemyMove.value = null;
@@ -412,17 +437,15 @@ const syncBattleData = (data) => {
       }, 3000);
 
   } else {
-      // ==> CHƯA CÓ KẾT QUẢ MỚI
+      // ==> CHƯA CÓ KẾT QUẢ MỚI: Check trạng thái chờ
       const myMove = isP1 ? data.p1Move : data.p2Move;
       
       if (!myMove) {
-          // Chưa đánh -> Cho về WAIT
           if (battlePhase.value !== 'RPS_WAIT') {
               battlePhase.value = 'RPS_WAIT';
-              isActionPending.value = false;
+              isActionPending.value = false; // Reset lock nếu bị kẹt
           }
       } else {
-          // Đã đánh, chờ địch -> PENDING
           if (battlePhase.value !== 'RPS_PENDING') {
               battlePhase.value = 'RPS_PENDING';
           }
@@ -440,7 +463,7 @@ const sendPrivateChat = async () => {
 const percent = (c, m) => (m>0 ? (c/m)*100 : 0);
 const getRpsIcon = (m) => ({ 'ROCK': 'fas fa-hand-rock', 'PAPER': 'fas fa-hand-paper', 'SCISSORS': 'fas fa-hand-scissors' }[m] || 'fas fa-question');
 
-// [SỬA LOGIC ANIMATION]
+// [LOGIC ANIMATION HÒA]
 const getAnimClass = (myMove, enemyMove, isMe) => {
     if (!myMove || !enemyMove) return '';
     let iWin = false; let tie = false;
@@ -448,10 +471,10 @@ const getAnimClass = (myMove, enemyMove, isMe) => {
     if (myMove === enemyMove) tie = true;
     else if ((myMove === 'ROCK' && enemyMove === 'SCISSORS') || (myMove === 'SCISSORS' && enemyMove === 'PAPER') || (myMove === 'PAPER' && enemyMove === 'ROCK')) iWin = true;
     
-    // Nếu HÒA -> Cả 2 cùng tấn công (để hiện damage)
-    if (tie) return 'anim-cut-win'; // Dùng luôn anim tấn công cho cả 2
+    // Nếu HÒA -> Trả về class 'anim-clash' cho cả 2 (Rung + Đỏ)
+    if (tie) return 'anim-clash'; 
 
-    // Logic thắng thua bình thường
+    // Thắng thua thường
     if (isMe) return iWin ? (myMove === 'SCISSORS' ? 'anim-cut-win' : 'anim-smash-win') : 'anim-lose'; 
     else return !iWin ? (enemyMove === 'SCISSORS' ? 'anim-cut-win' : 'anim-smash-win') : 'anim-lose';
 };
@@ -471,8 +494,10 @@ onUnmounted(() => {
 
 .pixel-art { image-rendering: pixelated; }
 
-/* ... CSS GIỮ NGUYÊN NHƯ CŨ, CHỈ CẦN ĐẢM BẢO CÓ CLASS anim-cut-win/anim-smash-win ... */
+/* LAYOUT */
 .wuxia-battle-container { width: 100%; height: 100%; min-height: 600px; background: #1a1a1a; font-family: 'Roboto Condensed', sans-serif; color: #e0e0e0; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+
+/* LOBBY */
 .lobby-overlay { flex: 1; background: url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1920&auto=format&fit=crop') center/cover; display: flex; align-items: center; justify-content: center; }
 .lobby-content { background: rgba(0,0,0,0.9); border: 2px solid #b8860b; padding: 40px; border-radius: 10px; text-align: center; width: 450px; box-shadow: 0 0 50px #000; position: relative; }
 .wuxia-title { font-size: 2.5rem; color: #ffd700; margin-bottom: 20px; text-shadow: 0 0 10px #b8860b; }
@@ -481,10 +506,14 @@ onUnmounted(() => {
 .hero-info h2 { color: #fff; margin: 10px 0; }
 .stats-row { display: flex; justify-content: center; gap: 10px; }
 .stat-badge { background: #222; border: 1px solid #555; padding: 4px 12px; border-radius: 4px; color: #ccc; font-weight: bold; }
+.refresh-btn { background: none; border: none; color: #b8860b; cursor: pointer; } 
+
 .action-area { margin-top: 25px; }
 .btn-start { background: #b8860b; color: #000; padding: 15px 30px; border: none; cursor: pointer; width: 100%; font-weight: bold; font-size: 1.2rem; border-radius: 4px; transition: 0.3s; }
 .btn-start:hover { background: #ffd700; box-shadow: 0 0 20px #b8860b; }
 .btn-cancel { background: #333; color: #fff; padding: 15px; width: 100%; border: 1px solid #555; border-radius: 4px; cursor: pointer; }
+
+/* POPUP */
 .match-popup { margin-top: 20px; background: #222; padding: 20px; border-radius: 8px; border: 2px solid #28a745; animation: slideUp 0.3s; }
 .match-popup h3 { color: #28a745; margin-top: 0; }
 .preview-avatar-box { width: 80px; height: 80px; background: #000; border: 2px solid #fff; border-radius: 50%; margin: 0 auto; overflow: hidden; display: flex; justify-content: center; align-items: center; }
@@ -493,12 +522,16 @@ onUnmounted(() => {
 .btn-decline { flex: 1; background: #333; color: #dc3545; border: 1px solid #dc3545; padding: 10px; cursor: pointer; font-weight: bold; }
 .btn-accept { flex: 2; background: #28a745; color: #fff; border: none; padding: 10px; cursor: pointer; font-weight: bold; animation: pulse 1s infinite; }
 .btn-accept.accepted { background: #155724; animation: none; cursor: default; }
+
+/* BATTLE AREA */
 .battle-arena { display: flex; flex-direction: column; height: 100%; background: url('https://images.unsplash.com/photo-1535581652167-3d6b98c365b2?q=80&w=1920&auto=format&fit=crop') center/cover; position: relative; }
 .log-hint { position: absolute; top: 15px; left: 15px; z-index: 60; background: rgba(0,0,0,0.6); color: #ffd700; padding: 8px 15px; border-radius: 20px; border: 1px solid #b8860b; cursor: pointer; }
 .floating-log-panel { position: absolute; top: 60px; left: 15px; z-index: 60; width: 350px; max-height: 250px; background: rgba(0,0,0,0.9); border: 1px solid #ffd700; padding: 10px; overflow-y: auto; font-family: monospace; }
 .log-line { margin-bottom: 5px; color: #ccc; border-bottom: 1px solid #333; padding-bottom: 2px; }
 .top-timer-floating { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 60px; height: 60px; background: rgba(0,0,0,0.8); border: 3px solid #ffd700; border-radius: 50%; z-index: 50; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: bold; color: #fff; }
 .top-timer-floating.urgent { border-color: #ff4444; color: #ff4444; animation: pulse 0.5s infinite; }
+
+/* CHARACTERS */
 .scene-stage { flex: 1; position: relative; }
 .fighter { position: absolute; width: 300px; display: flex; flex-direction: column; }
 .fighter.enemy { top: 15%; right: 15%; align-items: flex-end; }
@@ -509,10 +542,14 @@ onUnmounted(() => {
 .hud { background: rgba(0,0,0,0.7); border: 1px solid #555; padding: 5px 10px; border-radius: 4px; width: 220px; color: #fff; }
 .hp-bar-bg { width: 100%; height: 8px; background: #333; border: 1px solid #000; margin: 3px 0; }
 .hp-fill { height: 100%; background: linear-gradient(90deg, #d32f2f, #f44336); transition: width 0.3s; }
+
+/* ANIMATION REVEAL */
 .clash-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.7); z-index: 40; display: flex; align-items: center; justify-content: center; gap: 40px; }
 .move-icon { width: 100px; height: 100px; border-radius: 50%; background: #fff; color: #000; display: flex; align-items: center; justify-content: center; font-size: 3rem; border: 5px solid #ccc; transition: all 0.5s; }
 .vs-spark { font-size: 4rem; animation: sparkPop 0.2s; }
 .result-text { position: absolute; bottom: 25%; font-size: 3rem; font-weight: bold; color: #ffd700; text-shadow: 0 0 20px #d32f2f; animation: fadeInUp 0.5s; }
+
+/* CONSOLE */
 .bottom-console-split { height: 240px; background: #111; border-top: 2px solid #b8860b; display: flex; z-index: 50; position: relative; }
 .left-chat-column { flex: 6; display: flex; flex-direction: column; border-right: 1px solid #333; background: #000; }
 .chat-display { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
@@ -533,17 +570,26 @@ onUnmounted(() => {
 .waiting-square { color: #888; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; width: 100%; background: #111; border: 1px dashed #444; }
 .spinner-box i { font-size: 2rem; margin-bottom: 10px; color: #b8860b; }
 
-/* ANIMATION KEYFRAMES */
+/* ANIMATION DEFINITIONS */
 @keyframes pulse { 0% {transform: scale(1);} 50% {transform: scale(1.05);} 100% {transform: scale(1);} }
 @keyframes slideUp { from {transform: translateY(20px); opacity: 0;} to {transform: translateY(0); opacity: 1;} }
 @keyframes sparkPop { 0% {transform: scale(0);} 100% {transform: scale(1.5); opacity: 0;} }
 @keyframes fadeInUp { from {transform: translateY(20px); opacity: 0;} to {transform: translateY(0); opacity: 1;} }
 @keyframes smash { 0% {transform: scale(1);} 50% {transform: scale(1.5) translateY(-50px);} 100% {transform: scale(1) translateY(0);} }
 @keyframes slice { 0% {transform: translateX(0);} 50% {transform: translateX(50px) rotate(45deg);} 100% {transform: translateX(0);} }
-/* Class Animation */
+
+/* Shake + Red Filter cho hiệu ứng Clash/Damage */
+@keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+
+/* CLASSES */
 .anim-smash-win { animation: smash 0.5s forwards; border-color: #ffd700; box-shadow: 0 0 30px #ffd700; z-index: 10; }
 .anim-cut-win { animation: slice 0.5s forwards; border-color: #28a745; box-shadow: 0 0 30px #28a745; z-index: 10; }
 .anim-lose { filter: grayscale(1) brightness(0.5); transform: scale(0.8); }
-.shake-hit { animation: shake 0.3s cubic-bezier(.36,.07,.19,.97) both; filter: sepia(1) hue-rotate(-50deg) saturate(3); }
-@keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+
+/* Hiệu ứng rung và đỏ cho cả icon chiêu và nhân vật */
+.anim-clash, .shake-hit { 
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; 
+    border-color: #ff4444 !important; 
+    filter: sepia(1) hue-rotate(-50deg) saturate(3); 
+}
 </style>

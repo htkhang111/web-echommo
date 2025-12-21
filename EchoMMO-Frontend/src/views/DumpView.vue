@@ -14,7 +14,9 @@
             :class="{ active: selectedType === 'NORMAL' }"
             @click="selectedType = 'NORMAL'"
           >
-            <span class="icon">🐟</span>
+            <div class="img-wrapper">
+              <img :src="getAssetUrl('f_fish')" alt="Cá thường" class="fish-img" />
+            </div>
             <span class="name">Cá Thường</span>
             <span class="count">Đang có: {{ normalFishCount }}</span>
           </div>
@@ -24,7 +26,9 @@
             :class="{ active: selectedType === 'SHARK' }"
             @click="selectedType = 'SHARK'"
           >
-            <span class="icon">🦈</span>
+            <div class="img-wrapper">
+              <img :src="getAssetUrl('f_shark')" alt="Cá mập" class="fish-img" />
+            </div>
             <span class="name">Cá Mập</span>
             <span class="count">Đang có: {{ sharkCount }}</span>
           </div>
@@ -48,8 +52,9 @@
             <button class="btn-mini" @click="amount = maxAmount">Tất cả</button>
           </div>
         </div>
+        
         <div class="empty-msg" v-else>
-          Bạn không còn con {{ selectedType === 'NORMAL' ? 'Cá thường' : 'Cá mập' }} nào!
+          Đại hiệp không còn con {{ selectedType === 'NORMAL' ? 'Cá thường' : 'Cá mập' }} nào trong túi!
         </div>
 
         <button 
@@ -69,17 +74,17 @@
           
           <div class="rewards-grid">
             <div class="reward-item" v-if="lastResult.goldReceived > 0">
-              <span class="icon">💰</span>
+              <img :src="getAssetUrl('r_coin.png')" class="reward-icon" />
               <span class="val">+{{ formatNumber(lastResult.goldReceived) }} Vàng</span>
             </div>
             
             <div class="reward-item special" v-if="lastResult.echoReceived > 0">
-              <span class="icon">💎</span>
+              <img :src="getAssetUrl('r_coinEcho.png')" class="reward-icon" />
               <span class="val">+{{ lastResult.echoReceived }} Echo</span>
             </div>
 
             <div class="reward-item" v-for="(qty, name) in lastResult.itemsReceived" :key="name">
-              <span class="icon">🎁</span>
+              <img :src="getAssetUrl('o_strange')" class="reward-icon" />
               <span class="val">{{ name }} x{{ qty }}</span>
             </div>
           </div>
@@ -94,9 +99,12 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { useCharacterStore } from '../stores/characterStore';
+import { useInventoryStore } from '../stores/inventoryStore'; // [NEW] Import Inventory
+import { getAssetUrl } from '../utils/assetHelper'; // [NEW] Import Asset Helper
 import dumpApi from '../api/dumpApi';
 
 const charStore = useCharacterStore();
+const inventoryStore = useInventoryStore(); // [NEW]
 
 // State
 const selectedType = ref('NORMAL'); // 'NORMAL' | 'SHARK'
@@ -104,23 +112,30 @@ const amount = ref(1);
 const isDumping = ref(false);
 const lastResult = ref(null);
 
-// Computed
-const character = computed(() => charStore.character);
-const wallet = computed(() => character.value?.user?.wallet || {});
+// [FIX] Lấy số lượng từ Inventory Store thay vì Wallet
+const normalFishCount = computed(() => {
+  if (!inventoryStore.items) return 0;
+  // Tìm item có code là 'f_fish'
+  const item = inventoryStore.items.find(i => i.item && i.item.code === 'f_fish');
+  return item ? item.quantity : 0;
+});
 
-const normalFishCount = computed(() => wallet.value.fish || 0);
-const sharkCount = computed(() => wallet.value.shark || 0);
+const sharkCount = computed(() => {
+  if (!inventoryStore.items) return 0;
+  // Tìm item có code là 'f_shark'
+  const item = inventoryStore.items.find(i => i.item && i.item.code === 'f_shark');
+  return item ? item.quantity : 0;
+});
 
 const maxAmount = computed(() => {
   return selectedType.value === 'NORMAL' ? normalFishCount.value : sharkCount.value;
 });
 
-// Watch: Reset amount khi đổi loại cá
+// Watch
 watch(selectedType, () => {
   amount.value = 1;
 });
 
-// Watch: Đảm bảo amount không vượt quá max (trường hợp vừa thả xong)
 watch(maxAmount, (newMax) => {
   if (amount.value > newMax) amount.value = newMax > 0 ? newMax : 1;
 });
@@ -140,10 +155,12 @@ const handleDump = async () => {
     const res = await dumpApi.dumpFish(selectedType.value, amount.value);
     lastResult.value = res.data;
     
-    // Cập nhật lại thông tin nhân vật (số dư ví, item)
-    await charStore.fetchCharacter();
+    // [UPDATE] Gọi lại cả 2 API để cập nhật số dư vàng và số lượng cá
+    await Promise.all([
+      charStore.fetchCharacter(),
+      inventoryStore.fetchInventory()
+    ]);
     
-    // Reset số lượng về 1 hoặc max mới
     amount.value = 1;
   } catch (error) {
     alert(error.response?.data || "Có lỗi xảy ra khi thả cá!");
@@ -153,6 +170,8 @@ const handleDump = async () => {
 };
 
 onMounted(() => {
+  // [IMPORTANT] Load inventory khi vào trang để có số lượng cá
+  inventoryStore.fetchInventory();
   charStore.fetchCharacter();
 });
 </script>
@@ -161,7 +180,7 @@ onMounted(() => {
 .page-container {
   padding: 20px;
   min-height: 100vh;
-  background: linear-gradient(to bottom, #1a2a6c, #b21f1f, #fdbb2d); /* Sunset Lake vibe */
+  background: linear-gradient(to bottom, #1a2a6c, #b21f1f, #fdbb2d);
   color: white;
   display: flex;
   justify-content: center;
@@ -242,44 +261,32 @@ onMounted(() => {
   background: rgba(248, 113, 113, 0.1);
 }
 
-.fish-option .icon { font-size: 2rem; }
+/* [NEW] Style cho ảnh cá */
+.img-wrapper {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 5px;
+}
+
+.fish-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+}
+
 .fish-option .name { font-weight: bold; margin: 5px 0; }
 .fish-option .count { font-size: 0.8rem; opacity: 0.8; }
 
 /* Slider Controls */
-.amount-control {
-  margin-bottom: 20px;
-}
-
-.slider-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 10px 0;
-}
-
-.slider {
-  flex: 1;
-  height: 8px;
-  accent-color: #4ade80;
-}
-
-.quick-btns {
-  display: flex;
-  justify-content: space-between;
-  gap: 5px;
-}
-
-.btn-mini {
-  background: rgba(255,255,255,0.1);
-  border: none;
-  color: white;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-
+.amount-control { margin-bottom: 20px; }
+.slider-wrapper { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+.slider { flex: 1; height: 8px; accent-color: #4ade80; }
+.quick-btns { display: flex; justify-content: space-between; gap: 5px; }
+.btn-mini { background: rgba(255,255,255,0.1); border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
 .btn-mini:hover { background: rgba(255,255,255,0.2); }
 
 .btn-dump {
@@ -324,13 +331,7 @@ onMounted(() => {
 }
 
 .modal-content h3 { color: #4ade80; margin-top: 0; }
-
-.rewards-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin: 20px 0;
-}
+.rewards-grid { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
 
 .reward-item {
   background: rgba(255,255,255,0.05);
@@ -341,6 +342,8 @@ onMounted(() => {
   justify-content: center;
   gap: 10px;
 }
+
+.reward-icon { width: 24px; height: 24px; object-fit: contain; }
 
 .reward-item.special {
   background: rgba(255, 215, 0, 0.1);
@@ -359,8 +362,5 @@ onMounted(() => {
   cursor: pointer;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>

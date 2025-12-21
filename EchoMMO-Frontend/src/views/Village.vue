@@ -1166,7 +1166,7 @@ onUnmounted(() => {
         </div>
 
         <div class="deploy-container">
-           <button @click="$router.push('/adventure')" class="wood-card hero-tile" :disabled="isResting">
+           <button @click="$router.push('/explore')" class="wood-card hero-tile" :disabled="isResting">
               <div class="card-content row-layout">
                  <div class="icon-stamp small"><i class="fas fa-torii-gate"></i></div>
                  <div class="text-group">

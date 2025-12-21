@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 public class Item {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    // Map tự động với cột 'item_id' trong SQL mới
     private Integer itemId;
 
     @Column(nullable = false, unique = true)
@@ -26,16 +25,13 @@ public class Item {
     private String description;
 
     @Column(nullable = false)
-    private String type; // Giữ String để tương thích với DataInitializer cũ
+    private String type;
 
     @Enumerated(EnumType.STRING)
     private SlotType slotType;
 
     private Integer tier;
 
-    // [FIX LỖI COMPILER]
-    // Dùng Enum Rarity để khớp với DataInitializer.java (item.setRarity(...))
-    // Map vào cột 'base_rarity' trong Database
     @Enumerated(EnumType.STRING)
     @Column(name = "base_rarity")
     private Rarity rarity;
@@ -63,4 +59,14 @@ public class Item {
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    // [FIX] Helper method để lấy chỉ số chính mà không cần sửa DB hay Service
+    @Transient // Không lưu vào DB, chỉ dùng để tính toán
+    public Integer getBaseMainStat() {
+        if (atkBonus != null && atkBonus > 0) return atkBonus;
+        if (defBonus != null && defBonus > 0) return defBonus;
+        if (hpBonus != null && hpBonus > 0) return hpBonus;
+        if (speedBonus != null && speedBonus > 0) return speedBonus;
+        return 0;
+    }
 }
