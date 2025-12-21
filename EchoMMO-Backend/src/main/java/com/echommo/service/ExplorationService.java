@@ -3,7 +3,7 @@ package com.echommo.service;
 import com.echommo.dto.ExplorationResponse;
 import com.echommo.entity.*;
 import com.echommo.entity.Character;
-import com.echommo.enums.CharacterStatus; // [FIX] Đã thêm dòng này
+import com.echommo.enums.CharacterStatus;
 import com.echommo.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,24 +32,30 @@ public class ExplorationService {
     private final Map<Integer, Long> lastActionMap = new HashMap<>();
 
     public enum GameMap {
+        // [CẬP NHẬT TÊN QUÁI KHỚP VỚI DATABASE]
         MAP_01("MAP_01", "Đồng Bằng", 1, 19,
                 createWeightedList(Map.of("w_wood", 40, "o_coal", 30, "o_copper", 20, "f_fish", 10)),
-                List.of("Slime", "Sói")),
+                List.of("Slime Xanh", "Thỏ Điên", "Sói Hoang", "Goblin Trinh Sát")),
+
         MAP_02("MAP_02", "Rừng Rậm", 20, 29,
                 createWeightedList(Map.of("w_wood", 30, "o_copper", 20, "o_iron", 20, "f_fish", 30)),
-                List.of("Gấu", "Nhện")),
+                List.of("Nhện Độc", "Gấu Xám", "Tinh Linh Rừng")),
+
         MAP_03("MAP_03", "Sa Mạc", 30, 39,
                 createWeightedList(Map.of("w_woodRed", 30, "GOLD_MINE_SPECIAL", 40, "o_iron", 30)),
-                List.of("Bọ Cạp", "Rắn")),
+                List.of("Bọ Cạp Cát", "Rắn Đuôi Chuông", "Mummy")),
+
         MAP_04("MAP_04", "Núi Cao", 40, 49,
                 createWeightedList(Map.of("o_coal", 30, "o_iron", 30, "o_platinum", 20, "w_woodWhite", 20)),
-                List.of("Golem", "Rồng Đá")),
+                List.of("Golem Đá", "Đại Bàng Núi", "Rồng Đá Nhỏ")),
+
         MAP_05("MAP_05", "Băng Đảo", 50, 59,
                 createWeightedList(Map.of("w_woodWhite", 40, "o_platinum", 40, "f_whiteshark", 20)),
-                List.of("Yeti", "Sói Tuyết")),
+                List.of("Sói Tuyết", "Yeti Khổng Lồ", "Phù Thủy Băng")),
+
         MAP_06("MAP_06", "Vùng Đất Chết", 60, 70,
                 createWeightedList(Map.of("w_woodBlack", 30, "o_strange", 30, "f_megalodon", 20, "r_coinEcho", 20)),
-                List.of("Bóng Ma", "Lich King"));
+                List.of("Bóng Ma", "Hiệp Sĩ Tử Vong", "Lich King"));
 
         public final String id; public final String name;
         public final int minLv; public final int maxLv;
@@ -131,10 +137,12 @@ public class ExplorationService {
             }
         } else if (roll < 91) {
             type = "ENEMY";
+            // Random quái trong danh sách Map
             String enemyName = map.enemies.get(r.nextInt(map.enemies.size()));
 
+            // Tìm quái trong DB
             Enemy baseEnemy = enemyRepository.findByName(enemyName)
-                    .orElseGet(() -> enemyRepository.findAll().stream().findFirst().orElseThrow());
+                    .orElseGet(() -> enemyRepository.findAll().stream().findFirst().orElseThrow(() -> new RuntimeException("Database chưa có quái!")));
 
             createScaledBattleSession(c, baseEnemy);
 
@@ -183,8 +191,10 @@ public class ExplorationService {
 
         int lvl = enemy.getLevel() != null ? enemy.getLevel() : 1;
 
-        int scaledHp = (int) (enemy.getHp() * (1 + lvl * 0.15));
-        int scaledAtk = (int) (enemy.getAtk() * (1 + lvl * 0.10));
+        // [LOGIC SCALE] Tăng nhẹ sức mạnh quái nếu nhân vật level quá cao quay lại farm
+        // Nhưng vẫn giữ base stats của quái làm gốc
+        int scaledHp = (int) (enemy.getHp() * (1 + lvl * 0.1));
+        int scaledAtk = (int) (enemy.getAtk() * (1 + lvl * 0.05));
         int scaledDef = (int) (enemy.getDef() * (1 + lvl * 0.05));
 
         BattleSession session = new BattleSession();
@@ -195,16 +205,16 @@ public class ExplorationService {
         session.setEnemyCurrentHp(scaledHp);
         session.setEnemyAtk(scaledAtk);
         session.setEnemyDef(scaledDef);
+        session.setEnemySpeed(enemy.getSpeed()); // [FIX] Lấy speed từ DB
 
         session.setPlayerMaxHp(player.getMaxHp());
         session.setPlayerCurrentHp(player.getCurrentHp());
 
         session.setCurrentTurn(0);
-        session.setCreatedAt(LocalDateTime.now()); // Field này đã fix ở BattleSession
+        session.setCreatedAt(LocalDateTime.now());
 
         battleSessionRepo.save(session);
 
-        // [FIX] Enum CharacterStatus đã được import
         player.setStatus(CharacterStatus.IN_COMBAT);
     }
 

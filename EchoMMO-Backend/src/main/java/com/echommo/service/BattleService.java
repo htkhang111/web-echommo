@@ -62,7 +62,6 @@ public class BattleService {
 
     /**
      * XỬ LÝ LƯỢT ĐÁNH (TURN)
-     * Giữ nguyên công thức đơn giản: Dame = Atk - Def
      */
     @Transactional
     public BattleResult processTurn(String actionType) {
@@ -79,19 +78,22 @@ public class BattleService {
         int pCritDmg = c.getBaseCritDmg();
         int pSpeed = c.getBaseSpeed();
 
-        // Tính Crit Rate chuẩn: 5% + (Luck/5)
+        // Crit Rate: 5% + (Luck/5)
         int pLuck = c.getLuck() != null ? c.getLuck() : 5;
         int pCritRate = 5 + (pLuck / 5);
 
         int eDef = s.getEnemyDef();
         int eSpeed = s.getEnemySpeed() != null ? s.getEnemySpeed() : 10;
-        int eDodgeChance = Math.max(0, 5 + (eSpeed - pSpeed));
+
+        // [FIX] Giới hạn né tối đa 60% để tránh việc đánh mãi không trúng
+        // Công thức: 5% gốc + Chênh lệch tốc độ
+        int eDodgeChance = Math.min(60, Math.max(0, 5 + (eSpeed - pSpeed)));
 
         // A. Player đánh
         if (random.nextInt(100) < eDodgeChance) {
-            logs.add("💨 BẠN ĐÁNH TRƯỢT! " + s.getEnemyName() + " né được.");
+            logs.add("💨 BẠN ĐÁNH TRƯỢT! " + s.getEnemyName() + " né được (" + eDodgeChance + "%).");
         } else {
-            // [LOGIC CŨ] Sát thương = Công - Thủ (Tối thiểu 1)
+            // Sát thương = Công - Thủ (Tối thiểu 1)
             int dmg = Math.max(1, pAtk - eDef);
 
             // Player Crit Check
@@ -113,13 +115,15 @@ public class BattleService {
         // --- 2. ENEMY ATTACK ---
         int eAtk = s.getEnemyAtk();
         int pDef = c.getBaseDef();
+
+        // [FIX] Giới hạn né của người chơi max 50%
         int pDodgeChance = Math.min(50, Math.max(0, (pSpeed - eSpeed) / 2));
 
         // A. Kiểm tra Né tránh
         if (random.nextInt(100) < pDodgeChance) {
             logs.add("✨ BẠN NÉ ĐƯỢC đòn tấn công!");
         } else {
-            // [LOGIC CŨ] Quái đánh = Công Quái - Thủ Player
+            // Quái đánh = Công Quái - Thủ Player
             int dmg = Math.max(1, eAtk - pDef);
 
             logs.add("🛡️ " + s.getEnemyName() + " đánh trả " + dmg + " sát thương.");
@@ -137,6 +141,7 @@ public class BattleService {
     }
 
     private BattleResult handleWin(BattleSession session, Character character, List<String> logs) {
+        // Tìm quái gốc để lấy reward. Nếu không thấy (do xóa DB) thì tạo quái tạm để không crash.
         Enemy enemy = enemyRepo.findById(session.getEnemyId()).orElse(new Enemy());
         int enemyLvl = enemy.getLevel() != null ? enemy.getLevel() : 1;
 
@@ -158,7 +163,16 @@ public class BattleService {
         }
 
         character.setStatus(CharacterStatus.IDLE);
-        character.setCurrentHp(character.getMaxHp()); // Hồi full máu sau trận
+
+        // [QUAN TRỌNG] ĐÃ BỎ HỒI MÁU FULL.
+        // Chỉ hồi nhẹ 5 HP tượng trưng (hoặc bỏ hẳn dòng này) để Bình Máu có tác dụng.
+        // character.setCurrentHp(character.getMaxHp()); <--- Dòng cũ gây mất cân bằng
+        int regen = 5;
+        if(character.getCurrentHp() + regen < character.getMaxHp()){
+            character.setCurrentHp(character.getCurrentHp() + regen);
+        } else {
+            character.setCurrentHp(character.getMaxHp());
+        }
 
         walletRepo.save(wallet);
         charRepo.save(character);
@@ -184,6 +198,10 @@ public class BattleService {
             c.setLevel(c.getLevel() + 1);
             c.setCurrentExp(c.getCurrentExp() - requiredExp);
             charService.recalculateStats(c); // Update Stats
+
+            // Lên cấp thì cho hồi full máu
+            c.setCurrentHp(c.getMaxHp());
+            c.setCurrentEnergy(c.getMaxEnergy());
         }
     }
 
