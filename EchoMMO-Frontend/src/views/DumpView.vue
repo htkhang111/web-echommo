@@ -516,7 +516,11 @@ onMounted(() => {
               :class="item.rarity ? item.rarity.toLowerCase() : 'common'"
             >
               <div class="item-icon-wrapper">
-                <img :src="getAssetUrl(item.code)" class="reward-icon" />
+                <img 
+                  :src="getAssetUrl(item.code)" 
+                  class="reward-icon" 
+                  @error="handleImgError"
+                />
               </div>
               <span class="val">{{ item.name }} x{{ item.quantity }}</span>
             </div>
@@ -546,6 +550,12 @@ const isNight = ref(false);
 const updateDayNight = () => {
   const h = new Date().getHours();
   isNight.value = h >= 18 || h < 6;
+};
+
+// --- HÀM XỬ LÝ ẢNH LỖI ---
+const handleImgError = (e) => {
+  // Nếu ảnh lỗi, load ảnh than đá mặc định để không bị vỡ khung
+  e.target.src = getAssetUrl("o_coal");
 };
 
 // --- LOGIC HỒ BÍ ẨN ---
@@ -634,7 +644,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* GIỮ NGUYÊN CSS BACKGROUND & LAYOUT CŨ */
+/* GIỮ NGUYÊN CSS CŨ */
 .bg-layer {
   position: absolute;
   inset: 0;

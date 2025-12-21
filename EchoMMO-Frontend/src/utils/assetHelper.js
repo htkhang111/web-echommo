@@ -295,107 +295,126 @@
 // };
 import { reactive } from "vue";
 
-// 1. Cấu hình Base URL
+// 1. Cấu hình Base URL trỏ thẳng về GitHub Pages
 const BASE_URL = "https://htkhang111.github.io";
 
-// 2. Map tiền tố -> Thư mục
+// 2. Map tiền tố (Prefix) -> Thư mục assets tương ứng
 const PREFIX_MAP = {
-  "s_":  "/resources/equipment/sword",
-  "a_":  "/resources/equipment/armor",
-  "h_":  "/resources/equipment/helmet",
-  "ri_": "/resources/equipment/ring",
-  "n_":  "/resources/equipment/necklace",
-  "b_":  "/resources/equipment/boots",
-  
+  // --- EQUIPMENT (Trang bị) ---
+  s_: "/resources/equipment/sword",
+  a_: "/resources/equipment/armor",
+  h_: "/resources/equipment/helmet",
+  ri_: "/resources/equipment/ring",
+  n_: "/resources/equipment/necklace",
+  b_: "/resources/equipment/boots",
+
+  // --- TOOLS (Dành cho trường hợp chỉ lưu tên file: "a-0-strongaxe.png") ---
   "fr-": "/resources/tool/fishing-rod",
-  "p-":  "/resources/tool/pickaxe",
-  "a-":  "/resources/tool/axe",
-  "s-":  "/resources/tool/shovel",
+  "p-": "/resources/tool/pickaxe",
+  "a-": "/resources/tool/axe",
+  "s-": "/resources/tool/shovel",
 };
 
-// 3. Ngoại lệ đuôi file
+// 3. Xử lý các file ngoại lệ (không phải .png)
 const EXCEPTIONS = {
-  "a-4-heartoftheforest": ".webp"
+  "a-4-heartoftheforest": ".webp",
 };
 
+// Helper: Ghép Base URL với path + Xử lý khoảng trắng (encodeURI)
 const getUrl = (path) => {
   if (!path) return "";
   if (path.startsWith("http") || path.startsWith("data:")) return path;
+
+  // Đảm bảo path bắt đầu bằng /
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  // encodeURI để xử lý các file có khoảng trắng như "best axeinthegame.png"
   return `${BASE_URL}${encodeURI(cleanPath)}`;
 };
 
 export const resolveItemImage = (itemCode) => {
-  // --- FALLBACK MẶC ĐỊNH ---
-  // Nếu null/undefined trả về than đá (hoặc hình dấu hỏi nếu bạn có)
+  // 1. Fallback mặc định
   if (!itemCode) return getUrl("/resources/material/o_coal.png");
 
-  // Nếu là link full
+  // 2. Nếu là link full (http) hoặc data base64 thì giữ nguyên
   if (itemCode.includes("http") || itemCode.includes("data:")) return itemCode;
 
   const code = itemCode.trim();
   const lowerCode = code.toLowerCase();
 
-  // --- [NEW] XỬ LÝ PATH CỨNG TỪ DB ---
-  // Nếu DB lưu "tool/pickaxe/p-0.png" -> Tự thêm /resources/
-  if (lowerCode.includes("/") && !lowerCode.startsWith("resources")) {
-     return getUrl(`/resources/${code}`);
+  // --- [FIX QUAN TRỌNG] XỬ LÝ ĐƯỜNG DẪN CÓ SẴN TRONG DB ---
+  // Nếu trong DB lưu dạng "tool/axe/a-0-strongaxe.png" hoặc "resources/..."
+  if (lowerCode.startsWith("tool/") || lowerCode.startsWith("equipment/")) {
+    return getUrl(`/resources/${code}`); // Thêm /resources/ vào trước
   }
-  // Nếu DB lưu "resources/..." -> Giữ nguyên
   if (lowerCode.startsWith("resources/")) {
-     return getUrl(`/${code}`);
+    return getUrl(`/${code}`); // Giữ nguyên, chỉ thêm / đầu
   }
 
   // --- SPECIAL CASES ---
   if (lowerCode === "logo") return getUrl("/logo/Logo.png");
-  if (lowerCode === "r_potion" || lowerCode.includes("r_potion")) return getUrl("/resources/r_potion.png");
-  
+
+  // Potion
+  if (lowerCode === "r_potion" || lowerCode === "r_potion.png") {
+    return getUrl("/resources/r_potion.png");
+  }
+
+  // --- COIN ---
   if (lowerCode.includes("coin")) {
-      const fileName = lowerCode.includes("echo") ? "r_coin-echo.png" : "r_coin.png";
-      return getUrl(`/resources/coin/${fileName}`);
+    const fileName = lowerCode.includes("echo")
+      ? "r_coin-echo.png"
+      : "r_coin.png";
+    return getUrl(`/resources/coin/${fileName}`);
   }
 
-  // --- EXTENSION HANDLING ---
-  let ext = ".png"; 
-  if (lowerCode.match(/\.(png|jpg|jpeg|webp|gif)$/)) {
-    ext = ""; // Đã có đuôi
-  } else if (EXCEPTIONS[lowerCode]) {
-    ext = EXCEPTIONS[lowerCode];
-  }
+  // --- XỬ LÝ EXTENSION (Nếu code chưa có đuôi file) ---
+  let ext = ".png";
+  let cleanName = code; // Dùng code gốc để giữ hoa thường nếu cần (dù file server thường case-insensitive)
 
-  // --- PREFIX MAPPING ---
-  for (const [prefix, folder] of Object.entries(PREFIX_MAP)) {
-    if (lowerCode.startsWith(prefix)) {
-      // Fix vụ b_ vừa là boots vừa là background
-      if (prefix === "b_" && !lowerCode.includes("boot")) continue; 
-      return getUrl(`${folder}/${code}${ext}`);
+  if (
+    lowerCode.endsWith(".png") ||
+    lowerCode.endsWith(".jpg") ||
+    lowerCode.endsWith(".webp")
+  ) {
+    ext = "";
+  } else {
+    // Check ngoại lệ đuôi file
+    if (EXCEPTIONS[lowerCode]) {
+      ext = EXCEPTIONS[lowerCode];
     }
   }
 
-  // --- BACKGROUND CHECK ---
-  if (lowerCode.startsWith("b_")) {
-      const bgExt = (lowerCode.includes("doanhtrai") || lowerCode.endsWith(".png")) ? "" : ".jpg";
-      // Background nằm ngoài resources
-      return getUrl(`/background/${code}${bgExt}`);
+  // --- CHECK PREFIX MAP (Equipment & Tools - Chỉ chạy khi DB lưu tên file trần) ---
+  for (const [prefix, folder] of Object.entries(PREFIX_MAP)) {
+    if (lowerCode.startsWith(prefix)) {
+      // Trường hợp đặc biệt: b_ vừa là boots vừa là background
+      if (prefix === "b_" && !lowerCode.includes("boot")) {
+        continue; // Bỏ qua, để logic background bên dưới xử lý
+      }
+      return getUrl(`${folder}/${cleanName}${ext}`);
+    }
   }
 
-  // --- [NEW] INTELLIGENT FALLBACK ---
-  // Nếu code không khớp prefix nào, thay vì auto ném vào material, ta check tên
-  if (lowerCode.includes("sword")) return getUrl(`/resources/equipment/sword/${code}${ext}`);
-  if (lowerCode.includes("armor")) return getUrl(`/resources/equipment/armor/${code}${ext}`);
-  if (lowerCode.includes("helmet")) return getUrl(`/resources/equipment/helmet/${code}${ext}`);
-  
-  // Mặc định cuối cùng mới là Material
-  return getUrl(`/resources/material/${code}${ext}`);
+  // --- BACKGROUNDS (b_ nhưng không phải boots) ---
+  if (lowerCode.startsWith("b_")) {
+    if (lowerCode.endsWith(".png") || lowerCode.endsWith(".jpg")) {
+      return getUrl(`/background/${code}`);
+    }
+    const bgExt = lowerCode.includes("doanhtrai") ? ".png" : ".jpg";
+    return getUrl(`/background/${code}${bgExt}`);
+  }
+
+  // --- MATERIALS (Mặc định cho f_, o_, w_...) ---
+  // Nếu không khớp logic nào ở trên -> coi là nguyên liệu
+  return getUrl(`/resources/material/${cleanName}${ext}`);
 };
 
-// ... (Giữ nguyên phần export skin/character bên dưới)
+// --- EXPORTS ALIAS ---
 export const getAppLogo = () => getUrl("/logo/Logo.png");
 export const getAssetUrl = resolveItemImage;
 export const getItemImage = resolveItemImage;
 export const getResourceImage = resolveItemImage;
 
-// ... (Copy lại phần CHARACTER_SKINS cũ vào đây)
+// --- CHARACTER & ENEMY HELPERS ---
 const getCharImg = (name) => getUrl(`/character/${name}`);
 const getEnemyImg = (name) => getUrl(`/enemy/${name}`);
 
@@ -406,8 +425,8 @@ export const CHARACTER_SKINS = reactive({
     sprites: {
       idle: getCharImg("idle_yasou.png"),
       run: getCharImg("run_yasou.png"),
-      attack: getCharImg("atk_yasou.png")
-    }
+      attack: getCharImg("atk_yasou.png"),
+    },
   },
   skin_demon: {
     id: "skin_demon",
@@ -415,8 +434,8 @@ export const CHARACTER_SKINS = reactive({
     sprites: {
       idle: getCharImg("idle_demon1.png"),
       run: getCharImg("run_demon1.png"),
-      attack: getCharImg("atk_demon1.png")
-    }
+      attack: getCharImg("atk_demon1.png"),
+    },
   },
   skin_langkhach: {
     id: "skin_langkhach",
@@ -424,25 +443,43 @@ export const CHARACTER_SKINS = reactive({
     sprites: {
       idle: getCharImg("idle_langkhach1.png"),
       run: getCharImg("run_langkhach1.png"),
-      attack: getCharImg("atk_langkhach1.png")
-    }
+      attack: getCharImg("atk_langkhach1.png"),
+    },
   },
 });
 
-export const getCurrentSkin = (avatarUrl) => CHARACTER_SKINS[avatarUrl] || CHARACTER_SKINS["skin_yasou"];
+export const getCurrentSkin = (avatarUrl) =>
+  CHARACTER_SKINS[avatarUrl] || CHARACTER_SKINS["skin_yasou"];
 
 export const getEnemyImage = (name, state = "idle") => {
   if (!name) return getEnemyImg("idle_goblin.png");
 
   const normalizedName = name.toLowerCase();
-  const prefix = state === 'attack' ? 'atk_' : 'idle_';
+  const prefix = state === "attack" ? "atk_" : "idle_";
 
   let fileName = "goblin";
-  if (normalizedName.includes("xuong") || normalizedName.includes("skeleton")) fileName = "skeleton";
-  else if (normalizedName.includes("nam") || normalizedName.includes("mushroom")) fileName = "mushroom";
-  else if (normalizedName.includes("ac quy") || normalizedName.includes("demon")) fileName = "demon1";
-  else if (normalizedName.includes("lang khach") || normalizedName.includes("langkhach")) fileName = "langkhach1";
-  else if (normalizedName.includes("kiem si") || normalizedName.includes("yasou")) fileName = "yasou";
+  if (normalizedName.includes("xuong") || normalizedName.includes("skeleton"))
+    fileName = "skeleton";
+  else if (
+    normalizedName.includes("nam") ||
+    normalizedName.includes("mushroom")
+  )
+    fileName = "mushroom";
+  else if (
+    normalizedName.includes("ac quy") ||
+    normalizedName.includes("demon")
+  )
+    fileName = "demon1";
+  else if (
+    normalizedName.includes("lang khach") ||
+    normalizedName.includes("langkhach")
+  )
+    fileName = "langkhach1";
+  else if (
+    normalizedName.includes("kiem si") ||
+    normalizedName.includes("yasou")
+  )
+    fileName = "yasou";
 
   return getEnemyImg(`${prefix}${fileName}.png`);
 };
