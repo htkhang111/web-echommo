@@ -20,7 +20,8 @@ import Inventory from '../views/Inventory.vue'
 import Marketplace from '../views/Marketplace.vue'
 import Forge from '../views/Forge.vue'
 import EvolveMythic from '../views/EvolveMythic.vue'
-import PvpArena from '../views/PvpArena.vue' // [NEW] Import trang PvP mới
+import PvpArena from '../views/PvpArena.vue'
+import DumpView from '../views/DumpView.vue' // [NEW] Import
 
 // --- Social & Info ---
 import Leaderboard from '../views/Leaderboard.vue'
@@ -61,6 +62,9 @@ const router = createRouter({
     
     // [NEW] Route cho Lôi Đài
     { path: '/pvp', name: 'PvpArena', component: PvpArena, meta: { requiresAuth: true } },
+    
+    // [NEW] Route cho Hồ Bí Ẩn (Dump)
+    { path: '/dump', name: 'Dump', component: DumpView, meta: { requiresAuth: true } },
 
     { path: '/leaderboard', name: 'Leaderboard', component: Leaderboard, meta: { requiresAuth: true } },
     { path: '/friends', name: 'Friends', component: Friends, meta: { requiresAuth: true } },

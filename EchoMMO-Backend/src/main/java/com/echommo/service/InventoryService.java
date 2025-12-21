@@ -13,6 +13,8 @@ public interface InventoryService {
 
     UserItem enhanceItem(Long charId, Long userItemId);
 
-    // [FIX] Thêm hàm này
     void addItemToInventory(User user, Integer itemId, int quantity);
+
+    // [NEW] Mở rộng kho đồ
+    User expandInventory(User user);
 }

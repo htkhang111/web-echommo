@@ -5,12 +5,14 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Builder
 @Entity
 @Data
 @NoArgsConstructor
@@ -24,6 +26,11 @@ public class User {
 
     @Column(nullable = false, unique = true)
     private String username;
+
+    // Thêm vào class User
+    @Column(name = "inventory_slots")
+    @Builder.Default
+    private Integer inventorySlots = 50;
 
     @Column(name = "password_hash", nullable = false)
     @JsonIgnore

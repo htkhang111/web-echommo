@@ -4,10 +4,13 @@ import com.echommo.entity.Character;
 import com.echommo.entity.Item;
 import com.echommo.entity.User;
 import com.echommo.entity.UserItem;
+import com.echommo.entity.Wallet;
 import com.echommo.enums.Rarity;
 import com.echommo.repository.CharacterRepository;
 import com.echommo.repository.ItemRepository;
 import com.echommo.repository.UserItemRepository;
+import com.echommo.repository.UserRepository;
+import com.echommo.repository.WalletRepository;
 import com.echommo.service.EquipmentService;
 import com.echommo.service.InventoryService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,8 @@ public class InventoryServiceImpl implements InventoryService {
     private final ItemRepository itemRepo;
     private final CharacterRepository charRepo;
     private final EquipmentService equipmentService;
+    private final WalletRepository walletRepo;
+    private final UserRepository userRepo;
 
     @Override
     public List<UserItem> getInventory(Integer charId) {
@@ -36,7 +41,7 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public void equipItem(Long charId, Long userItemId) {
-        // Logic mặc đồ
+        // Logic mặc đồ giữ nguyên, xử lý ở Controller hoặc chuyển vào đây nếu muốn
     }
 
     @Override
@@ -53,7 +58,31 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
+    public User expandInventory(User user) {
+        int currentSlots = user.getInventorySlots() != null ? user.getInventorySlots() : 50;
+        int nextSlots = currentSlots + 5;
+
+        // Công thức: ((current - 50) / 5) + 1
+        // VD: 50 -> 1 Coin, 55 -> 2 Coin...
+        int costInt = ((currentSlots - 50) / 5) + 1;
+        BigDecimal cost = BigDecimal.valueOf(costInt);
+
+        Wallet w = user.getWallet();
+        if (w.getEchoCoin().compareTo(cost) < 0) {
+            throw new RuntimeException("Thiếu Echo Coin! Cần " + cost + " để mở thêm 5 ô.");
+        }
+
+        w.setEchoCoin(w.getEchoCoin().subtract(cost));
+        walletRepo.save(w);
+
+        user.setInventorySlots(nextSlots);
+        return userRepo.save(user);
+    }
+
+    @Override
+    @Transactional
     public void addItemToInventory(User user, Integer itemId, int quantity) {
+        // Giữ nguyên logic cũ
         Character character = charRepo.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Character not found"));
 
@@ -75,11 +104,10 @@ public class InventoryServiceImpl implements InventoryService {
                     .item(item)
                     .quantity(quantity)
                     .isEquipped(false)
-                    // [FIX] Đổi enhancementLevel -> enhanceLevel
                     .enhanceLevel(0)
                     .rarity(Rarity.COMMON)
                     .acquiredAt(LocalDateTime.now())
-                    .mainStatValue(BigDecimal.ZERO) // Init giá trị tránh null
+                    .mainStatValue(BigDecimal.ZERO)
                     .build();
             userItemRepo.save(ui);
         }

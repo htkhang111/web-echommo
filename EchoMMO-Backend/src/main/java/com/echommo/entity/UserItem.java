@@ -58,13 +58,22 @@ public class UserItem {
     @Column(name = "visual_variant")
     private Integer visualVariant = 0;
 
+    // Thêm vào class UserItem
+    @Column(name = "mythic_stars")
+    @Builder.Default
+    private Integer mythicStars = 0;
+
+    @Column(name = "current_durability")
+    @Builder.Default
+    private Integer currentDurability = 100;
+
+    @Column(name = "max_durability")
+    @Builder.Default
+    private Integer maxDurability = 100;
+
     @Builder.Default
     @Column(name = "is_mythic")
     private boolean isMythic = false;
-
-    @Builder.Default
-    @Column(name = "mythic_stars")
-    private Integer mythicStars = 0;
 
     @Column(name = "original_main_stat_value")
     private BigDecimal originalMainStatValue;

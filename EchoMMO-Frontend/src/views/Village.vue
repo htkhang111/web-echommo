@@ -1114,7 +1114,7 @@ onUnmounted(() => {
                     </div>
                   </div>
 
-                  <button class="action-btn wuxia-btn" @click="openSpaMenu" :disabled="isFull">
+                  <button class="wuxia-btn outline" @click="openSpaMenu" :disabled="isFull">
                     {{ isFull ? 'SUNG MÃN' : 'NGHỈ NGƠI' }}
                   </button>
                 </template>
@@ -1141,7 +1141,8 @@ onUnmounted(() => {
                 <div class="tile-icon"><i class="fas fa-hammer"></i></div>
                 <h3 class="tile-title">THẦN BINH</h3>
                 <p class="tile-desc">Rèn đúc trang bị</p>
-                <div class="btn-fake outline">VÀO LÒ RÈN</div>
+                
+                <div class="wuxia-btn outline">VÀO LÒ RÈN</div>
              </div>
              <div class="corner-decor top-right"></div>
              <div class="corner-decor bottom-left"></div>
@@ -1155,9 +1156,9 @@ onUnmounted(() => {
                 <p class="tile-desc">Chuyển hóa thần khí</p>
                 
                 <div v-if="!canEnterMythic" class="lock-msg">
-                  <i class="fas fa-lock"></i> Cần đồ +30
+                  <i class="fas fa-lock"></i> <span style="margin-left:5px">Cần đồ +30</span>
                 </div>
-                <div v-else class="btn-fake outline">VÀO ĐIỆN</div>
+                <div v-else class="wuxia-btn outline">VÀO ĐIỆN</div>
              </div>
              <div class="corner-decor top-right"></div>
              <div class="corner-decor bottom-left"></div>
@@ -1199,7 +1200,7 @@ onUnmounted(() => {
                  <div class="meta-row"><span><i class="far fa-clock"></i> 10s</span> <span class="gold-txt">200 Vàng</span></div>
               </div>
            </div>
-           <button class="action-btn close-btn" @click="showSpaMenu = false">Đóng</button>
+           <button class="wuxia-btn close-btn" @click="showSpaMenu = false">ĐÓNG</button>
         </div>
       </div>
     </transition>
@@ -1210,7 +1211,7 @@ onUnmounted(() => {
            <div class="success-icon"><i class="fas fa-check-circle"></i></div>
            <h3 class="modal-header-txt">HỒI PHỤC HOÀN TẤT</h3>
            <p class="modal-msg">"Khách quan thần thái hồng hào, nội công sung mãn. Chúc ngài thượng lộ bình an!"</p>
-           <button class="action-btn" @click="closeRestModal">ĐA TẠ</button>
+           <button class="wuxia-btn full-width" @click="closeRestModal">ĐA TẠ</button>
         </div>
       </div>
     </transition>
@@ -1226,8 +1227,7 @@ import { useInventoryStore } from "../stores/inventoryStore";
 import { useAuthStore } from "../stores/authStore";
 import axiosClient from "../api/axiosClient";
 
-// --- LOGIC GIAO DIỆN (Background & Time) ---
-// Dùng link GitHub trực tiếp để đảm bảo ảnh hiện ngay
+// --- BACKGROUND & TIME LOGIC ---
 const bgImage = "https://htkhang111.github.io/background/b_doanhtrai.png";
 
 const wuxiaTime = reactive({ zodiac: "Giờ Tý", realTime: "00:00" });
@@ -1236,9 +1236,7 @@ const isNight = ref(false);
 let clockInterval = null;
 
 const getZodiacTime = (hour) => {
-  // (Giữ nguyên logic zodiac của bạn hoặc copy từ Home)
   const zodiacs = ["Tý","Sửu","Dần","Mão","Thìn","Tỵ","Ngọ","Mùi","Thân","Dậu","Tuất","Hợi"];
-  // Công thức đơn giản hóa:
   const idx = Math.floor(((hour + 1) % 24) / 2);
   return `Giờ ${zodiacs[idx]}`;
 };
@@ -1250,7 +1248,7 @@ const updateTime = () => {
   isNight.value = h >= 18 || h < 6;
 };
 
-// --- LOGIC GAME (Giữ nguyên từ code cũ của bạn) ---
+// --- GAME LOGIC ---
 const router = useRouter();
 const charStore = useCharacterStore();
 const authStore = useAuthStore();
@@ -1301,7 +1299,7 @@ const confirmRest = async (type) => {
     localStorage.setItem(STORAGE_KEY_END_TIME, finishTime);
     countdown.value = duration;
     isResting.value = true;
-    await authStore.fetchProfile(); // Update tiền
+    await authStore.fetchProfile(); 
     startTimer();
   } catch (e) {
     const errorMsg = e.response?.data?.message || "Lỗi hệ thống";
@@ -1389,7 +1387,7 @@ onUnmounted(() => {
   box-sizing: border-box;
 }
 
-/* --- BACKGROUND SYSTEM (COPY FROM HOME) --- */
+/* --- BACKGROUND SYSTEM --- */
 .bg-layer { position: absolute; inset: 0; z-index: 0; background: #261815; }
 .mountain-bg { position: absolute; inset: 0; background-size: cover; background-position: center bottom; opacity: 0.6; filter: sepia(10%) contrast(1.1); }
 .wood-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(62, 39, 35, 0.7), rgba(30, 20, 15, 0.9)); mix-blend-mode: multiply; transition: background 2s ease; }
@@ -1422,7 +1420,7 @@ onUnmounted(() => {
 
 .hub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 25px; }
 
-/* --- WOOD CARD STYLE (Common) --- */
+/* --- WOOD CARD STYLE --- */
 .wood-card {
   position: relative; background: linear-gradient(135deg, var(--wood-card) 0%, var(--wood-base) 100%);
   border: 1px solid #6d4c41; border-radius: 6px; overflow: hidden;
@@ -1434,36 +1432,63 @@ onUnmounted(() => {
   box-shadow: 0 15px 30px rgba(0,0,0,0.6), 0 0 10px rgba(255, 215, 0, 0.1);
 }
 .card-content { padding: 25px; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; z-index: 2; height: 100%; box-sizing: border-box; }
-.tile-icon { font-size: 2.2rem; color: var(--text-dim); margin-bottom: 10px; transition: 0.3s; }
+.tile-icon { font-size: 2.2rem; color: var(--text-dim); margin-bottom: 15px; transition: 0.3s; }
 .wood-card:hover .tile-icon { color: var(--gold-accent); transform: scale(1.1); filter: drop-shadow(0 0 8px rgba(255,215,0,0.4)); }
 
 .tile-title { margin: 0; font-family: "Playfair Display", serif; font-size: 1.4rem; color: #fff; margin-bottom: 5px; }
-.tile-desc { font-size: 0.85rem; color: var(--gold); font-style: italic; margin-bottom: 15px; opacity: 0.8; }
+.tile-desc { font-size: 0.85rem; color: var(--gold); font-style: italic; margin-bottom: 20px; opacity: 0.8; }
 
 .corner-decor { position: absolute; width: 8px; height: 8px; border: 1px solid transparent; transition: 0.3s; }
 .top-right { top: 4px; right: 4px; border-top-color: rgba(255,255,255,0.1); border-right-color: rgba(255,255,255,0.1); }
 .bottom-left { bottom: 4px; left: 4px; border-bottom-color: rgba(255,255,255,0.1); border-left-color: rgba(255,255,255,0.1); }
 .wood-card:hover .corner-decor { width: 100%; height: 100%; border-color: var(--gold-accent); opacity: 0.3; }
 
-/* Buttons inside Cards */
+/* ========================================= */
+/* 🔥 BUTTON STYLES (Đã update dạng Outline) */
+/* ========================================= */
 .wuxia-btn {
-  background: var(--gold-accent); color: #261815; font-weight: 800; border: none;
-  padding: 8px 20px; border-radius: 4px; cursor: pointer; margin-top: auto;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3); transition: 0.2s;
+  font-family: "Noto Serif", serif;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: auto;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  display: inline-block;
+  line-height: 1.2;
 }
-.wuxia-btn:hover { background: #fff; color: #b71c1c; }
-.wuxia-btn:disabled { background: #4e342e; color: #795548; cursor: not-allowed; }
 
-.btn-fake.outline {
-  border: 1px solid var(--text-dim); color: var(--text-dim); padding: 6px 15px;
-  font-size: 0.8rem; border-radius: 20px; transition: 0.3s; margin-top: auto;
+/* Kiểu Outline (Viền mảnh, bo tròn) */
+.wuxia-btn.outline {
+  background: transparent;
+  border: 1px solid var(--text-dim);
+  color: var(--text-dim);
+  padding: 10px 30px;
+  border-radius: 30px;
+  width: auto;
 }
-.wood-card:hover .btn-fake.outline { border-color: var(--gold-accent); color: var(--gold-accent); background: rgba(0,0,0,0.2); }
+
+/* Hover Effect cho nút Outline */
+.wood-card:hover .wuxia-btn.outline:not(:disabled),
+.wuxia-btn.outline:hover:not(:disabled) {
+  border-color: var(--gold-accent);
+  color: var(--gold-accent);
+  background: rgba(255, 215, 0, 0.05);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+
+.wuxia-btn.outline:active { transform: scale(0.95); }
+.wuxia-btn.outline:disabled { color: #4e342e; border-color: #3e2723; cursor: not-allowed; }
+
+/* Kiểu nút đóng / full width */
+.wuxia-btn.close-btn { background: #3e2723; color: #d7ccc8; border: none; padding: 10px; width: 100%; margin-top: 15px; border-radius: 4px; }
+.wuxia-btn.full-width { background: var(--gold-accent); color: #261815; border: none; padding: 10px; width: 100%; border-radius: 4px; }
 
 /* --- SPECIFIC CARD STYLES --- */
 /* Inn Stats */
-.stats-mini { width: 100%; margin-bottom: 15px; display: flex; flex-direction: column; gap: 6px; }
-.stat-row { display: flex; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--text-dim); }
+.stats-mini { width: 100%; margin-bottom: 25px; display: flex; flex-direction: column; gap: 8px; }
+.stat-row { display: flex; align-items: center; gap: 8px; font-size: 0.75rem; color: var(--text-dim); font-weight: bold; }
 .bar-track { flex: 1; height: 4px; background: rgba(0,0,0,0.5); border-radius: 2px; overflow: hidden; }
 .bar-fill { height: 100%; transition: width 0.5s; }
 .bar-fill.hp { background: #ef5350; }
@@ -1483,7 +1508,7 @@ onUnmounted(() => {
 .mythic-card.locked { filter: grayscale(1); opacity: 0.7; cursor: not-allowed; }
 .lock-msg { color: #ef9a9a; font-size: 0.85rem; margin-top: auto; display: flex; align-items: center; gap: 5px; }
 
-/* Deploy Button (Styled as Hero Tile) */
+/* Deploy Button */
 .deploy-container { margin-top: 10px; }
 .hero-tile { background: radial-gradient(circle at center, #4e342e 0%, #261815 100%); border: 2px solid var(--gold-accent); width: 100%; }
 .hero-tile .card-content { flex-direction: row; justify-content: space-between; text-align: left; padding: 20px 30px; }
@@ -1494,22 +1519,19 @@ onUnmounted(() => {
 .arrow-indicator { font-size: 1.2rem; color: var(--gold-accent); animation: slideRight 1s infinite alternate; }
 @keyframes slideRight { from { transform: translateX(0); } to { transform: translateX(5px); } }
 
-/* --- MODALS (UPDATED) --- */
+/* --- MODALS --- */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(4px); }
 .modal-box { width: 90%; max-width: 500px; flex-direction: column; padding: 30px; background: #261815; border-color: var(--gold); }
 .modal-header-txt { color: var(--gold); font-family: "Playfair Display", serif; margin: 0 0 20px 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; width: 100%; text-align: center; }
 
 .spa-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; margin-bottom: 20px; }
-.spa-item { padding: 15px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; gap: 10px; border: 1px solid #5d4037; }
+.spa-item { padding: 15px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; gap: 10px; border: 1px solid #5d4037; position: relative; overflow: hidden; }
 .spa-item:hover { border-color: var(--gold-accent); background: rgba(255,215,0,0.05); }
 .tile-icon.small { font-size: 1.5rem; margin: 0; }
 .spa-item h4 { margin: 0; font-size: 1rem; color: #fff; }
 .meta-row { display: flex; justify-content: space-between; width: 100%; font-size: 0.8rem; color: var(--text-dim); }
 .gold-txt { color: #ffd700; }
-
 .vip-ribbon { position: absolute; top: 0; right: 0; background: #b71c1c; color: #fff; font-size: 0.6rem; padding: 2px 8px; border-bottom-left-radius: 4px; font-weight: bold; }
-.close-btn { background: #5d4037; color: #d7ccc8; width: 100%; }
-.close-btn:hover { background: #8d6e63; color: #fff; }
 
 .success-icon { font-size: 4rem; color: #66bb6a; margin-bottom: 15px; text-shadow: 0 0 20px rgba(102,187,106,0.4); }
 .modal-msg { text-align: center; font-style: italic; color: var(--text-dim); margin-bottom: 25px; line-height: 1.5; }
