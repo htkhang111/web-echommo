@@ -47,12 +47,17 @@ public class UserItem {
     @Column(name = "main_stat_type")
     private String mainStatType;
 
+    // Hibernate có thể trả về null, Service sẽ xử lý bằng hàm safe()
     @Column(name = "main_stat_value")
     private BigDecimal mainStatValue;
+
+    @Column(name = "original_main_stat_value")
+    private BigDecimal originalMainStatValue;
 
     @Column(name = "sub_stats", columnDefinition = "TEXT")
     private String subStats;
 
+    // --- CÁC TRƯỜNG MỚI KHỚP VỚI DATABASE ---
     @Builder.Default
     @Column(name = "visual_variant")
     private Integer visualVariant = 0;
@@ -65,7 +70,6 @@ public class UserItem {
     @Column(name = "mythic_stars")
     private Integer mythicStars = 0;
 
-    // [NEW] Độ bền công cụ
     @Column(name = "current_durability")
     @Builder.Default
     private Integer currentDurability = 100;
@@ -74,17 +78,17 @@ public class UserItem {
     @Builder.Default
     private Integer maxDurability = 100;
 
-    @Column(name = "original_main_stat_value")
-    private BigDecimal originalMainStatValue;
-
+    // Lifecycle Callbacks
     @PrePersist
-    protected void onCreate() { if (acquiredAt == null) acquiredAt = LocalDateTime.now(); }
+    protected void onCreate() {
+        if (acquiredAt == null) acquiredAt = LocalDateTime.now();
+    }
 
+    // Helper Methods
     public User getUser() {
         return this.character != null ? this.character.getUser() : null;
     }
 
-    // Helpers
     public Integer getLevel() { return this.enhanceLevel != null ? this.enhanceLevel : 0; }
     public void setLevel(Integer level) { this.enhanceLevel = level; }
     public Boolean getIsMythic() { return isMythic; }

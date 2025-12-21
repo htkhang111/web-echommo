@@ -59,7 +59,11 @@
           <div class="nav-icon"><i class="fas fa-scroll"></i></div> <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">Tàng Kinh Các</span></transition>
           <div class="active-bar"></div>
         </router-link>
-
+        <router-link to="/leaderboard" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-crown"></i></div>
+          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">Thiên Thư</span></transition>
+          <div class="active-bar"></div>
+        </router-link>
         <div class="nav-group-label" v-if="!isCollapsed">
           <span class="line"></span><span>HÀNH TRANG</span><span class="line"></span>
         </div>
@@ -82,11 +86,7 @@
           <div class="active-bar"></div>
         </router-link>
 
-        <router-link to="/leaderboard" class="nav-item" @click="closeMobileMenu">
-          <div class="nav-icon"><i class="fas fa-crown"></i></div>
-          <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">Thiên Thư</span></transition>
-          <div class="active-bar"></div>
-        </router-link>
+        
 
       
         <template v-if="authStore.user?.role === 'ADMIN'">

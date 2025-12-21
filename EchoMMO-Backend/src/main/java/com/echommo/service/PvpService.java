@@ -33,6 +33,7 @@ public class PvpService {
         Optional<PvpQueue> myQueue = queueRepo.findByCharId(charId);
         if (myQueue.isPresent()) return null;
 
+        // Tìm đối thủ chênh lệch +/- 5 level
         Optional<PvpQueue> opponentQueue = queueRepo.findMatchCandidate(charId, myChar.getLevel() - 5, myChar.getLevel() + 5)
                 .filter(q -> !q.getCharId().equals(charId));
 
@@ -99,11 +100,12 @@ public class PvpService {
         return match;
     }
 
-    // --- 4. XỬ LÝ TURN (HÒA TRỪ MÁU & DOUBLE KO) ---
+    // --- 4. XỬ LÝ TURN (LOGIC SÁT THƯƠNG ĐÃ FIX) ---
     private void resolveTurn(PvpMatch match) {
         String m1 = match.getP1Move();
         String m2 = match.getP2Move();
 
+        // Lưu lại move của hiệp này để hiển thị ở FE
         match.setLastP1Move(m1);
         match.setLastP2Move(m2);
 
@@ -114,35 +116,49 @@ public class PvpService {
         StringBuilder log = new StringBuilder();
 
         if (m1.equals(m2)) {
+            // HÒA: Trừ mỗi bên một ít máu cố định (hoặc 5% MaxHP) để trận đấu không kéo dài mãi
             int drawDamage = 20;
             hp1 = Math.max(0, hp1 - drawDamage);
             hp2 = Math.max(0, hp2 - drawDamage);
             log.append("⚔️ HÒA! Cùng ra ").append(translateMove(m1))
                     .append(". Nội lực xung khắc! Cả hai mất ").append(drawDamage).append(" HP.");
         } else {
+            // Logic Kéo Búa Bao
             boolean p1Wins = (m1.equals("ROCK") && m2.equals("SCISSORS")) ||
                     (m1.equals("PAPER") && m2.equals("ROCK")) ||
                     (m1.equals("SCISSORS") && m2.equals("PAPER"));
 
-            Character atk = p1Wins ? p1 : p2;
-            Character def = p1Wins ? p2 : p1;
-            String wMove = p1Wins ? m1 : m2;
-            int dmg = Math.max(15, atk.getBaseAtk() - def.getBaseDef());
+            Character attacker = p1Wins ? p1 : p2;
+            Character defender = p1Wins ? p2 : p1;
+            String winningMove = p1Wins ? m1 : m2;
+
+            // [FIX] CÔNG THỨC SÁT THƯƠNG: ATK - DEF
+            int atkValue = attacker.getBaseAtk() != null ? attacker.getBaseAtk() : 10;
+            int defValue = defender.getBaseDef() != null ? defender.getBaseDef() : 0;
+
+            // Sát thương = Công - Giáp
+            int damage = atkValue - defValue;
+
+            // Đảm bảo sát thương tối thiểu là 1 (tránh trường hợp Giáp > Công hồi máu hoặc đánh không mất máu)
+            if (damage < 1) damage = 1;
 
             if (p1Wins) {
-                hp2 = Math.max(0, hp2 - dmg);
-                log.append("💥 ").append(p1.getName()).append(" dùng ").append(translateMove(wMove))
-                        .append(" thắng! ").append(p2.getName()).append(" mất ").append(dmg).append(" HP.");
+                hp2 = Math.max(0, hp2 - damage);
+                log.append("💥 ").append(p1.getName()).append(" dùng ").append(translateMove(winningMove))
+                        .append(" thắng! (Công ").append(atkValue).append(" - Giáp ").append(defValue)
+                        .append(") gây ").append(damage).append(" sát thương.");
             } else {
-                hp1 = Math.max(0, hp1 - dmg);
-                log.append("💥 ").append(p2.getName()).append(" dùng ").append(translateMove(wMove))
-                        .append(" thắng! ").append(p1.getName()).append(" mất ").append(dmg).append(" HP.");
+                hp1 = Math.max(0, hp1 - damage);
+                log.append("💥 ").append(p2.getName()).append(" dùng ").append(translateMove(winningMove))
+                        .append(" thắng! (Công ").append(atkValue).append(" - Giáp ").append(defValue)
+                        .append(") gây ").append(damage).append(" sát thương.");
             }
         }
 
         match.setP1CurrentHp(hp1);
         match.setP2CurrentHp(hp2);
 
+        // Kiểm tra kết quả trận đấu
         if (hp1 <= 0 && hp2 <= 0) {
             match.setStatus("FINISHED");
             match.setWinnerId(null);
@@ -155,6 +171,7 @@ public class PvpService {
             log.append("\n🏆 ").append(hp1 <= 0 ? p2.getName() : p1.getName()).append(" ĐÃ CHIẾN THẮNG!");
             updatePvpStats(wId, lId);
         } else {
+            // Reset move cho turn sau
             match.setP1Move(null);
             match.setP2Move(null);
             match.setTurnCount(match.getTurnCount() + 1);
@@ -183,12 +200,11 @@ public class PvpService {
         queueRepo.findByCharId(charId).ifPresent(queueRepo::delete);
     }
 
-    // --- 7. ĐẦU HÀNG (QUAN TRỌNG: FIX HIỂN THỊ THÔNG BÁO) ---
+    // --- 7. ĐẦU HÀNG ---
     @Transactional
     public void surrenderMatch(Long matchId, Integer charId) {
         PvpMatch match = matchRepo.findById(matchId).orElse(null);
         if (match != null && !"FINISHED".equals(match.getStatus())) {
-            // Xác định người thắng
             Character p1 = match.getPlayer1();
             Character p2 = match.getPlayer2();
 
@@ -198,8 +214,6 @@ public class PvpService {
 
             match.setStatus("FINISHED");
             match.setWinnerId(Long.valueOf(winnerId));
-
-            // Log chuẩn để Frontend bắt được từ khóa "đầu hàng"
             match.setLastLog("🏳️ " + loser.getName() + " đã đầu hàng! " + winner.getName() + " giành chiến thắng.");
 
             updatePvpStats(winnerId, charId);

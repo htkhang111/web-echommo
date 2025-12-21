@@ -2051,7 +2051,7 @@ onUnmounted(() => {
       <div class="vignette"></div>
     </div>
 
-    <div class="dashboard-wrapper">
+    <div class="dashboard-wrapper"> 
       
       <div class="command-header wood-panel">
         <div class="header-left">
@@ -2204,6 +2204,7 @@ onUnmounted(() => {
            <div class="success-icon"><i class="fas fa-check-circle"></i></div>
            <h3 class="modal-header-txt">HỒI PHỤC HOÀN TẤT</h3>
            <p class="modal-msg">"Khách quan thần thái hồng hào, nội công sung mãn. Chúc ngài thượng lộ bình an!"</p>
+           
            <button class="wuxia-btn full-width" @click="closeRestModal">ĐA TẠ</button>
         </div>
       </div>
@@ -2477,7 +2478,37 @@ onUnmounted(() => {
 
 /* Kiểu nút đóng / full width */
 .wuxia-btn.close-btn { background: #3e2723; color: #d7ccc8; border: none; padding: 10px; width: 100%; margin-top: 15px; border-radius: 4px; }
-.wuxia-btn.full-width { background: var(--gold-accent); color: #261815; border: none; padding: 10px; width: 100%; border-radius: 4px; }
+
+/* [FIX] Button ĐA TẠ - Style cứng để đảm bảo hiển thị rõ ràng */
+.wuxia-btn.full-width {
+  background-color: #ffd700 !important; /* Màu vàng kim bắt buộc */
+  color: #3e2723 !important; /* Chữ màu nâu gỗ đậm */
+  border: 2px solid #ffecb3; /* Viền sáng nhẹ */
+  padding: 12px;
+  width: 100%;
+  border-radius: 8px; /* Bo góc mềm mại hơn */
+  font-weight: 900; /* Chữ đậm hơn */
+  font-family: "Noto Serif", serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); /* Đổ bóng để nút nổi lên */
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 100;
+}
+
+/* Hiệu ứng khi di chuột vào */
+.wuxia-btn.full-width:hover {
+  background-color: #ffca28 !important; /* Vàng đậm hơn chút khi hover */
+  transform: translateY(-2px); /* Nảy lên nhẹ */
+  box-shadow: 0 6px 15px rgba(255, 215, 0, 0.3); /* Bóng vàng phát sáng */
+}
+
+.wuxia-btn.full-width:active {
+  transform: translateY(1px); /* Nhấn xuống */
+}
 
 /* --- SPECIFIC CARD STYLES --- */
 /* Inn Stats */
@@ -2507,16 +2538,53 @@ onUnmounted(() => {
 .hero-tile { background: radial-gradient(circle at center, #4e342e 0%, #261815 100%); border: 2px solid var(--gold-accent); width: 100%; }
 .hero-tile .card-content { flex-direction: row; justify-content: space-between; text-align: left; padding: 20px 30px; }
 .hero-tile .row-layout { width: 100%; display: flex; align-items: center; gap: 20px; }
-/* [FIX] CSS cho ngôi đền nhỏ (icon-stamp) thành màu đỏ */
-.icon-stamp.small { width: 50px; height: 50px; font-size: 1.5rem; border: 2px double #ff1744; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #ff1744; background: rgba(183, 28, 28, 0.2); box-shadow: 0 0 10px rgba(255, 23, 68, 0.4); }
+
+/* [MODIFIED] Ngôi đền đỏ tối, vòng tròn xám */
+.icon-stamp.small {
+  width: 50px; height: 50px;
+  font-size: 1.5rem;
+  border: 2px double #9e9e9e; /* Vòng tròn ngoài màu XÁM */
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: #8b0000; /* Ngôi đền bên trong màu ĐỎ TỐI */
+  background: rgba(0,0,0,0.2);
+}
+
 .text-group { flex: 1; }
-.hero-title.small { font-size: 1.5rem; margin: 0; color: #fff; line-height: 1; }
+
+/* [MODIFIED] Chữ XUẤT THÀNH màu trắng */
+.hero-title.small {
+  font-size: 1.5rem;
+  margin: 0;
+  color: #ffffff; /* Màu TRẮNG */
+  line-height: 1;
+}
+/* [MODIFIED] Chữ Hành Hiệp Trượng Nghĩa màu trắng */
+.hero-sub {
+   color: #ffffff; /* Màu TRẮNG */
+   opacity: 0.9;
+   margin-top: 4px;
+}
 .arrow-indicator { font-size: 1.2rem; color: var(--gold-accent); animation: slideRight 1s infinite alternate; }
 @keyframes slideRight { from { transform: translateX(0); } to { transform: translateX(5px); } }
 
 /* --- MODALS --- */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(4px); }
-.modal-box { width: 90%; max-width: 500px; flex-direction: column; padding: 30px; background: #261815; border-color: var(--gold); }
+
+/* [FIX] Reset display flex cho modal box để tránh lỗi layout từ wood-panel */
+.modal-box { 
+  width: 90%; 
+  max-width: 500px; 
+  display: flex; /* Bắt buộc flex */
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: center; 
+  padding: 30px; 
+  background: #261815; 
+  border-color: var(--gold); 
+  z-index: 2001;
+}
+
 .modal-header-txt { color: var(--gold); font-family: "Playfair Display", serif; margin: 0 0 20px 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; width: 100%; text-align: center; }
 
 .spa-options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; margin-bottom: 20px; }
