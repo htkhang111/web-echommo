@@ -58,7 +58,9 @@ public class DumpService {
         // 5. Tính toán phần thưởng (RNG)
         BigDecimal totalGold = BigDecimal.ZERO;
         BigDecimal totalEcho = BigDecimal.ZERO;
-        Map<String, Integer> itemRewards = new HashMap<>();
+
+        // [UPDATED] Dùng Map để gom nhóm item theo Code trước khi chuyển thành List
+        Map<String, DumpResponse.RewardItem> rewardMap = new HashMap<>();
 
         boolean isShark = request.getType().equalsIgnoreCase("SHARK");
 
@@ -79,10 +81,10 @@ public class DumpService {
                     Rarity rarity = (random.nextBoolean()) ? Rarity.RARE : Rarity.EPIC;
                     Item rewardItem = getRandomItemByRarity(rarity);
                     if (rewardItem != null) {
-                        addItemToMap(itemRewards, rewardItem.getName());
+                        addItemToRewardMap(rewardMap, rewardItem);
                         giveItemToUser(character, rewardItem);
                     } else {
-                        // Fallback nếu không tìm thấy item: tặng vàng
+                        // Fallback: tặng vàng
                         totalGold = totalGold.add(BigDecimal.valueOf(200));
                     }
                 }
@@ -98,7 +100,7 @@ public class DumpService {
                     // 25% ra rác (COMMON)
                     Item rewardItem = getRandomItemByRarity(Rarity.COMMON);
                     if (rewardItem != null) {
-                        addItemToMap(itemRewards, rewardItem.getName());
+                        addItemToRewardMap(rewardMap, rewardItem);
                         giveItemToUser(character, rewardItem);
                     }
                 } else {
@@ -114,7 +116,6 @@ public class DumpService {
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
         wallet.setGold(wallet.getGold().add(totalGold));
-        // Handle null echo coin gracefully
         BigDecimal currentEcho = wallet.getEchoCoin() != null ? wallet.getEchoCoin() : BigDecimal.ZERO;
         wallet.setEchoCoin(currentEcho.add(totalEcho));
 
@@ -126,7 +127,7 @@ public class DumpService {
                 .message("Đã thả " + request.getAmount() + " con " + (isShark ? "Cá Mập" : "Cá Thường"))
                 .totalGold(totalGold)
                 .totalEcho(totalEcho)
-                .receivedItems(itemRewards)
+                .receivedItems(new ArrayList<>(rewardMap.values())) // Chuyển map values thành list
                 .build();
     }
 
@@ -138,8 +139,19 @@ public class DumpService {
         return items.get(random.nextInt(items.size()));
     }
 
-    private void addItemToMap(Map<String, Integer> map, String itemName) {
-        map.put(itemName, map.getOrDefault(itemName, 0) + 1);
+    // [UPDATED] Helper mới để quản lý Map reward
+    private void addItemToRewardMap(Map<String, DumpResponse.RewardItem> map, Item item) {
+        if (map.containsKey(item.getCode())) {
+            DumpResponse.RewardItem reward = map.get(item.getCode());
+            reward.setQuantity(reward.getQuantity() + 1);
+        } else {
+            map.put(item.getCode(), DumpResponse.RewardItem.builder()
+                    .code(item.getCode())
+                    .name(item.getName())
+                    .rarity(item.getRarity())
+                    .quantity(1)
+                    .build());
+        }
     }
 
     private void giveItemToUser(Character character, Item item) {

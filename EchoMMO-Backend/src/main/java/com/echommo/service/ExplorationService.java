@@ -3,6 +3,7 @@ package com.echommo.service;
 import com.echommo.dto.ExplorationResponse;
 import com.echommo.entity.*;
 import com.echommo.entity.Character;
+import com.echommo.enums.CharacterStatus; // [FIX] Đã thêm dòng này
 import com.echommo.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,9 @@ public class ExplorationService {
     private final UserItemRepository userItemRepo;
     private final FlavorTextRepository flavorTextRepo;
     private final ItemGenerationService itemGenService;
-    private final EnemyRepository enemyRepository; // Inject thêm để xử lý Enemy
+    private final EnemyRepository enemyRepository;
+    private final BattleSessionRepository battleSessionRepo;
+    private final CharacterService characterService;
 
     // Map chống Spam Click (500ms)
     private final Map<Integer, Long> lastActionMap = new HashMap<>();
@@ -70,7 +73,6 @@ public class ExplorationService {
 
     @Transactional
     public ExplorationResponse explore(User user, String mapId) {
-        // 1. Anti-spam check
         long now = System.currentTimeMillis();
         if (now - lastActionMap.getOrDefault(user.getUserId(), 0L) < 500) {
             throw new RuntimeException("Thao tác quá nhanh!");
@@ -82,7 +84,6 @@ public class ExplorationService {
 
         captchaService.checkLockStatus(c.getUser());
 
-        // Logic cũ: Tốn 1 Energy
         if (c.getCurrentEnergy() < 1) throw new RuntimeException("Hết năng lượng! Hãy vào Spa nghỉ ngơi.");
         c.setCurrentEnergy(c.getCurrentEnergy() - 1);
 
@@ -91,27 +92,22 @@ public class ExplorationService {
 
         Random r = new Random();
         Wallet w = c.getUser().getWallet();
-        c.setCurrentExp(c.getCurrentExp() + 10L + c.getLevel()); // Exp hành tẩu
 
-        int roll = r.nextInt(100); // 0 - 99
+        c.setCurrentExp(c.getCurrentExp() + 10L + c.getLevel());
+
+        int roll = r.nextInt(100);
         String type; String msg;
         String rewardName = null; Integer rewardAmount = 0; Integer rewardItemId = null;
 
-        // --- [LOGIC TỈ LỆ MỚI: 70 / 11 / 10 / 9] ---
-
         if (roll < 70) {
-            // 70% TEXT
             type = "TEXT";
             msg = flavorTextRepo.findRandomContent().orElse("Bạn đi dạo quanh " + map.name + ".");
             clearGatheringState(c);
-
         } else if (roll < 81) {
-            // 11% MATERIALS (GATHERING)
             type = "GATHERING";
             String resCode = map.resourceCodes.get(r.nextInt(map.resourceCodes.size()));
 
             if ("GOLD_MINE_SPECIAL".equals(resCode)) {
-                // Map 3 Special
                 BigDecimal gold = BigDecimal.valueOf(50 + r.nextInt(150));
                 w.setGold(w.getGold().add(gold));
                 msg = "Tìm thấy kho báu! (+" + gold + " Vàng)";
@@ -120,7 +116,6 @@ public class ExplorationService {
             } else {
                 Item item = itemRepo.findByCode(resCode).orElse(null);
                 if (item != null) {
-                    // Trữ lượng mỏ random 10-30
                     int amount = 10 + r.nextInt(21);
                     c.setGatheringItemId(item.getItemId());
                     c.setGatheringRemainingAmount(amount);
@@ -134,19 +129,19 @@ public class ExplorationService {
                     type = "TEXT"; msg = "Chỉ là ảo ảnh."; clearGatheringState(c);
                 }
             }
-
         } else if (roll < 91) {
-            // 10% ENEMY (Battle)
             type = "ENEMY";
             String enemyName = map.enemies.get(r.nextInt(map.enemies.size()));
-            msg = "Đụng độ " + enemyName + "!";
-            // Frontend sẽ check type ENEMY để chuyển cảnh
-            clearGatheringState(c);
 
+            Enemy baseEnemy = enemyRepository.findByName(enemyName)
+                    .orElseGet(() -> enemyRepository.findAll().stream().findFirst().orElseThrow());
+
+            createScaledBattleSession(c, baseEnemy);
+
+            msg = "Đụng độ " + enemyName + " (Lv." + baseEnemy.getLevel() + ")!";
+            clearGatheringState(c);
         } else {
-            // 9% ITEM LOOT (Nhặt luôn)
             type = "ITEM";
-            // Map 6 có tỉ lệ 5% (của 9%) ra Echo Coin
             if (map == GameMap.MAP_06 && r.nextInt(100) < 5) {
                 w.setEchoCoin(w.getEchoCoin().add(BigDecimal.ONE));
                 msg = "May mắn nhặt được 1 Echo Coin!";
@@ -169,7 +164,8 @@ public class ExplorationService {
             clearGatheringState(c);
         }
 
-        checkLevelUp(c);
+        checkExploreLevelUp(c);
+
         characterRepository.save(c);
         walletRepository.save(w);
 
@@ -181,12 +177,42 @@ public class ExplorationService {
                 .build();
     }
 
+    private void createScaledBattleSession(Character player, Enemy enemy) {
+        List<BattleSession> oldSessions = battleSessionRepo.findByCharacter_CharId(player.getCharId());
+        battleSessionRepo.deleteAll(oldSessions);
+
+        int lvl = enemy.getLevel() != null ? enemy.getLevel() : 1;
+
+        int scaledHp = (int) (enemy.getHp() * (1 + lvl * 0.15));
+        int scaledAtk = (int) (enemy.getAtk() * (1 + lvl * 0.10));
+        int scaledDef = (int) (enemy.getDef() * (1 + lvl * 0.05));
+
+        BattleSession session = new BattleSession();
+        session.setCharacter(player);
+        session.setEnemyId(enemy.getEnemyId());
+        session.setEnemyName(enemy.getName());
+        session.setEnemyMaxHp(scaledHp);
+        session.setEnemyCurrentHp(scaledHp);
+        session.setEnemyAtk(scaledAtk);
+        session.setEnemyDef(scaledDef);
+
+        session.setPlayerMaxHp(player.getMaxHp());
+        session.setPlayerCurrentHp(player.getCurrentHp());
+
+        session.setCurrentTurn(0);
+        session.setCreatedAt(LocalDateTime.now()); // Field này đã fix ở BattleSession
+
+        battleSessionRepo.save(session);
+
+        // [FIX] Enum CharacterStatus đã được import
+        player.setStatus(CharacterStatus.IN_COMBAT);
+    }
+
     @Transactional
     public Map<String, Object> gatherResource(User user, int itemId, int amountRequest) {
         Character c = characterRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Character not found"));
 
-        // 1. Validate Mỏ
         if (c.getGatheringItemId() == null || c.getGatheringItemId() != itemId)
             throw new RuntimeException("Mỏ tài nguyên không hợp lệ!");
         if (c.getGatheringExpiry() != null && LocalDateTime.now().isAfter(c.getGatheringExpiry())) {
@@ -196,45 +222,26 @@ public class ExplorationService {
         if (c.getGatheringRemainingAmount() < amountRequest)
             throw new RuntimeException("Trữ lượng không đủ!");
 
-        // 2. Logic Hái Nhanh vs Hái Thường
-        int energyCost;
-        int expGain;
-        int actualAmount = amountRequest;
+        int energyCost = (amountRequest >= 10) ? 12 : amountRequest;
+        int expGain = (amountRequest >= 10) ? 100 : amountRequest * 10;
+        int actualAmount = (amountRequest >= 10) ? 10 : amountRequest;
 
-        if (amountRequest >= 10) {
-            // Hái Nhanh (Combo 10): Phí tiện lợi 12 Energy
-            energyCost = 12;
-            expGain = 100; // Exp Nghề
-            actualAmount = 10;
-        } else {
-            // Hái Thường: 1 Energy/item
-            energyCost = amountRequest;
-            expGain = amountRequest * 10;
-        }
-
-        // 3. Check Energy
         if (c.getCurrentEnergy() < energyCost)
-            throw new RuntimeException("Thiếu năng lượng! Cần " + energyCost + " / " + c.getCurrentEnergy());
+            throw new RuntimeException("Thiếu năng lượng! Cần " + energyCost);
 
-        // 4. Check Cấp Nghề (Gating)
         Item item = itemRepo.findById(itemId).orElseThrow();
         int requiredJobLv = getRequiredJobLevel(item);
         if (c.getGatheringLevel() < requiredJobLv) {
-            throw new RuntimeException("Cấp nghề thấp! Cần Lv " + requiredJobLv + " để khai thác.");
+            throw new RuntimeException("Cấp nghề thấp! Cần Lv " + requiredJobLv);
         }
 
-        // 5. Execute
         c.setCurrentEnergy(c.getCurrentEnergy() - energyCost);
         c.setGatheringRemainingAmount(c.getGatheringRemainingAmount() - actualAmount);
 
-        // Cộng Exp Nghề
         addGatheringExp(c, expGain);
-
-        // Thêm đồ vào kho (có check slot)
         addItemToInventory(c, item, actualAmount);
 
         if (c.getGatheringRemainingAmount() <= 0) clearGatheringState(c);
-
         characterRepository.save(c);
 
         Map<String, Object> resp = new HashMap<>();
@@ -246,17 +253,14 @@ public class ExplorationService {
 
     private void addGatheringExp(Character c, int amount) {
         c.setGatheringExp(c.getGatheringExp() + amount);
-        // Công thức: Lv * 150 + Lv^2 * 10
         long req = c.getGatheringLevel() * 150L + (long)Math.pow(c.getGatheringLevel(), 2) * 10;
         if (c.getGatheringExp() >= req) {
             c.setGatheringLevel(c.getGatheringLevel() + 1);
             c.setGatheringExp(c.getGatheringExp() - req);
-            // Có thể thêm thông báo level up nghề ở đây nếu cần
         }
     }
 
     private int getRequiredJobLevel(Item item) {
-        // Gating đơn giản dựa trên Rarity
         switch (item.getRarity()) {
             case COMMON: return 1;
             case UNCOMMON: return 10;
@@ -273,29 +277,22 @@ public class ExplorationService {
         c.setGatheringExpiry(null);
     }
 
-    private void checkLevelUp(Character c) {
-        long required = c.getLevel() < 60
-                ? c.getLevel() * 100L
-                : c.getLevel() * 100L + (long)Math.pow(c.getLevel() - 60, 2) * 200;
-
+    private void checkExploreLevelUp(Character c) {
+        long required = c.getLevel() * 100L;
         if (c.getCurrentExp() >= required) {
             c.setLevel(c.getLevel() + 1);
             c.setCurrentExp(c.getCurrentExp() - required);
-            c.setStatPoints(c.getStatPoints() + 5);
-            c.setMaxHp(c.getMaxHp() + 20);
+            characterService.recalculateStats(c);
             c.setCurrentHp(c.getMaxHp());
-            c.setMaxEnergy(c.getMaxEnergy() + 1); // Tăng 1 Max Energy mỗi cấp
+            c.setMaxEnergy(c.getMaxEnergy() + 1);
         }
     }
 
     private void addItemToInventory(Character character, Item item, int amount) {
-        // [QUAN TRỌNG] Check Inventory Slots
         int currentSlots = userItemRepo.countByCharacter_CharId(character.getCharId());
-        // Lấy giới hạn kho từ User (mặc định 50 nếu null)
         int maxSlots = character.getUser().getInventorySlots() != null ? character.getUser().getInventorySlots() : 50;
 
         if (List.of("MATERIAL", "CONSUMABLE").contains(item.getType())) {
-            // Logic Stack: Nếu đã có thì cộng dồn -> Không tốn slot mới
             Optional<UserItem> exist = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), item.getItemId())
                     .stream().filter(ui -> !ui.getIsEquipped()).findFirst();
             if (exist.isPresent()) {
@@ -305,9 +302,8 @@ public class ExplorationService {
             }
         }
 
-        // Nếu phải tạo ô mới -> Check Full
         if (currentSlots >= maxSlots) {
-            throw new RuntimeException("Kho đồ đã đầy (" + currentSlots + "/" + maxSlots + ")! Hãy mở rộng kho.");
+            throw new RuntimeException("Kho đồ đã đầy (" + currentSlots + "/" + maxSlots + ")!");
         }
 
         UserItem ui = new UserItem();

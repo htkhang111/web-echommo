@@ -3,8 +3,7 @@ package com.echommo.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.ArrayList; // Fix lỗi List
-import java.util.List;
+import java.time.LocalDateTime; // [QUAN TRỌNG] Import này để dùng LocalDateTime
 
 @Entity
 @Data
@@ -20,7 +19,6 @@ public class BattleSession {
     private Character character;
 
     // --- Thông tin Quái (Snapshot) ---
-    // Lưu lại chỉ số quái lúc bắt đầu trận, tránh việc Admin sửa quái giữa chừng làm lỗi trận đấu
     @Column(name = "enemy_id")
     private Integer enemyId;
 
@@ -57,12 +55,15 @@ public class BattleSession {
     private Integer currentTurn = 0;
 
     @Column(columnDefinition = "TEXT")
-    private String log; // Lưu log trận đấu dạng JSON hoặc String dài
+    private String log;
+
+    // [FIX] Thêm trường này để hết lỗi "cannot find symbol setCreatedAt"
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
     // --- Helper Methods ---
-    // [FIX] Nếu code cũ có gọi hàm này thì giờ nó sẽ hoạt động
     public void setEnemy(Enemy e) {
-        this.enemyId = e.getEnemyId(); // Gọi hàm alias vừa thêm
+        this.enemyId = e.getEnemyId();
         this.enemyName = e.getName();
         this.enemyMaxHp = e.getHp();
         this.enemyCurrentHp = e.getHp();

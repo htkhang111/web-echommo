@@ -25,17 +25,16 @@ public class EquipmentService {
     private final UserItemRepository userItemRepo;
     private final WalletRepository walletRepo;
     private final ItemGenerationService itemGenService;
+    private final CharacterService characterService; // [FIX] Tiêm service để cập nhật chỉ số nhân vật
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Random random = new Random();
 
     // --- LOGIC MỚI: NÂNG CẤP SAO MYTHIC (1-10 SAO) ---
     @Transactional
-    // [FIX] Đổi userId từ Long -> Integer
     public UserItem enhanceMythicStars(Long userItemId, Integer userId) {
         UserItem item = userItemRepo.findById(userItemId)
                 .orElseThrow(() -> new RuntimeException("Trang bị không tồn tại!"));
 
-        // Check chính chủ (Integer vs Integer ok)
         if (!item.getCharacter().getUser().getUserId().equals(userId)) {
             throw new RuntimeException("Vật phẩm không thuộc về bạn!");
         }
@@ -50,24 +49,22 @@ public class EquipmentService {
         }
 
         int nextStar = currentStars + 1;
-
-        // Bảng giá & Tỉ lệ (Config cứng)
         long goldCost;
         BigDecimal coinCost;
         int successRate;
 
         switch (nextStar) {
-            case 1: goldCost = 1_000_000; coinCost = BigDecimal.valueOf(1); successRate = 100; break;
-            case 2: goldCost = 2_000_000; coinCost = BigDecimal.valueOf(2); successRate = 80; break;
-            case 3: goldCost = 3_500_000; coinCost = BigDecimal.valueOf(3); successRate = 60; break;
-            case 4: goldCost = 5_000_000; coinCost = BigDecimal.valueOf(5); successRate = 50; break;
-            case 5: goldCost = 7_500_000; coinCost = BigDecimal.valueOf(7); successRate = 40; break;
-            case 6: goldCost = 10_000_000; coinCost = BigDecimal.valueOf(10); successRate = 30; break;
-            case 7: goldCost = 15_000_000; coinCost = BigDecimal.valueOf(15); successRate = 20; break;
-            case 8: goldCost = 20_000_000; coinCost = BigDecimal.valueOf(20); successRate = 15; break;
-            case 9: goldCost = 30_000_000; coinCost = BigDecimal.valueOf(30); successRate = 10; break;
-            case 10: goldCost = 50_000_000; coinCost = BigDecimal.valueOf(50); successRate = 5; break;
-            default: throw new RuntimeException("Lỗi cấp sao!");
+            case 1 -> { goldCost = 1_000_000; coinCost = BigDecimal.valueOf(1); successRate = 100; }
+            case 2 -> { goldCost = 2_000_000; coinCost = BigDecimal.valueOf(2); successRate = 80; }
+            case 3 -> { goldCost = 3_500_000; coinCost = BigDecimal.valueOf(3); successRate = 60; }
+            case 4 -> { goldCost = 5_000_000; coinCost = BigDecimal.valueOf(5); successRate = 50; }
+            case 5 -> { goldCost = 7_500_000; coinCost = BigDecimal.valueOf(7); successRate = 40; }
+            case 6 -> { goldCost = 10_000_000; coinCost = BigDecimal.valueOf(10); successRate = 30; }
+            case 7 -> { goldCost = 15_000_000; coinCost = BigDecimal.valueOf(15); successRate = 20; }
+            case 8 -> { goldCost = 20_000_000; coinCost = BigDecimal.valueOf(20); successRate = 15; }
+            case 9 -> { goldCost = 30_000_000; coinCost = BigDecimal.valueOf(30); successRate = 10; }
+            case 10 -> { goldCost = 50_000_000; coinCost = BigDecimal.valueOf(50); successRate = 5; }
+            default -> throw new RuntimeException("Lỗi cấp sao!");
         }
 
         Wallet w = walletRepo.findByUser_UserId(userId).orElseThrow();
@@ -79,28 +76,27 @@ public class EquipmentService {
             throw new RuntimeException("Thiếu Echo Coin! Cần " + coinCost);
         }
 
-        // Trừ tiền
         w.setGold(w.getGold().subtract(BigDecimal.valueOf(goldCost)));
         w.setEchoCoin(w.getEchoCoin().subtract(coinCost));
         walletRepo.save(w);
 
-        // Roll Tỉ lệ
+        UserItem savedItem;
         if (random.nextInt(100) < successRate) {
-            // THÀNH CÔNG
             item.setMythicStars(nextStar);
-            // Tăng 10% chỉ số chính hiện tại
             BigDecimal currentVal = item.getMainStatValue();
             BigDecimal boost = currentVal.multiply(BigDecimal.valueOf(0.1));
             item.setMainStatValue(currentVal.add(boost));
+            savedItem = userItemRepo.save(item);
 
-            return userItemRepo.save(item);
+            // [FIX] Cập nhật lại chỉ số nhân vật nếu đang mặc món đồ này
+            if (Boolean.TRUE.equals(item.getIsEquipped())) {
+                characterService.recalculateStats(item.getCharacter());
+            }
         } else {
-            // THẤT BẠI
             throw new RuntimeException("Nâng cấp THẤT BẠI! Bạn mất tài nguyên nhưng trang bị vẫn an toàn.");
         }
+        return savedItem;
     }
-
-    // --- CÁC HÀM CŨ GIỮ NGUYÊN (Không thay đổi) ---
 
     private void checkAndConsumeResources(UserItem targetItem, Map<Integer, Integer> materialCosts, int goldCost) {
         Wallet wallet = walletRepo.findByUser_UserId(targetItem.getCharacter().getUser().getUserId())
@@ -115,7 +111,8 @@ public class EquipmentService {
         if (materialCosts != null) {
             for (Map.Entry<Integer, Integer> entry : materialCosts.entrySet()) {
                 UserItem mat = userItemRepo.findByCharacter_CharIdAndItem_ItemId(targetItem.getCharacter().getCharId(), entry.getKey())
-                        .orElse(null);
+                        .stream().filter(i -> !i.getIsEquipped()).findFirst().orElse(null);
+
                 if (mat == null || mat.getQuantity() < entry.getValue()) {
                     throw new RuntimeException("Thiếu nguyên liệu ID: " + entry.getKey());
                 }
@@ -147,6 +144,7 @@ public class EquipmentService {
         Map<Integer, Integer> mats = new HashMap<>();
         int gold = nextLv * 2000;
 
+        // Logic nguyên liệu (Giữ nguyên)
         if (nextLv <= 10) {
             mats.put(GameConstants.MAT_COAL, 5);
             mats.put(GameConstants.MAT_WOOD_OAK, 5);
@@ -160,9 +158,22 @@ public class EquipmentService {
 
         checkAndConsumeResources(item, mats, gold);
         item.setEnhanceLevel(nextLv);
+
+        // Mỗi 3 cấp cộng thêm chỉ số phụ
         if (nextLv % 3 == 0) applySubStatRoll(item);
 
-        return userItemRepo.save(item);
+        // [FIX] Tăng Main Stat mỗi cấp cường hóa (Giả sử mỗi cấp +5% so với gốc)
+        BigDecimal baseVal = item.getOriginalMainStatValue() != null ? item.getOriginalMainStatValue() : item.getMainStatValue();
+        BigDecimal growth = baseVal.multiply(BigDecimal.valueOf(0.05));
+        item.setMainStatValue(item.getMainStatValue().add(growth));
+
+        UserItem saved = userItemRepo.save(item);
+
+        // [FIX] Cập nhật lại chỉ số nhân vật
+        if (Boolean.TRUE.equals(item.getIsEquipped())) {
+            characterService.recalculateStats(item.getCharacter());
+        }
+        return saved;
     }
 
     @Transactional
@@ -186,16 +197,28 @@ public class EquipmentService {
         item.setMythicStars(1);
         item.setMainStatValue(item.getMainStatValue().multiply(BigDecimal.valueOf(1.5)));
 
-        return userItemRepo.save(item);
+        UserItem saved = userItemRepo.save(item);
+
+        if (Boolean.TRUE.equals(item.getIsEquipped())) {
+            characterService.recalculateStats(item.getCharacter());
+        }
+        return saved;
     }
 
     private void applySubStatRoll(UserItem item) {
         try {
             List<SubStatDTO> stats = objectMapper.readValue(item.getSubStats(), new TypeReference<List<SubStatDTO>>() {});
-            if (stats.size() < 4) stats.add(itemGenService.generateRandomSubStat(item, stats));
-            else {
+            int tier = item.getItem().getTier() != null ? item.getItem().getTier() : 1;
+
+            if (stats.size() < 4) {
+                // Nếu chưa đủ 4 dòng -> Thêm dòng mới
+                stats.add(itemGenService.generateRandomSubStat(item, stats));
+            } else {
+                // Nếu đã đủ 4 dòng -> Random chọn 1 dòng để tăng giá trị
+                // [FIX] Dùng hàm getEnhanceRollValue đã fix ở ItemGenerationService
                 SubStatDTO s = stats.get(random.nextInt(stats.size()));
-                s.setValue(s.getValue() + itemGenService.getEnhanceRollValue(s.getCode(), item.getItem().getTier()));
+                double bonus = itemGenService.getEnhanceRollValue(s.getCode(), tier);
+                s.setValue(s.getValue() + bonus);
             }
             item.setSubStats(objectMapper.writeValueAsString(stats));
         } catch (Exception e) {}

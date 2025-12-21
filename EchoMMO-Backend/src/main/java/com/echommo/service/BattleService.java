@@ -5,7 +5,6 @@ import com.echommo.entity.*;
 import com.echommo.entity.Character;
 import com.echommo.enums.CharacterStatus;
 import com.echommo.repository.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,6 +22,7 @@ public class BattleService {
     private final WalletRepository walletRepo;
     private final UserRepository userRepo;
     private final BattleSessionRepository sessionRepo;
+    private final CharacterService charService; // Tiêm vào để dùng recalculateStats
 
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -63,14 +63,14 @@ public class BattleService {
 
         session.setCurrentTurn(session.getCurrentTurn() + 1);
 
-        // 1. Player Attack
+        // 1. Player Attack (Tính toán dựa trên chỉ số đã scale của nhân vật)
         int pDmg = Math.max(1, character.getBaseAtk() - session.getEnemyDef());
         session.setEnemyCurrentHp(Math.max(0, session.getEnemyCurrentHp() - pDmg));
         logs.add("Bạn đánh " + pDmg + " sát thương.");
 
         if (session.getEnemyCurrentHp() <= 0) return handleWin(session, character);
 
-        // 2. Enemy Attack
+        // 2. Enemy Attack (Tính toán dựa trên chỉ số quái trong session)
         int eDmg = Math.max(1, session.getEnemyAtk() - character.getBaseDef());
         session.setPlayerCurrentHp(Math.max(0, session.getPlayerCurrentHp() - eDmg));
         logs.add(session.getEnemyName() + " đánh trả " + eDmg + " sát thương.");
@@ -82,19 +82,23 @@ public class BattleService {
     }
 
     private BattleResult handleWin(BattleSession session, Character character) {
-        BattleResult res = buildResult(session, "🏆 Chiến thắng!", "VICTORY");
-
         Enemy enemy = enemyRepo.findById(session.getEnemyId()).orElse(new Enemy());
-        int expReward = enemy.getExpReward() != null ? enemy.getExpReward() : 10;
-        int goldReward = enemy.getGoldReward() != null ? enemy.getGoldReward() : 5;
+
+        // [FIX]: Thưởng EXP và Gold scale theo level của quái vật
+        int enemyLvl = enemy.getLevel() != null ? enemy.getLevel() : 1;
+        int expReward = (int) ((enemy.getExpReward() != null ? enemy.getExpReward() : 10) * (1 + enemyLvl * 0.2));
+        int goldReward = (int) ((enemy.getGoldReward() != null ? enemy.getGoldReward() : 5) * (1 + enemyLvl * 0.1));
 
         character.setCurrentExp(character.getCurrentExp() + expReward);
         character.setMonsterKills(character.getMonsterKills() + 1);
 
+        // [FIX]: Kiểm tra và xử lý thăng cấp
+        checkLevelUp(character);
+
         Wallet wallet = character.getUser().getWallet();
-        // [FIX] Cộng Gold bằng BigDecimal
         wallet.setGold(wallet.getGold().add(BigDecimal.valueOf(goldReward)));
 
+        // Thưởng EchoCoin cho quái cấp cao
         if (session.getEnemyId() >= 100) {
             wallet.setEchoCoin(wallet.getEchoCoin().add(new BigDecimal("0.05")));
         }
@@ -102,11 +106,28 @@ public class BattleService {
         walletRepo.save(wallet);
 
         character.setStatus(CharacterStatus.IDLE);
+        // Sau trận thắng, hồi phục HP dựa trên MaxHp mới nhất
         character.setCurrentHp(character.getMaxHp());
         charRepo.save(character);
         sessionRepo.delete(session);
 
-        return res;
+        List<String> logs = new ArrayList<>();
+        logs.add("🏆 Chiến thắng!");
+        logs.add("Bạn nhận được " + expReward + " EXP và " + goldReward + " Vàng.");
+
+        return buildResult(session, logs, "VICTORY");
+    }
+
+    private void checkLevelUp(Character c) {
+        // Công thức EXP: Level hiện tại * 100
+        long requiredExp = c.getLevel() * 100L;
+        if (c.getCurrentExp() >= requiredExp) {
+            c.setLevel(c.getLevel() + 1);
+            c.setCurrentExp(c.getCurrentExp() - requiredExp);
+
+            // [FIX]: Tính toán lại toàn bộ chỉ số khi thăng cấp để áp dụng Base Growth
+            charService.recalculateStats(c);
+        }
     }
 
     private BattleResult handleLoss(BattleSession session, Character character) {

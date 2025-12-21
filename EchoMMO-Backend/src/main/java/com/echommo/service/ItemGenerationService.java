@@ -22,18 +22,32 @@ public class ItemGenerationService {
     private final Random random = new Random();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Khởi tạo các thông số ngẫu nhiên cho một trang bị mới nhận được.
+     * [FIX]: Chỉ số chính (Main Stat) giờ đây tỷ lệ thuận với Tier.
+     */
     public void randomizeNewItem(UserItem userItem) {
         Item baseItem = userItem.getItem();
+        int tier = (baseItem.getTier() != null) ? baseItem.getTier() : 1;
 
-        // [FIX] Field visualVariant đã có trong UserItem
+        // Gán biến thể hình ảnh ngẫu nhiên
         userItem.setVisualVariant(random.nextInt(GameConstants.MAX_ASSET_VARIANTS));
 
-        if (userItem.getMainStatValue() != null) {
+        // 1. Tính toán lại Main Stat dựa trên Tier
+        if (userItem.getMainStatValue() != null && userItem.getMainStatValue().compareTo(BigDecimal.ZERO) > 0) {
+            // Công thức: Giá trị gốc * (1 + Tier * 0.5) * Biên độ ngẫu nhiên (0.9 - 1.1)
+            double tierMultiplier = 1.0 + (tier * 0.5);
             double variance = 0.9 + (random.nextDouble() * 0.2);
-            BigDecimal newVal = userItem.getMainStatValue().multiply(BigDecimal.valueOf(variance));
+
+            BigDecimal newVal = userItem.getMainStatValue()
+                    .multiply(BigDecimal.valueOf(tierMultiplier))
+                    .multiply(BigDecimal.valueOf(variance));
+
             userItem.setMainStatValue(newVal);
+            userItem.setOriginalMainStatValue(newVal);
         }
 
+        // 2. Xác định số lượng chỉ số phụ (Sub-stats) dựa trên độ hiếm
         int initialSubs = switch (baseItem.getRarity()) {
             case UNCOMMON -> 1;
             case RARE -> 2;
@@ -42,6 +56,7 @@ public class ItemGenerationService {
             default -> 0;
         };
 
+        // 3. Tạo danh sách chỉ số phụ
         List<SubStatDTO> stats = new ArrayList<>();
         for (int i = 0; i < initialSubs; i++) {
             stats.add(generateRandomSubStat(userItem, stats));
@@ -54,12 +69,17 @@ public class ItemGenerationService {
         }
     }
 
+    /**
+     * Tạo một chỉ số phụ ngẫu nhiên không trùng lặp và không nằm trong danh sách đen của Slot đồ.
+     */
     public SubStatDTO generateRandomSubStat(UserItem userItem, List<SubStatDTO> currentStats) {
         SlotType slot = userItem.getItem().getSlotType();
-        int tier = userItem.getItem().getTier();
+        int tier = (userItem.getItem().getTier() != null) ? userItem.getItem().getTier() : 1;
 
         while (true) {
             String candidateType = rollStatTypeWithWeight();
+
+            // Kiểm tra trùng lặp với các dòng hiện có
             boolean isDuplicate = currentStats.stream().anyMatch(s -> s.getCode().equals(candidateType));
             if (isDuplicate || isBlacklisted(slot, candidateType)) continue;
 
@@ -71,13 +91,17 @@ public class ItemGenerationService {
         }
     }
 
-    // [FIX] Thêm hàm này để EquipmentService gọi khi cường hóa
+    /**
+     * Trả về giá trị cộng thêm khi cường hóa (Enhance) một chỉ số.
+     */
     public double getEnhanceRollValue(String statCode, int tier) {
-        // Logic: Roll một giá trị mới cho stat đó dựa trên Tier (giống như roll mới)
-        // Giá trị cộng thêm thường bằng 1 lần roll
+        // Giá trị cộng thêm dựa trên 1 lần roll chuẩn theo Tier
         return rollValue(statCode, tier);
     }
 
+    /**
+     * Lấy ngẫu nhiên loại chỉ số dựa trên trọng số (Weight) trong GameConstants.
+     */
     private String rollStatTypeWithWeight() {
         int totalWeight = GameConstants.STAT_WEIGHTS.values().stream().mapToInt(Integer::intValue).sum();
         int roll = random.nextInt(totalWeight);
@@ -90,15 +114,26 @@ public class ItemGenerationService {
         return "HP_FLAT";
     }
 
+    /**
+     * Ngăn chặn các chỉ số vô lý trên trang bị (VD: Giáp không thể có Xuyên giáp/Chính xác cao).
+     */
     private boolean isBlacklisted(SlotType slot, String statType) {
         if (slot == SlotType.WEAPON) return statType.contains("DEF") || statType.equals("EVASION");
         if (slot == SlotType.ARMOR) return statType.contains("ATK") || statType.equals("ACCURACY");
         return false;
     }
 
+    /**
+     * Tính toán giá trị của chỉ số.
+     * [FIX]: Tier ảnh hưởng trực tiếp đến sức mạnh của chỉ số phụ.
+     */
     private double rollValue(String statType, int tier) {
         double[] range = GameConstants.ROLL_RANGES.getOrDefault(statType, new double[]{1.0, 2.0});
-        double val = range[0] + (range[1] - range[0]) * random.nextDouble();
-        return Math.round(val * tier * 100.0) / 100.0;
+
+        // Công thức: (Min + (Max - Min) * ngẫu nhiên) * hệ số Tier
+        double baseRoll = range[0] + (range[1] - range[0]) * random.nextDouble();
+        double finalValue = baseRoll * (1 + (tier - 1) * 0.25); // Mỗi Tier tăng thêm 25% sức mạnh dòng phụ
+
+        return Math.round(finalValue * 100.0) / 100.0;
     }
 }

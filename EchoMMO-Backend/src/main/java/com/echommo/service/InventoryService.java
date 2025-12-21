@@ -5,16 +5,21 @@ import com.echommo.entity.UserItem;
 import java.util.List;
 
 public interface InventoryService {
+    // Lấy danh sách đồ trong kho
     List<UserItem> getInventory(Integer charId);
 
-    void equipItem(Long charId, Long userItemId);
+    // Mặc đồ
+    void equipItem(Integer charId, Long userItemId);
 
-    void unequipItem(Long charId, Long userItemId);
+    // Tháo đồ
+    void unequipItem(Integer charId, Long userItemId);
 
-    UserItem enhanceItem(Long charId, Long userItemId);
+    // Cường hóa
+    UserItem enhanceItem(Integer charId, Long userItemId);
 
+    // Thêm đồ (dùng cho các service khác)
     void addItemToInventory(User user, Integer itemId, int quantity);
 
-    // [NEW] Mở rộng kho đồ
+    // Mở rộng kho đồ
     User expandInventory(User user);
 }
