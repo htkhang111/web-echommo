@@ -20,7 +20,7 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
-    private Integer userId; // [QUAN TRỌNG] Phải là Integer
+    private Integer userId;
 
     @Column(nullable = false, unique = true)
     private String username;
@@ -64,7 +64,10 @@ public class User {
     private LocalDateTime otpExpiry;
 
     @Column(name = "avatar_url")
-    private String avatarUrl = "🐲";
+    private String avatarUrl = "🐲"; // Skin pixel game
+
+    @Column(name = "profile_image_url")
+    private String profileImageUrl; // Link ảnh upload từ máy
 
     private LocalDateTime lastLogin;
     private LocalDateTime createdAt;

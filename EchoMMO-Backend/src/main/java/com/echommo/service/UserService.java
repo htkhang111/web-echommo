@@ -29,7 +29,6 @@ public class UserService {
         return findByUsername(username);
     }
 
-    // [FIX] Chuyển logic Register vào Service
     @Transactional
     public User registerUser(AuthRequest req) {
         if (userRepository.existsByUsername(req.getUsername())) {
@@ -43,8 +42,7 @@ public class UserService {
         user.setUsername(req.getUsername());
         user.setEmail(req.getEmail());
         user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
-        // Lưu password raw chỉ để debug, thực tế nên bỏ
-        user.setPassword(req.getPassword());
+        user.setPassword(req.getPassword()); // Dev only
         user.setFullName(req.getFullName());
         user.setAvatarUrl("🐲");
         user.setIsActive(true);
@@ -52,17 +50,53 @@ public class UserService {
 
         Wallet wallet = new Wallet();
         wallet.setUser(user);
-        // [FIX] Khởi tạo ví tiền (Long cho Gold)
         wallet.setGold(1000L);
         user.setWallet(wallet);
 
         return userRepository.save(user);
     }
 
+    @Transactional
     public User updateProfile(UpdateProfileRequest request) {
         User user = getCurrentUser();
-        if (request.getFullName() != null) user.setFullName(request.getFullName());
-        if (request.getAvatarUrl() != null) user.setAvatarUrl(request.getAvatarUrl());
+
+        // 1. Cập nhật FullName
+        if (request.getFullName() != null) {
+            user.setFullName(request.getFullName());
+        }
+
+        // 2. Cập nhật Username (Check trùng)
+        if (request.getUsername() != null && !request.getUsername().equals(user.getUsername())) {
+            if (userRepository.existsByUsername(request.getUsername())) {
+                throw new RuntimeException("Tên đăng nhập đã tồn tại!");
+            }
+            user.setUsername(request.getUsername());
+        }
+
+        // 3. Cập nhật Email (Check trùng)
+        if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new RuntimeException("Email đã được sử dụng!");
+            }
+            user.setEmail(request.getEmail());
+        }
+
+        // 4. Cập nhật Password
+        if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+            user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+            user.setPassword(request.getPassword());
+        }
+
+        // 5. Cập nhật Skin Game
+        if (request.getAvatarUrl() != null) {
+            user.setAvatarUrl(request.getAvatarUrl());
+        }
+
+        // 6. Cập nhật Ảnh Upload
+        if (request.getProfileImageUrl() != null) {
+            user.setProfileImageUrl(request.getProfileImageUrl());
+        }
+
         return userRepository.save(user);
     }
 

@@ -5,5 +5,9 @@ import lombok.Data;
 @Data
 public class UpdateProfileRequest {
     private String fullName;
-    private String avatarUrl; // Lưu đường dẫn ảnh hoặc mã avatar
+    private String username;
+    private String email;
+    private String password;
+    private String avatarUrl;       // Skin game
+    private String profileImageUrl; // Ảnh thật upload
 }
