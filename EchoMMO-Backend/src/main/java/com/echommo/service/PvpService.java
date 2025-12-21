@@ -26,7 +26,7 @@ public class PvpService {
     // 1. TÌM TRẬN
     @Transactional
     public PvpMatch findOrCreateMatch(Integer charId) {
-        // Tìm trận đang Active
+        // Tìm trận đang Active (nếu user F5 lại trang)
         Optional<PvpMatch> existingMatch = matchRepo.findActiveMatchByCharId(charId);
         if (existingMatch.isPresent()) return existingMatch.get();
 
@@ -34,10 +34,9 @@ public class PvpService {
 
         // Kiểm tra xem chính mình có đang trong hàng chờ không
         Optional<PvpQueue> myQueue = queueRepo.findByCharId(charId);
-        if (myQueue.isPresent()) return null; // Đang tìm rồi, không làm gì cả
+        if (myQueue.isPresent()) return null;
 
-        // Tìm đối thủ:
-        // [FIX] Thêm .filter(...) để chặn đứng trường hợp DB trả về chính mình do lag
+        // Tìm đối thủ
         Optional<PvpQueue> opponentQueue = queueRepo.findMatchCandidate(charId, myChar.getLevel() - 5, myChar.getLevel() + 5)
                 .filter(q -> !q.getCharId().equals(charId));
 
@@ -50,18 +49,21 @@ public class PvpService {
             PvpMatch newMatch = new PvpMatch();
             newMatch.setPlayer1(myChar);
             newMatch.setPlayer2(enemyChar);
-            newMatch.setStatus("PENDING"); // Chờ chấp nhận
+
+            // [SỬA QUAN TRỌNG] Set luôn là ACTIVE để đánh được ngay
+            newMatch.setStatus("ACTIVE");
             newMatch.setCreatedAt(LocalDateTime.now());
             newMatch.setTurnCount(1);
             newMatch.setP1CurrentHp(myChar.getMaxHp());
             newMatch.setP2CurrentHp(enemyChar.getMaxHp());
 
-            newMatch.setP1Accepted(false);
-            newMatch.setP2Accepted(false);
+            // [SỬA QUAN TRỌNG] Coi như đã chấp nhận luôn
+            newMatch.setP1Accepted(true);
+            newMatch.setP2Accepted(true);
 
             return matchRepo.save(newMatch);
         } else {
-            // --- TRƯỜNG HỢP 2: KHÔNG THẤY AI (HOẶC CHỈ THẤY CHÍNH MÌNH) -> VÀO HÀNG CHỜ ---
+            // --- TRƯỜNG HỢP 2: KHÔNG THẤY AI -> VÀO HÀNG CHỜ ---
             PvpQueue newQueue = new PvpQueue();
             newQueue.setCharId(charId);
             newQueue.setLevel(myChar.getLevel());
@@ -78,8 +80,17 @@ public class PvpService {
     public PvpMatch submitMove(Long matchId, Integer charId, String move) {
         PvpMatch match = matchRepo.findById(matchId).orElseThrow(() -> new RuntimeException("Match not found"));
 
-        // Chỉ cho đánh khi status là ACTIVE
-        if (!"ACTIVE".equals(match.getStatus())) throw new RuntimeException("Match is not active (Status: " + match.getStatus() + ")");
+        // [SỬA QUAN TRỌNG] Nếu trận đang PENDING (do code cũ tạo ra), tự động chuyển sang ACTIVE
+        if ("PENDING".equals(match.getStatus())) {
+            match.setStatus("ACTIVE");
+            match.setP1Accepted(true);
+            match.setP2Accepted(true);
+        }
+
+        // Chỉ chặn nếu status KHÁC ACTIVE (ví dụ FINISHED)
+        if (!"ACTIVE".equals(match.getStatus())) {
+            throw new RuntimeException("Match is not active (Status: " + match.getStatus() + ")");
+        }
 
         // Xác định ai đang đánh
         if (match.getPlayer1().getCharId().equals(charId)) {
@@ -108,7 +119,7 @@ public class PvpService {
         StringBuilder log = new StringBuilder();
 
         if (m1.equals(m2)) {
-            log.append("HÒA! Cả hai cùng ra ").append(translateMove(m1)).append(". Làm lại!");
+            log.append("⚔️ HÒA! Cả hai cùng ra ").append(translateMove(m1)).append(". Đấu lại!");
             match.setP1Move(null);
             match.setP2Move(null);
         } else {
@@ -120,18 +131,20 @@ public class PvpService {
             Character defender = p1WinsRps ? p2 : p1;
             String winMove = p1WinsRps ? m1 : m2;
 
-            log.append(attacker.getName()).append(" ra ").append(translateMove(winMove)).append(" thắng! -> TẤN CÔNG.\n");
+            log.append("⚔️ ").append(attacker.getName()).append(" ra ").append(translateMove(winMove))
+                    .append(" thắng! -> TẤN CÔNG.\n");
 
+            // Công thức damage đơn giản: (Atk - Def), tối thiểu 10 damage
             int damage = Math.max(10, attacker.getBaseAtk() - defender.getBaseDef());
 
             if (p1WinsRps) {
                 hp2 = Math.max(0, hp2 - damage);
                 match.setP2CurrentHp(hp2);
-                log.append(p1.getName()).append(" gây ").append(damage).append(" sát thương!");
+                log.append("💥 ").append(p1.getName()).append(" gây ").append(damage).append(" sát thương!");
             } else {
                 hp1 = Math.max(0, hp1 - damage);
                 match.setP1CurrentHp(hp1);
-                log.append(p2.getName()).append(" gây ").append(damage).append(" sát thương!");
+                log.append("💥 ").append(p2.getName()).append(" gây ").append(damage).append(" sát thương!");
             }
 
             // CHECK KẾT THÚC TRẬN ĐẤU
@@ -140,10 +153,9 @@ public class PvpService {
                 Integer loserCharId = hp1 <= 0 ? p1.getCharId() : p2.getCharId();
 
                 match.setStatus("FINISHED");
-                // [FIX] Ép kiểu Integer -> Long
                 match.setWinnerId(Long.valueOf(winnerCharId));
 
-                log.append("\n").append(hp1 <= 0 ? p2.getName() : p1.getName()).append(" ĐÃ CHIẾN THẮNG!");
+                log.append("\n🏆 ").append(hp1 <= 0 ? p2.getName() : p1.getName()).append(" ĐÃ CHIẾN THẮNG!");
 
                 updatePvpStats(winnerCharId, loserCharId);
             } else {
@@ -175,7 +187,6 @@ public class PvpService {
     @Transactional
     public void processMatchResult(PvpMatch match) {
         if (match.getWinnerId() != null) {
-            // [FIX] Ép kiểu Long -> Integer
             Integer winnerId = match.getWinnerId().intValue();
 
             Integer loserId = match.getPlayer1().getCharId().equals(winnerId)
@@ -185,7 +196,7 @@ public class PvpService {
         }
     }
 
-    // [NEW] 6. HỦY TÌM TRẬN
+    // 6. HỦY TÌM TRẬN
     @Transactional
     public void cancelQueue(Integer charId) {
         Optional<PvpQueue> queueEntry = queueRepo.findByCharId(charId);
@@ -198,17 +209,21 @@ public class PvpService {
         charRepo.findById(winnerId).ifPresent(c -> {
             c.setPvpWins((c.getPvpWins() == null ? 0 : c.getPvpWins()) + 1);
             c.setPvpMatchesPlayed((c.getPvpMatchesPlayed() == null ? 0 : c.getPvpMatchesPlayed()) + 1);
+            // Cộng điểm rank
+            c.setPvpPoints(c.getPvpPoints() + 25);
             charRepo.save(c);
         });
         charRepo.findById(loserId).ifPresent(c -> {
             c.setPvpMatchesPlayed((c.getPvpMatchesPlayed() == null ? 0 : c.getPvpMatchesPlayed()) + 1);
+            // Trừ điểm rank (không dưới 0)
+            c.setPvpPoints(Math.max(0, c.getPvpPoints() - 10));
             charRepo.save(c);
         });
     }
 
     private String translateMove(String move) {
-        if ("ROCK".equals(move)) return "BÚA";
-        if ("PAPER".equals(move)) return "BAO";
-        return "KÉO";
+        if ("ROCK".equals(move)) return "BÚA ✊";
+        if ("PAPER".equals(move)) return "BAO ✋";
+        return "KÉO ✌️";
     }
 }

@@ -34,6 +34,11 @@ public class Character {
     @Column(nullable = false, unique = true)
     private String name;
 
+    // --- [MỚI] AVATAR (Thêm cái này để Controller không báo lỗi) ---
+    @Column(name = "avatar_url")
+    @Builder.Default
+    private String avatarUrl = "https://i.imgur.com/7Y7t5Xp.png"; // Ảnh mặc định
+
     @Builder.Default private Integer level = 1;
     @Builder.Default private Long currentExp = 0L;
     @Column(name = "character_class")
@@ -61,18 +66,18 @@ public class Character {
     @Builder.Default private Integer baseCritRate = 50;
     @Builder.Default private Integer baseCritDmg = 150;
 
-    // --- [NEW] PVP & POWER STATS (Thêm phần này để khớp với DB và Service) ---
+    // --- PVP & POWER STATS ---
     @Column(name = "total_power")
-    @Builder.Default private Integer totalPower = 0; // Lực chiến tổng
+    @Builder.Default private Integer totalPower = 0;
 
     @Column(name = "pvp_points")
-    @Builder.Default private Integer pvpPoints = 1000; // Điểm Rank PvP
+    @Builder.Default private Integer pvpPoints = 1000;
 
     @Column(name = "pvp_wins")
-    @Builder.Default private Integer pvpWins = 0; // Số trận thắng
+    @Builder.Default private Integer pvpWins = 0;
 
     @Column(name = "pvp_matches_played")
-    @Builder.Default private Integer pvpMatchesPlayed = 0; // Tổng số trận đấu
+    @Builder.Default private Integer pvpMatchesPlayed = 0;
 
     // --- MAP & LOCATION ---
     @Builder.Default
