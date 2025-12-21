@@ -12,25 +12,28 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-// [FIX] ID là Integer (khớp với Entity Character)
 public interface CharacterRepository extends JpaRepository<Character, Integer> {
 
     Optional<Character> findByUser(User user);
 
-    // [FIX] Thêm hàm này để Service gọi được findByUserId
-    @Query("SELECT c FROM Character c WHERE c.user.userId = :userId")
-    Optional<Character> findByUserId(@Param("userId") Integer userId);
-
-    // [FIX] Method dự phòng đúng chuẩn JPA
+    // [FIX] JPA chuẩn: findBy + User + _ + UserId
     Optional<Character> findByUser_UserId(Integer userId);
+
+    // [FIX] Wrapper để tránh lỗi "No property id found" của JPA khi parse tên hàm
+    default Optional<Character> findByUserId(Integer userId) {
+        return findByUser_UserId(userId);
+    }
+
+    // [FIX] KHÔI PHỤC: Method này để ExplorationService fetch luôn User + Wallet
+    // Phải dùng @Param("userId") cho chắc chắn
+    @Query("SELECT c FROM Character c JOIN FETCH c.user u JOIN FETCH u.wallet WHERE u.userId = :userId")
+    Optional<Character> findByUser_UserIdWithUserAndWallet(@Param("userId") Integer userId);
 
     boolean existsByName(String name);
 
-    // [FIX] Cho LeaderboardService
     @Query("SELECT c FROM Character c ORDER BY c.level DESC, c.currentExp DESC")
     List<Character> findTopLevels(Pageable pageable);
 
-    // [FIX] Tên trường trong Entity là monsterKills (check lại Entity Character của bạn)
     @Query("SELECT c FROM Character c ORDER BY c.monsterKills DESC")
     List<Character> findTopMonsterKills(Pageable pageable);
 }

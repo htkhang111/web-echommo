@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 @Service
@@ -24,17 +25,15 @@ public class ItemGenerationService {
     public void randomizeNewItem(UserItem userItem) {
         Item baseItem = userItem.getItem();
 
-        // 1. Random biến thể hình ảnh (0-4)
+        // [FIX] Field visualVariant đã có trong UserItem
         userItem.setVisualVariant(random.nextInt(GameConstants.MAX_ASSET_VARIANTS));
 
-        // 2. Random Main Stat (+/- 10%)
         if (userItem.getMainStatValue() != null) {
             double variance = 0.9 + (random.nextDouble() * 0.2);
             BigDecimal newVal = userItem.getMainStatValue().multiply(BigDecimal.valueOf(variance));
             userItem.setMainStatValue(newVal);
         }
 
-        // 3. Random Sub Stats dựa trên Rarity
         int initialSubs = switch (baseItem.getRarity()) {
             case UNCOMMON -> 1;
             case RARE -> 2;
@@ -72,13 +71,19 @@ public class ItemGenerationService {
         }
     }
 
+    // [FIX] Thêm hàm này để EquipmentService gọi khi cường hóa
+    public double getEnhanceRollValue(String statCode, int tier) {
+        // Logic: Roll một giá trị mới cho stat đó dựa trên Tier (giống như roll mới)
+        // Giá trị cộng thêm thường bằng 1 lần roll
+        return rollValue(statCode, tier);
+    }
+
     private String rollStatTypeWithWeight() {
         int totalWeight = GameConstants.STAT_WEIGHTS.values().stream().mapToInt(Integer::intValue).sum();
         int roll = random.nextInt(totalWeight);
         int currentSum = 0;
 
-        // [FIX] Sử dụng java.util.Map để tránh lỗi compiler
-        for (java.util.Map.Entry<String, Integer> entry : GameConstants.STAT_WEIGHTS.entrySet()) {
+        for (Map.Entry<String, Integer> entry : GameConstants.STAT_WEIGHTS.entrySet()) {
             currentSum += entry.getValue();
             if (roll < currentSum) return entry.getKey();
         }

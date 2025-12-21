@@ -37,32 +37,29 @@ public class SpaService {
         BigDecimal cost = pack.getCost();
 
         if (pack == SpaPackage.VIP) {
-            // Gói VIP trừ Echo Coin (BigDecimal)
             if (wallet.getEchoCoin().compareTo(cost) < 0) {
                 throw new RuntimeException("Không đủ Echo Coin! Cần: " + cost);
             }
             wallet.setEchoCoin(wallet.getEchoCoin().subtract(cost));
         } else {
-            // Gói thường trừ Vàng (Long)
-            // [FIX] cost là BigDecimal, wallet.gold là Long -> Cần chuyển đổi
-            long goldCost = cost.longValue();
-            if (wallet.getGold() < goldCost) {
-                throw new RuntimeException("Không đủ Vàng! Cần: " + goldCost);
+            // [FIX] Xử lý Gold là BigDecimal
+            if (wallet.getGold().compareTo(cost) < 0) {
+                throw new RuntimeException("Không đủ Vàng! Cần: " + cost);
             }
-            wallet.setGold(wallet.getGold() - goldCost);
+            wallet.setGold(wallet.getGold().subtract(cost));
         }
 
-        // Hồi phục
         character.setCurrentHp(character.getMaxHp());
         character.setCurrentEnergy(character.getMaxEnergy());
         characterRepository.save(character);
         walletRepository.save(wallet);
 
+        // [FIX] Trả về BigDecimal trực tiếp
         return new SpaStatusResponse(
-                "Hồi phục thành công (" + pack.getName() + ")!",
+                "Hồi phục thành công (" + pack.getName() +  ")!",
                 character.getCurrentHp(),
                 character.getCurrentEnergy(),
-                new BigDecimal(wallet.getGold()), // Convert Long -> BigDecimal cho DTO
+                wallet.getGold(),
                 wallet.getEchoCoin()
         );
     }

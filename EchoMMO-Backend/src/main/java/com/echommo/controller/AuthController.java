@@ -55,10 +55,9 @@ public class AuthController {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
         Wallet wallet = walletRepository.findByUser(user).orElse(new Wallet());
-
         String roleStr = user != null ? user.getRole().name() : "USER";
 
-        // [FIX] AuthResponse giờ đã nhận Integer id
+        // [FIX] Truyền thẳng BigDecimal, không cần ép sang Long
         return ResponseEntity.ok(new AuthResponse(
                 jwt,
                 user.getUserId(),
@@ -93,6 +92,7 @@ public class AuthController {
             User user = userRepository.findByUsername(signUpRequest.getUsername()).orElseThrow();
             Wallet wallet = user.getWallet();
 
+            // [FIX] Truyền thẳng BigDecimal
             return ResponseEntity.ok(new AuthResponse(
                     jwt,
                     user.getUserId(),

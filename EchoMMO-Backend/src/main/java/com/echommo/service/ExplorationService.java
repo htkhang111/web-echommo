@@ -3,7 +3,6 @@ package com.echommo.service;
 import com.echommo.dto.ExplorationResponse;
 import com.echommo.entity.*;
 import com.echommo.entity.Character;
-import com.echommo.enums.CharacterStatus;
 import com.echommo.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,7 +16,6 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ExplorationService {
 
-    private final CharacterService characterService;
     private final CharacterRepository characterRepository;
     private final WalletRepository walletRepository;
     private final CaptchaService captchaService;
@@ -67,16 +65,15 @@ public class ExplorationService {
     }
 
     @Transactional
-    public ExplorationResponse explore(String mapId) {
-        Character c = characterService.getMyCharacter();
-        if (c == null) throw new RuntimeException("Chưa có nhân vật!");
-        c = characterRepository.findByUser_UserIdWithUserAndWallet(c.getUser().getUserId()).orElseThrow();
+    public ExplorationResponse explore(User user, String mapId) {
+        Character c = characterRepository.findByUser_UserIdWithUserAndWallet(user.getUserId())
+                .orElseThrow(() -> new RuntimeException("Chưa có nhân vật!"));
 
         captchaService.checkLockStatus(c.getUser());
         if (c.getCurrentEnergy() < 1) throw new RuntimeException("Hết năng lượng!");
 
         GameMap map = GameMap.findById(mapId);
-        if (c.getLevel() < map.minLv) throw new RuntimeException("Cấp độ không đủ!");
+        if (c.getLevel() < map.minLv) throw new RuntimeException("Cấp độ không đủ! Cần level " + map.minLv);
 
         Random r = new Random();
         Wallet w = c.getUser().getWallet();
@@ -103,7 +100,6 @@ public class ExplorationService {
             } else {
                 Item item = itemRepo.findByCode(resCode).orElse(null);
                 if (item != null) {
-                    // Logic rớt Echo lẻ ở Map 6
                     if (map == GameMap.MAP_06 && r.nextInt(100) < 10) {
                         double echoFrac = 0.001 + (0.009 * r.nextDouble());
                         w.setEchoCoin(w.getEchoCoin().add(BigDecimal.valueOf(echoFrac)));
@@ -129,7 +125,46 @@ public class ExplorationService {
         checkLevelUp(c);
         characterRepository.save(c);
         walletRepository.save(w);
-        return ExplorationResponse.builder().message(msg).type(type).currentLv(c.getLevel()).currentExp(c.getCurrentExp()).currentEnergy(c.getCurrentEnergy()).maxEnergy(c.getMaxEnergy()).rewardName(rewardName).rewardAmount(rewardAmount).rewardItemId(rewardItemId).build();
+        return ExplorationResponse.builder()
+                .message(msg).type(type)
+                .currentLv(c.getLevel()).currentExp(c.getCurrentExp())
+                .currentEnergy(c.getCurrentEnergy()).maxEnergy(c.getMaxEnergy())
+                .rewardName(rewardName).rewardAmount(rewardAmount).rewardItemId(rewardItemId)
+                .build();
+    }
+
+    @Transactional
+    public Map<String, Object> gatherResource(User user, int itemId, int amount) {
+        Character c = characterRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Character not found"));
+
+        if (c.getGatheringItemId() == null || c.getGatheringItemId() != itemId) {
+            throw new RuntimeException("Mỏ tài nguyên đã biến mất hoặc không hợp lệ!");
+        }
+
+        if (c.getGatheringExpiry() != null && LocalDateTime.now().isAfter(c.getGatheringExpiry())) {
+            clearGatheringState(c);
+            characterRepository.save(c);
+            throw new RuntimeException("Mỏ tài nguyên đã hết hạn!");
+        }
+
+        if (c.getGatheringRemainingAmount() < amount) {
+            throw new RuntimeException("Không đủ tài nguyên để thu hoạch!");
+        }
+
+        Item item = itemRepo.findById(itemId).orElseThrow(() -> new RuntimeException("Item lỗi"));
+        addItemToInventory(c, item, amount);
+
+        c.setGatheringRemainingAmount(c.getGatheringRemainingAmount() - amount);
+        if (c.getGatheringRemainingAmount() <= 0) {
+            clearGatheringState(c);
+        }
+        characterRepository.save(c);
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("message", "Thu hoạch thành công " + amount + "x " + item.getName());
+        resp.put("remaining", c.getGatheringRemainingAmount());
+        return resp;
     }
 
     private void addItemToInventory(Character character, Item item, int amount) {
@@ -146,7 +181,9 @@ public class ExplorationService {
         UserItem ui = new UserItem();
         ui.setCharacter(character); ui.setItem(item);
         ui.setQuantity(amount); ui.setIsEquipped(false);
-        ui.setEnhanceLevel(0); ui.setAcquiredAt(LocalDateTime.now());
+        // [FIX] Gọi setter mới
+        ui.setEnhanceLevel(0);
+        ui.setAcquiredAt(LocalDateTime.now());
         ui.setMainStatValue(BigDecimal.valueOf(10));
 
         if (List.of("WEAPON", "ARMOR").contains(item.getType())) {

@@ -1,17 +1,15 @@
 package com.echommo.config;
 
-import java.math.BigDecimal;
 import java.util.Map;
 import static java.util.Map.entry;
 
 public class GameConstants {
-    // --- CẤU HÌNH CHUNG ---
     public static final int MAX_LEVEL = 70;
     public static final int STAT_POINTS_PER_LEVEL = 5;
     public static final double CONVERSION_RATE = 10.0;
-    public static final int MAX_ASSET_VARIANTS = 5; // [FIX] Hỗ trợ biến thể ảnh 0-4
+    public static final int MAX_ASSET_VARIANTS = 5; // [FIX]
 
-    // --- MÃ VẬT PHẨM (ID & ALIAS) ---
+    // --- IDS ---
     public static final int MAT_WOOD_OAK = 1;
     public static final int MAT_WOOD_DRIED = 2;
     public static final int MAT_WOOD_COLD = 3;
@@ -19,7 +17,7 @@ public class GameConstants {
     public static final int MAT_WOOD_STRANGE = MAT_WOOD_BLACK;
 
     public static final int MAT_COAL = 5;
-    public static final int MAT_STONE = MAT_COAL; // [FIX] Đá thay bằng Than
+    public static final int MAT_STONE = MAT_COAL; // Đá -> Than
 
     public static final int MAT_ORE_COPPER = 6;
     public static final int MAT_ORE_IRON = 7;
@@ -28,18 +26,17 @@ public class GameConstants {
     public static final int MAT_UNKNOWN = MAT_ORE_STRANGE;
 
     public static final int MAT_ORE_GOLD = 14;
-
     public static final int MAT_FISH = 9;
     public static final int MAT_FISH_SHARK = 10;
     public static final int MAT_FISH_MEGALODON = 13;
     public static final int MAT_ECHO_COIN = 11;
 
-    // --- CẤU HÌNH MYTHIC ---
+    // --- MYTHIC ---
     public static final double[] MYTHIC_EVOLUTION_RANGE = {1.005, 1.01};
     public static final double MYTHIC_MAIN_GROWTH = 0.01;
     public static final double[] MYTHIC_SUB_GROWTH = {0.005, 0.01};
 
-    // --- CẤU HÌNH CHỈ SỐ ---
+    // --- STATS ---
     public static final Map<String, Integer> STAT_WEIGHTS = Map.ofEntries(
             entry("ATK_PERCENT", 20), entry("DEF_PERCENT", 20), entry("HP_PERCENT", 20),
             entry("ATK_FLAT", 15), entry("DEF_FLAT", 15), entry("HP_FLAT", 15),

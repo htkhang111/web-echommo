@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -25,7 +26,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final UserItemRepository userItemRepo;
     private final ItemRepository itemRepo;
     private final CharacterRepository charRepo;
-    private final EquipmentService equipmentService; // Để cường hóa (nếu cần logic phức tạp)
+    private final EquipmentService equipmentService;
 
     @Override
     public List<UserItem> getInventory(Integer charId) {
@@ -35,7 +36,7 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public void equipItem(Long charId, Long userItemId) {
-        // Logic mặc đồ (giữ nguyên hoặc implement sau nếu chưa có)
+        // Logic mặc đồ
     }
 
     @Override
@@ -47,11 +48,9 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public UserItem enhanceItem(Long charId, Long userItemId) {
-        // Delegate sang EquipmentService cho gọn
         return equipmentService.enhanceItem(userItemId);
     }
 
-    // [FIX] Implement hàm thêm đồ
     @Override
     @Transactional
     public void addItemToInventory(User user, Integer itemId, int quantity) {
@@ -61,13 +60,9 @@ public class InventoryServiceImpl implements InventoryService {
         Item item = itemRepo.findById(itemId)
                 .orElseThrow(() -> new RuntimeException("Item not found: " + itemId));
 
-        // Kiểm tra xem đã có item này trong túi chưa (chỉ gộp nếu không phải đồ Equip hoặc logic game cho phép)
-        // Ở đây giả sử nguyên liệu (Material) thì gộp, còn trang bị thì tách riêng.
-        // Nhưng đơn giản nhất là tìm kiếm item cùng loại chưa equip.
-
         Optional<UserItem> existingItem = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), itemId)
                 .stream()
-                .filter(ui -> !Boolean.TRUE.equals(ui.getIsEquipped())) // Chỉ gộp vào đồ chưa mặc
+                .filter(ui -> !Boolean.TRUE.equals(ui.getIsEquipped()))
                 .findFirst();
 
         if (existingItem.isPresent()) {
@@ -80,9 +75,11 @@ public class InventoryServiceImpl implements InventoryService {
                     .item(item)
                     .quantity(quantity)
                     .isEquipped(false)
-                    .enhancementLevel(0)
-                    .rarity(Rarity.COMMON) // Mặc định Common, logic rơi đồ xịn xử lý chỗ khác
+                    // [FIX] Đổi enhancementLevel -> enhanceLevel
+                    .enhanceLevel(0)
+                    .rarity(Rarity.COMMON)
                     .acquiredAt(LocalDateTime.now())
+                    .mainStatValue(BigDecimal.ZERO) // Init giá trị tránh null
                     .build();
             userItemRepo.save(ui);
         }

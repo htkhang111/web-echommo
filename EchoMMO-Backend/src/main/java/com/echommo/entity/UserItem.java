@@ -18,7 +18,6 @@ public class UserItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long userItemId;
 
-    // Ngắt vòng lặp JSON để tránh lỗi StackOverflow
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "char_id", nullable = false)
     @JsonIgnore
@@ -38,9 +37,10 @@ public class UserItem {
     @Column(name = "acquired_at")
     private LocalDateTime acquiredAt;
 
+    // [FIX] Đổi tên biến thành enhanceLevel để Lombok sinh getter/setter đúng tên
     @Builder.Default
     @Column(name = "enhance_level")
-    private Integer enhancementLevel = 0;
+    private Integer enhanceLevel = 0;
 
     @Enumerated(EnumType.STRING)
     private Rarity rarity;
@@ -55,12 +55,16 @@ public class UserItem {
     private String subStats;
 
     @Builder.Default
+    @Column(name = "visual_variant")
+    private Integer visualVariant = 0;
+
+    @Builder.Default
     @Column(name = "is_mythic")
     private boolean isMythic = false;
 
     @Builder.Default
-    @Column(name = "mythic_level")
-    private Integer mythicLevel = 0;
+    @Column(name = "mythic_stars")
+    private Integer mythicStars = 0;
 
     @Column(name = "original_main_stat_value")
     private BigDecimal originalMainStatValue;
@@ -68,28 +72,22 @@ public class UserItem {
     @PrePersist
     protected void onCreate() { if (acquiredAt == null) acquiredAt = LocalDateTime.now(); }
 
-    // --- [FIX] HELPER METHODS (QUAN TRỌNG) ---
+    // --- HELPER METHODS ---
 
-    // 1. Hàm lấy User nhanh (Fix lỗi EquipmentService gọi .getUser())
     public User getUser() {
         return this.character != null ? this.character.getUser() : null;
     }
 
-    // 2. Alias cho Enhancement Level (Fix lỗi gọi .getLevel())
+    // Alias cho code cũ nếu lỡ gọi getLevel()
     public Integer getLevel() {
-        return this.enhancementLevel != null ? this.enhancementLevel : 0;
+        return this.enhanceLevel != null ? this.enhanceLevel : 0;
     }
 
     public void setLevel(Integer level) {
-        this.enhancementLevel = level;
+        this.enhanceLevel = level;
     }
 
-    // 3. Alias cho EnhanceLevel (cho chắc cốp)
-    public Integer getEnhanceLevel() {
-        return this.enhancementLevel != null ? this.enhancementLevel : 0;
-    }
-
-    public void setEnhanceLevel(Integer level) {
-        this.enhancementLevel = level;
-    }
+    // [FIX] Alias getter/setter cho boolean isMythic để tương thích code Service
+    public Boolean getIsMythic() { return isMythic; }
+    public void setIsMythic(boolean v) { this.isMythic = v; }
 }

@@ -28,11 +28,10 @@ public class GameService {
     @Autowired private CharacterRepository charRepo;
     @Autowired private UserItemRepository userItemRepo;
     @Autowired private ItemRepository itemRepo;
-    @Autowired private CharacterService characterService; // Đã fix hàm này trả về Character
+    @Autowired private CharacterService characterService;
 
     private final Random random = new Random();
 
-    // --- HELPER METHODS ---
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepo.findByUsername(username)
@@ -40,17 +39,14 @@ public class GameService {
     }
 
     private Character getCharacter(Integer userId) {
-        // [FIX] Dùng findByUser_UserId (Integer)
         return charRepo.findByUser_UserId(userId)
                 .orElseGet(() -> {
                     User user = userRepo.findById(userId)
                             .orElseThrow(() -> new EntityNotFoundException("User not found"));
-                    // Tạo nhân vật mặc định nếu chưa có
                     return characterService.createDefaultCharacter(user);
                 });
     }
 
-    // --- EXPLORATION LOGIC ---
     private List<String> getMapResources(int level) {
         if (level < 20) return List.of("Gỗ", "Đá", "Quặng Đồng", "Cá");
         if (level < 30) return List.of("Gỗ", "Đá", "Quặng Đồng", "Sắt", "Cá");
@@ -65,10 +61,8 @@ public class GameService {
         List<String> logs = new ArrayList<>();
 
         int expGain = 15;
-        // [FIX] Dùng setter/getter chuẩn
         character.setCurrentExp(character.getCurrentExp() + expGain);
 
-        // Check lên cấp
         if (character.getCurrentExp() >= character.getLevel() * 100L) {
             character.setCurrentExp(0L);
             character.setLevel(character.getLevel() + 1);
@@ -78,14 +72,12 @@ public class GameService {
         }
         logs.add("Bạn đi thám hiểm... (+ " + expGain + " EXP)");
 
-        // 70% cơ hội nhặt đồ
         if (random.nextInt(100) < 70) {
             List<String> possibleDrops = getMapResources(character.getLevel());
             String dropName = possibleDrops.get(random.nextInt(possibleDrops.size()));
             Item matItem = itemRepo.findByName(dropName).orElse(null);
 
             if (matItem != null) {
-                // [FIX] Dùng findByCharacter_CharIdAndItem_ItemId
                 UserItem ui = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), matItem.getItemId())
                         .orElse(null);
 
@@ -95,6 +87,7 @@ public class GameService {
                     ui.setItem(matItem);
                     ui.setQuantity(0);
                     ui.setIsEquipped(false);
+                    // [FIX] Tên biến khớp
                     ui.setEnhanceLevel(0);
                     ui.setAcquiredAt(LocalDateTime.now());
                     ui.setMainStatValue(BigDecimal.ZERO);
@@ -119,7 +112,6 @@ public class GameService {
 
     public List<UserItem> getInventory(Integer userId) {
         Character character = getCharacter(userId);
-        // [FIX] Dùng charId
         return userItemRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(character.getCharId());
     }
 }

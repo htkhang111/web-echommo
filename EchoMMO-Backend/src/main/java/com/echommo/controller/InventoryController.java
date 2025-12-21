@@ -20,7 +20,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/equipment")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "*") // Allow all for dev
 public class InventoryController {
 
     @Autowired private UserItemRepository userItemRepo;
@@ -37,14 +37,11 @@ public class InventoryController {
                 .orElseThrow(() -> new RuntimeException("Bạn chưa tạo nhân vật!"));
     }
 
-    // 1. Lấy túi đồ
     @GetMapping("/inventory")
     public ResponseEntity<List<UserItem>> getInventory() {
-        // Dùng service để lấy đồ (đã có sẵn trong code cũ của bạn)
         return ResponseEntity.ok(inventoryService.getInventory(getCurrentCharacter().getCharId()));
     }
 
-    // 2. Mặc trang bị
     @PostMapping("/equip/{userItemId}")
     @Transactional
     public ResponseEntity<?> equipItem(@PathVariable Long userItemId) {
@@ -77,7 +74,6 @@ public class InventoryController {
         }
     }
 
-    // 3. Tháo trang bị
     @PostMapping("/unequip/{userItemId}")
     @Transactional
     public ResponseEntity<?> unequipItem(@PathVariable Long userItemId) {
@@ -98,7 +94,6 @@ public class InventoryController {
         }
     }
 
-    // 4. Dùng vật phẩm
     @PostMapping("/use/{userItemId}")
     @Transactional
     public ResponseEntity<?> useItem(@PathVariable Long userItemId) {
@@ -131,38 +126,29 @@ public class InventoryController {
         }
     }
 
-    // ==========================================
-    // KHẮC PHỤC LỖI TẠI ĐÂY (CÁC HÀM CƯỜNG HÓA)
-    // ==========================================
-
-    // 5. Cường hóa thường (+1 đến +30)
-    // Sửa lỗi: Gọi equipmentService.enhanceItem(userItemId)
     @PostMapping("/enhance/{userItemId}")
     public ResponseEntity<?> enhance(@PathVariable Long userItemId) {
         try {
-            // Logic mới nằm ở EquipmentService, chỉ cần truyền userItemId
             return ResponseEntity.ok(equipmentService.enhanceItem(userItemId));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // 6. Đột phá Mythic (Evolve)
-    // Sửa lỗi: Tên hàm là evolveToMythic (KHÔNG PHẢI upgradeToMythic)
     @PostMapping("/evolve-mythic/{userItemId}")
     public ResponseEntity<?> evolve(@PathVariable Long userItemId) {
         try {
+            // [FIX] Hàm này đã tồn tại trong EquipmentService mới
             return ResponseEntity.ok(equipmentService.evolveToMythic(userItemId));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // 7. Nâng cấp Mythic (Upgrade)
-    // Hàm này đúng rồi: enhanceMythic
     @PostMapping("/upgrade-mythic/{userItemId}")
     public ResponseEntity<?> upgradeMythic(@PathVariable Long userItemId) {
         try {
+            // [FIX] Hàm này đã tồn tại trong EquipmentService mới
             return ResponseEntity.ok(equipmentService.enhanceMythic(userItemId));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());

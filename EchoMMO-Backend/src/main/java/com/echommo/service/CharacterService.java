@@ -30,17 +30,14 @@ public class CharacterService {
     @Autowired private ItemRepository itemRepo;
     @Autowired private UserItemRepository userItemRepo;
 
-    // --- 1. LẤY THÔNG TIN NHÂN VẬT ---
     public Character getMyCharacter() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepo.findByUsername(username).orElse(null);
         if (user == null) return null;
 
-        // [FIX] Dùng findByUser thay vì findByUserId -> An toàn hơn
         Character c = characterRepo.findByUser(user).orElse(null);
 
         if (c != null) {
-            // [LOGIC TÍNH ĐIỂM TIỀM NĂNG]
             int lvl = c.getLevel() != null ? c.getLevel() : 1;
             int str = c.getStr() != null ? c.getStr() : 5;
             int vit = c.getVit() != null ? c.getVit() : 5;
@@ -61,37 +58,32 @@ public class CharacterService {
         return c;
     }
 
-    // --- 2. TẠO NHÂN VẬT MẶC ĐỊNH ---
     @Transactional
     public Character createDefaultCharacter(User user) {
-        // [FIX] Dùng findByUser
         if (characterRepo.findByUser(user).isPresent()) {
             return characterRepo.findByUser(user).get();
         }
         return initNewCharacter(user, user.getUsername());
     }
 
-    // --- 3. TẠO NHÂN VẬT (API) ---
     @Transactional
     public Character createCharacter(CharacterRequest req) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepo.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
 
-        // [FIX] Dùng findByUser
         if (characterRepo.findByUser(user).isPresent()) {
             throw new RuntimeException("Bạn đã có nhân vật rồi!");
         }
         return initNewCharacter(user, req.getName());
     }
 
-    // Helper tạo mới chung
     private Character initNewCharacter(User user, String charName) {
         Character c = new Character();
         c.setUser(user);
         c.setName(charName);
         c.setLevel(1);
         c.setStatus(CharacterStatus.IDLE);
-        c.setMonsterKills(0); // [FIX] Init số quái đã diệt
+        c.setMonsterKills(0);
 
         c.setStr(5); c.setVit(5); c.setAgi(5);
         c.setDex(5); c.setIntelligence(5); c.setLuck(5);
@@ -103,7 +95,6 @@ public class CharacterService {
         return savedChar;
     }
 
-    // --- 4. CỘNG ĐIỂM TIỀM NĂNG ---
     @Transactional
     public Character addStats(Map<String, Integer> stats) {
         Character c = getMyCharacter();
@@ -149,7 +140,6 @@ public class CharacterService {
         return characterRepo.save(c);
     }
 
-    // --- 5. TÍNH TOÁN CHỈ SỐ ---
     private void recalculateStats(Character c) {
         ensureNoNullStats(c);
 
@@ -205,6 +195,7 @@ public class CharacterService {
         ui.setQuantity(qty);
         ui.setIsEquipped(equip);
         ui.setRarity(Rarity.COMMON);
+        // [FIX] Tên biến đã khớp
         ui.setEnhanceLevel(0);
 
         if (item.getSlotType() == SlotType.WEAPON) {

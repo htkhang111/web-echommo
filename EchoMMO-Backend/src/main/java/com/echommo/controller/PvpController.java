@@ -71,8 +71,6 @@ public class PvpController {
         }
     }
 
-    // Trong PvpController.java
-
     // --- 3. CHẤP NHẬN TRẬN ---
     @PostMapping("/accept")
     public ResponseEntity<?> acceptMatch(@AuthenticationPrincipal UserDetails userDetails,
@@ -81,7 +79,6 @@ public class PvpController {
         Long matchId = payload.get("matchId");
 
         try {
-            // Gọi hàm accept trong Service
             pvpService.acceptMatch(matchId, myChar.getCharId());
             return ResponseEntity.ok("Accepted");
         } catch (Exception e) {
@@ -89,19 +86,16 @@ public class PvpController {
         }
     }
 
-    // --- [QUAN TRỌNG] 4. RA CHIÊU (ĐÃ SỬA DÙNG DTO) ---
+    // --- 4. RA CHIÊU ---
     @PostMapping("/move")
     public ResponseEntity<?> submitMove(@AuthenticationPrincipal UserDetails userDetails,
-                                        @RequestBody PvpMoveRequest request) { // <--- Dùng Class DTO ở đây
+                                        @RequestBody PvpMoveRequest request) {
         Character myChar = getCharacterFromUser(userDetails);
-
-        System.out.println("🔥 API Move nhận: ID=" + request.getMatchId() + " Move=" + request.getMove());
-
         try {
             pvpService.submitMove(request.getMatchId(), myChar.getCharId(), request.getMove());
             return ResponseEntity.ok("Move submitted");
         } catch (Exception e) {
-            e.printStackTrace(); // In lỗi ra console server để dễ debug
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -159,7 +153,8 @@ public class PvpController {
     private Character getCharacterFromUser(UserDetails userDetails) {
         User user = userRepo.findByUsername(userDetails.getUsername()).orElse(null);
         if (user == null) return null;
-        return charRepo.findByUserId(user.getUserId()).orElse(null);
+        // [FIX] Gọi hàm chuẩn JPA
+        return charRepo.findByUser_UserId(user.getUserId()).orElse(null);
     }
 
     private void mapMatchToResponse(PvpMatch match, Integer myCharId, MatchResponse res) {
@@ -169,7 +164,6 @@ public class PvpController {
         res.setLastLog(match.getLastLog());
         res.setWinnerId(match.getWinnerId() != null ? match.getWinnerId().intValue() : null);
 
-        // Map Chat (Giữ nguyên)
         if (match.getChats() != null) {
             List<ChatMessageDTO> chatDtos = match.getChats().stream()
                     .map(chat -> new ChatMessageDTO(chat.getSender().getName(), chat.getSender().getCharId(), chat.getMessage()))
@@ -181,25 +175,20 @@ public class PvpController {
 
         boolean isP1 = match.getPlayer1().getCharId().equals(myCharId);
 
-        // Map Player 1
         res.setP1Id(match.getPlayer1().getCharId());
         res.setP1Name(match.getPlayer1().getName());
         res.setP1Level(match.getPlayer1().getLevel());
         res.setP1Hp(match.getP1CurrentHp());
         res.setP1MaxHp(match.getPlayer1().getMaxHp());
-        // [MỚI] Map Avatar Url
         res.setP1AvatarUrl(match.getPlayer1().getAvatarUrl());
 
-        // Map Player 2
         res.setP2Id(match.getPlayer2().getCharId());
         res.setP2Name(match.getPlayer2().getName());
         res.setP2Level(match.getPlayer2().getLevel());
         res.setP2Hp(match.getP2CurrentHp());
         res.setP2MaxHp(match.getPlayer2().getMaxHp());
-        // [MỚI] Map Avatar Url
         res.setP2AvatarUrl(match.getPlayer2().getAvatarUrl());
 
-        // Map Moves (Ẩn move của đối thủ nếu chưa kết thúc lượt)
         String p1Move = match.getP1Move();
         String p2Move = match.getP2Move();
         boolean bothMoved = (p1Move != null && p2Move != null);
@@ -214,7 +203,6 @@ public class PvpController {
         }
     }
 
-    // --- DTO CLASSES ---
     public static class ChatMessageDTO {
         public String senderName; public Integer senderId; public String content;
         public ChatMessageDTO(String s, Integer id, String c) { this.senderName = s; this.senderId = id; this.content = c; }
@@ -230,23 +218,20 @@ public class PvpController {
 
         private Integer p1Id; private String p1Name; private Integer p1Level;
         private Integer p1Hp; private Integer p1MaxHp; private String p1Move;
-        private String p1AvatarUrl; // [MỚI]
+        private String p1AvatarUrl;
 
         private Integer p2Id; private String p2Name; private Integer p2Level;
         private Integer p2Hp; private Integer p2MaxHp; private String p2Move;
-        private String p2AvatarUrl; // [MỚI]
+        private String p2AvatarUrl;
 
         private List<ChatMessageDTO> messages;
 
-        // --- GETTERS & SETTERS ---
-        // (Copy các getter setter cũ và thêm 2 cái mới này)
         public String getP1AvatarUrl() { return p1AvatarUrl; }
         public void setP1AvatarUrl(String p1AvatarUrl) { this.p1AvatarUrl = p1AvatarUrl; }
 
         public String getP2AvatarUrl() { return p2AvatarUrl; }
         public void setP2AvatarUrl(String p2AvatarUrl) { this.p2AvatarUrl = p2AvatarUrl; }
 
-        // ... Các Getter/Setter khác giữ nguyên như cũ ...
         public void setMessages(List<ChatMessageDTO> messages) { this.messages = messages; }
         public List<ChatMessageDTO> getMessages() { return messages; }
         public void setStatus(String s) { this.status = s; } public String getStatus() { return status; }

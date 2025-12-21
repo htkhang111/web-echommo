@@ -11,15 +11,15 @@ import java.math.BigDecimal;
 public class AuthResponse {
     private String token;
     private String type = "Bearer";
-    private Integer id; // [FIX] Đổi sang Integer khớp với User
+    private Integer id;
     private String username;
     private String email;
     private String role;
     private BigDecimal echoCoin;
-    private Long gold;
+    private BigDecimal gold; // [FIX] Đổi Long -> BigDecimal
     private String avatarUrl;
 
-    public AuthResponse(String accessToken, Integer id, String username, String email, String role, BigDecimal echoCoin, Long gold, String avatarUrl) {
+    public AuthResponse(String accessToken, Integer id, String username, String email, String role, BigDecimal echoCoin, BigDecimal gold, String avatarUrl) {
         this.token = accessToken;
         this.id = id;
         this.username = username;

@@ -32,7 +32,6 @@ public class BattleService {
 
     private Character getMyCharacter() {
         User user = getCurrentUser();
-        // [FIX] user.getUserId() là Integer, khớp với CharacterRepository
         return charRepo.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Bạn chưa tạo nhân vật!"));
     }
@@ -40,13 +39,9 @@ public class BattleService {
     @Transactional
     public BattleResult startBattle() {
         Character character = getMyCharacter();
-
-        // [FIX] Character ID là Integer
         List<BattleSession> sessions = sessionRepo.findByCharacter_CharId(character.getCharId());
 
         if (sessions.isEmpty()) {
-            // Logic fallback: Nếu không có session (do lỗi), tạo tạm một con quái yếu để đánh
-            // Thực tế nên throw exception, nhưng để test thì tạo quái
             throw new RuntimeException("Chưa tìm thấy đối thủ! Hãy đi Thám Hiểm (Explore) để gặp quái.");
         }
         BattleSession session = sessions.get(0);
@@ -89,22 +84,17 @@ public class BattleService {
     private BattleResult handleWin(BattleSession session, Character character) {
         BattleResult res = buildResult(session, "🏆 Chiến thắng!", "VICTORY");
 
-        // [FIX] ID Quái là Integer
         Enemy enemy = enemyRepo.findById(session.getEnemyId()).orElse(new Enemy());
         int expReward = enemy.getExpReward() != null ? enemy.getExpReward() : 10;
         int goldReward = enemy.getGoldReward() != null ? enemy.getGoldReward() : 5;
 
-        // Cộng Exp (Long)
         character.setCurrentExp(character.getCurrentExp() + expReward);
-
-        // Cộng chỉ số diệt quái (để đua top)
         character.setMonsterKills(character.getMonsterKills() + 1);
 
         Wallet wallet = character.getUser().getWallet();
-        // [FIX] Cộng Gold (Long)
-        wallet.setGold(wallet.getGold() + goldReward);
+        // [FIX] Cộng Gold bằng BigDecimal
+        wallet.setGold(wallet.getGold().add(BigDecimal.valueOf(goldReward)));
 
-        // [FIX] Cộng Echo (BigDecimal) cho Boss
         if (session.getEnemyId() >= 100) {
             wallet.setEchoCoin(wallet.getEchoCoin().add(new BigDecimal("0.05")));
         }
@@ -112,7 +102,7 @@ public class BattleService {
         walletRepo.save(wallet);
 
         character.setStatus(CharacterStatus.IDLE);
-        character.setCurrentHp(character.getMaxHp()); // Hồi máu sau trận thắng
+        character.setCurrentHp(character.getMaxHp());
         charRepo.save(character);
         sessionRepo.delete(session);
 
@@ -120,7 +110,7 @@ public class BattleService {
     }
 
     private BattleResult handleLoss(BattleSession session, Character character) {
-        character.setCurrentHp(1); // Còn 1 máu
+        character.setCurrentHp(1);
         character.setStatus(CharacterStatus.IDLE);
         charRepo.save(character);
         sessionRepo.delete(session);

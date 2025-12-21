@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 public class Wallet {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "wallet_id") // [FIX] Ánh xạ đúng vào cột wallet_id trong database
+    @Column(name = "wallet_id")
     private Long id;
 
     @OneToOne
@@ -17,7 +17,10 @@ public class Wallet {
     @JsonIgnoreProperties("wallet")
     private User user;
 
-    private Long gold = 0L;
+    // [FIX] Chuyển Gold sang BigDecimal để tính toán chính xác
+    @Column(precision = 20, scale = 8)
+    private BigDecimal gold = BigDecimal.ZERO;
+
     private Integer diamonds = 0;
 
     @Column(name = "echo_coin", precision = 20, scale = 8)
@@ -36,15 +39,16 @@ public class Wallet {
     private Integer shark = 0;
     private Integer unknownMaterial = 0;
 
-    // --- GETTER & SETTER THỦ CÔNG ---
+    // --- GETTER & SETTER ---
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
     public User getUser() { return user; }
     public void setUser(User user) { this.user = user; }
 
-    public Long getGold() { return gold != null ? gold : 0L; }
-    public void setGold(Long gold) { this.gold = gold; }
+    // [FIX] Getter/Setter cho Gold kiểu BigDecimal
+    public BigDecimal getGold() { return gold != null ? gold : BigDecimal.ZERO; }
+    public void setGold(BigDecimal gold) { this.gold = gold; }
 
     public Integer getDiamonds() { return diamonds != null ? diamonds : 0; }
     public void setDiamonds(Integer diamonds) { this.diamonds = diamonds; }
@@ -52,7 +56,7 @@ public class Wallet {
     public BigDecimal getEchoCoin() { return echoCoin != null ? echoCoin : BigDecimal.ZERO; }
     public void setEchoCoin(BigDecimal echoCoin) { this.echoCoin = echoCoin; }
 
-    // Getter cho nguyên liệu (quan trọng cho EquipmentService)
+    // Getter cho nguyên liệu
     public Integer getWood() { return wood; } public void setWood(Integer v) { this.wood = v; }
     public Integer getDriedWood() { return driedWood; } public void setDriedWood(Integer v) { this.driedWood = v; }
     public Integer getColdWood() { return coldWood; } public void setColdWood(Integer v) { this.coldWood = v; }

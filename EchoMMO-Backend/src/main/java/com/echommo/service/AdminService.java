@@ -32,9 +32,10 @@ public class AdminService {
                 .map(w -> w.getEchoCoin() != null ? w.getEchoCoin() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        Long totalGold = walletRepository.findAll().stream()
-                .mapToLong(Wallet::getGold)
-                .sum();
+        // [FIX] Tính tổng Gold bằng BigDecimal
+        BigDecimal totalGold = walletRepository.findAll().stream()
+                .map(Wallet::getGold)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         stats.put("totalEchoMined", totalEcho);
         stats.put("totalGold", totalGold);
@@ -91,14 +92,14 @@ public class AdminService {
         Wallet wallet = walletRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
-        wallet.setGold(wallet.getGold() + amount);
+        // [FIX] Cộng Gold dùng BigDecimal
+        wallet.setGold(wallet.getGold().add(BigDecimal.valueOf(amount)));
         walletRepository.save(wallet);
 
         createNotification(user.getUsername(), "Thưởng Hệ Thống",
                 "Bạn nhận được " + amount + " vàng từ ban quản trị.", NotificationType.REWARD);
     }
 
-    // [NEW] Hàm phát thưởng EchoCoin
     @Transactional
     public void grantEcho(String username, BigDecimal amount) {
         User user = userRepository.findByUsername(username)
@@ -106,7 +107,6 @@ public class AdminService {
         Wallet wallet = walletRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
-        // Cộng dồn EchoCoin (xử lý null an toàn)
         BigDecimal currentEcho = wallet.getEchoCoin() != null ? wallet.getEchoCoin() : BigDecimal.ZERO;
         wallet.setEchoCoin(currentEcho.add(amount));
         walletRepository.save(wallet);

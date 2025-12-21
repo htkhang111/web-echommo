@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Random;
@@ -23,12 +24,10 @@ public class QuestService {
 
     private final Random random = new Random();
 
-    // 1. Lấy hoặc Tạo danh sách Quest hôm nay
     public List<DailyQuest> getDailyQuests() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username).orElseThrow();
 
-        // userId là Integer
         List<DailyQuest> todayQuests = questRepository.findByUser_UserIdAndCreatedDate(user.getUserId(), LocalDate.now());
 
         if (todayQuests.isEmpty()) {
@@ -62,7 +61,6 @@ public class QuestService {
         questRepository.save(q);
     }
 
-    // 2. Cập nhật tiến độ
     @Transactional
     public void updateProgress(User user, String type, int amount) {
         List<DailyQuest> quests = questRepository.findByUser_UserIdAndCreatedDate(user.getUserId(), LocalDate.now());
@@ -74,7 +72,6 @@ public class QuestService {
         }
     }
 
-    // 3. Nhận thưởng
     @Transactional
     public String claimReward(Integer questId) {
         DailyQuest q = questRepository.findById(questId)
@@ -91,9 +88,9 @@ public class QuestService {
 
         Wallet w = q.getUser().getWallet();
 
-        // [FIX QUAN TRỌNG] Wallet Gold là Long, không dùng .add() của BigDecimal được
+        // [FIX] Convert reward sang BigDecimal và cộng
         long reward = q.getRewardAmount() != null ? q.getRewardAmount() : 0;
-        w.setGold(w.getGold() + reward);
+        w.setGold(w.getGold().add(BigDecimal.valueOf(reward)));
 
         walletRepository.save(w);
 
