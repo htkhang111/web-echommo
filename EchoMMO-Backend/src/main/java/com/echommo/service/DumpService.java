@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +28,8 @@ public class DumpService {
 
     @Transactional
     public DumpResponse processDump(String username, DumpRequest request) {
+        long startTime = System.currentTimeMillis(); // Benchmark log
+
         // 1. Validate User & Character
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -36,29 +39,29 @@ public class DumpService {
         int amount = request.getAmount();
         if (amount <= 0) throw new RuntimeException("Số lượng không hợp lệ");
 
-        // 2. Xác định loại cá đầu vào và Tỷ lệ ra Megalodon
+        // 2. Xác định loại cá và tỷ lệ
         String inputItemCode;
-        double megalodonRate; // Tỷ lệ phần trăm (0.0 - 100.0)
+        double megalodonRate;
 
         String type = request.getType().toUpperCase();
         switch (type) {
-            case "NORMAL": // Cá thường
+            case "NORMAL":
                 inputItemCode = "f_fish";
-                megalodonRate = 0.1; // 0.1% cơ hội
+                megalodonRate = 0.1;
                 break;
-            case "SHARK": // Cá mập
+            case "SHARK":
                 inputItemCode = "f_shark";
-                megalodonRate = 2.5; // 2.5% cơ hội
+                megalodonRate = 2.5;
                 break;
-            case "WHITE_SHARK": // Cá mập trắng (Hàng xịn)
+            case "WHITE_SHARK":
                 inputItemCode = "f_whiteshark";
-                megalodonRate = 10.0; // 10% cơ hội
+                megalodonRate = 10.0;
                 break;
             default:
                 throw new RuntimeException("Loại cá không hợp lệ!");
         }
 
-        // 3. Trừ item trong kho
+        // 3. Trừ item trong kho (Batch update logic)
         Item inputItem = itemRepository.findByCode(inputItemCode)
                 .orElseThrow(() -> new RuntimeException("Item code " + inputItemCode + " không tồn tại"));
 
@@ -76,131 +79,122 @@ public class DumpService {
             userItemRepository.save(userItem);
         }
 
-        // 4. Tính toán phần thưởng (Gacha Loop)
+        // 4. PRE-FETCH DATA (Lấy hết item cần thiết ra trước để không query trong loop)
+        Item megalodonItem = itemRepository.findByCode("f_megalodon").orElse(null);
+        List<Item> commonItems = getCachedItemsByRarity(Rarity.COMMON);
+        List<Item> rareItems = getCachedItemsByRarity(Rarity.RARE);
+        List<Item> epicItems = getCachedItemsByRarity(Rarity.EPIC);
+
+        // 5. Tính toán phần thưởng (In-Memory Loop - Cực nhanh)
         BigDecimal totalGold = BigDecimal.ZERO;
         BigDecimal totalEcho = BigDecimal.ZERO;
-        Map<String, DumpResponse.RewardItem> rewardMap = new HashMap<>();
 
-        Item megalodonItem = itemRepository.findByCode("f_megalodon").orElse(null);
+        // Map dùng để gom số lượng item (VD: "w_wood" -> 50 cái)
+        Map<String, Integer> accumulatedItems = new HashMap<>();
 
         for (int i = 0; i < amount; i++) {
-            // --- LỚP 1: CHECK MEGALODON (Dựa trên loại mồi) ---
-            double rollMegalodon = random.nextDouble() * 100; // 0.0 - 100.0
-
-            if (rollMegalodon < megalodonRate && megalodonItem != null) {
-                // Trúng Jackpot: Megalodon
-                addItemToRewardMap(rewardMap, megalodonItem);
-                giveItemToUser(character, megalodonItem);
-                continue; // Xong lượt này, qua con tiếp theo
+            // Check Megalodon
+            if (megalodonItem != null && (random.nextDouble() * 100) < megalodonRate) {
+                accumulatedItems.merge(megalodonItem.getCode(), 1, Integer::sum);
+                continue;
             }
 
-            // --- LỚP 2: CHECK BẢNG THƯỞNG CỐ ĐỊNH ---
-            // Nếu không ra Megalodon thì chạy bảng tỷ lệ:
-            // 70% Vàng | 20% Rác | 9% Hiếm | 1% Echo
-            int standardRoll = random.nextInt(100); // 0 - 99
-
+            // Check bảng thường
+            int standardRoll = random.nextInt(100);
             if (standardRoll < 70) {
-                // [0-69] 70% ra Vàng (10 - 20) -> Cộng Ví
+                // 70% Vàng
                 totalGold = totalGold.add(BigDecimal.valueOf(random.nextInt(11) + 10));
-
             } else if (standardRoll < 90) {
-                // [70-89] 20% ra Rác (COMMON Material) -> Cộng Túi
-                // Lấy random item Common (trừ cá ra)
-                Item junkItem = getRandomItemByRarityExcludingFish(Rarity.COMMON);
-                if (junkItem != null) {
-                    addItemToRewardMap(rewardMap, junkItem);
-                    giveItemToUser(character, junkItem);
-                } else {
-                    // Fallback nếu lỗi DB: Thêm ít vàng
-                    totalGold = totalGold.add(BigDecimal.valueOf(5));
-                }
-
+                // 20% Rác
+                Item junk = getRandomItemFromList(commonItems);
+                if (junk != null) accumulatedItems.merge(junk.getCode(), 1, Integer::sum);
+                else totalGold = totalGold.add(BigDecimal.valueOf(5));
             } else if (standardRoll < 99) {
-                // [90-98] 9% ra Nguyên liệu hiếm (RARE/EPIC) -> Cộng Túi
-                Rarity rarity = random.nextBoolean() ? Rarity.RARE : Rarity.EPIC;
-                Item rareItem = getRandomItemByRarityExcludingFish(rarity);
-                if (rareItem != null) {
-                    addItemToRewardMap(rewardMap, rareItem);
-                    giveItemToUser(character, rareItem);
-                } else {
-                    totalGold = totalGold.add(BigDecimal.valueOf(50));
-                }
-
+                // 9% Hiếm
+                List<Item> pool = random.nextBoolean() ? rareItems : epicItems;
+                Item rare = getRandomItemFromList(pool);
+                if (rare != null) accumulatedItems.merge(rare.getCode(), 1, Integer::sum);
+                else totalGold = totalGold.add(BigDecimal.valueOf(50));
             } else {
-                // [99] 1% JACKPOT ECHO -> Cộng Ví
-                double echoVal = 0.001 + (0.499 * random.nextDouble()); // 0.001 - 0.5
+                // 1% Echo
+                double echoVal = 0.001 + (0.499 * random.nextDouble());
                 totalEcho = totalEcho.add(BigDecimal.valueOf(echoVal));
             }
         }
 
-        // 5. Cộng Tiền Tệ vào Ví (Wallet)
-        Wallet wallet = walletRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("Wallet not found"));
+        // 6. Ghi xuống DB (Batch Update Items)
+        // Chỉ lặp qua danh sách các item ĐÃ nhận được (số vòng lặp rất ít)
+        List<DumpResponse.RewardItem> responseItems = new ArrayList<>();
 
-        if (totalGold.compareTo(BigDecimal.ZERO) > 0) {
-            wallet.setGold(wallet.getGold().add(totalGold));
+        for (Map.Entry<String, Integer> entry : accumulatedItems.entrySet()) {
+            String itemCode = entry.getKey();
+            int qty = entry.getValue();
+
+            // Tìm item entity (Có thể cache map code->entity để nhanh hơn nếu cần)
+            Item item = itemRepository.findByCode(itemCode).orElse(null);
+            if (item == null) continue;
+
+            // Update kho
+            Optional<UserItem> existing = userItemRepository.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), item.getItemId());
+            if (existing.isPresent()) {
+                UserItem ui = existing.get();
+                ui.setQuantity(ui.getQuantity() + qty);
+                userItemRepository.save(ui);
+            } else {
+                UserItem newItem = new UserItem();
+                newItem.setCharacter(character);
+                newItem.setItem(item);
+                newItem.setQuantity(qty);
+                newItem.setIsEquipped(false);
+                userItemRepository.save(newItem);
+            }
+
+            // Add vào response
+            responseItems.add(DumpResponse.RewardItem.builder()
+                    .code(item.getCode())
+                    .name(item.getName())
+                    .rarity(item.getRarity())
+                    .quantity(qty)
+                    .build());
         }
 
-        if (totalEcho.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal currentEcho = wallet.getEchoCoin() != null ? wallet.getEchoCoin() : BigDecimal.ZERO;
-            wallet.setEchoCoin(currentEcho.add(totalEcho));
+        // 7. Update Wallet (Một lần duy nhất)
+        if (totalGold.compareTo(BigDecimal.ZERO) > 0 || totalEcho.compareTo(BigDecimal.ZERO) > 0) {
+            Wallet wallet = walletRepository.findByUser(user)
+                    .orElseThrow(() -> new RuntimeException("Wallet not found"));
+
+            if (totalGold.compareTo(BigDecimal.ZERO) > 0)
+                wallet.setGold(wallet.getGold().add(totalGold));
+            if (totalEcho.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal current = wallet.getEchoCoin() != null ? wallet.getEchoCoin() : BigDecimal.ZERO;
+                wallet.setEchoCoin(current.add(totalEcho));
+            }
+            walletRepository.save(wallet);
         }
 
-        walletRepository.save(wallet);
+        System.out.println("Dump processed " + amount + " items in: " + (System.currentTimeMillis() - startTime) + "ms");
 
-        // 6. Trả về kết quả
         return DumpResponse.builder()
                 .success(true)
                 .message("Đã thả " + amount + " " + inputItem.getName())
                 .totalGold(totalGold)
                 .totalEcho(totalEcho)
-                // List này chỉ chứa Vật phẩm (Megalodon, Gỗ, Khoáng...), không chứa Echo/Vàng
-                .receivedItems(new ArrayList<>(rewardMap.values()))
+                .receivedItems(responseItems)
                 .build();
     }
 
-    // --- Helper Methods ---
-
-    private void addItemToRewardMap(Map<String, DumpResponse.RewardItem> map, Item item) {
-        if (map.containsKey(item.getCode())) {
-            DumpResponse.RewardItem reward = map.get(item.getCode());
-            reward.setQuantity(reward.getQuantity() + 1);
-        } else {
-            map.put(item.getCode(), DumpResponse.RewardItem.builder()
-                    .code(item.getCode())
-                    .name(item.getName())
-                    .rarity(item.getRarity())
-                    .quantity(1)
-                    .build());
-        }
-    }
-
-    private void giveItemToUser(Character character, Item item) {
-        Optional<UserItem> existing = userItemRepository.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), item.getItemId());
-        if (existing.isPresent()) {
-            UserItem ui = existing.get();
-            ui.setQuantity(ui.getQuantity() + 1);
-            userItemRepository.save(ui);
-        } else {
-            UserItem newItem = new UserItem();
-            newItem.setCharacter(character);
-            newItem.setItem(item);
-            newItem.setQuantity(1);
-            newItem.setIsEquipped(false);
-            userItemRepository.save(newItem);
-        }
-    }
-
-    private Item getRandomItemByRarityExcludingFish(Rarity rarity) {
+    // --- Helper Optimized ---
+    private List<Item> getCachedItemsByRarity(Rarity rarity) {
         List<Item> items = itemRepository.findByRarity(rarity);
-        if (items.isEmpty()) return null;
-
-        // Lọc bỏ item có code bắt đầu bằng 'f_' (fish) để tránh trả lại cá
-        List<Item> filtered = items.stream()
+        if (items == null) return new ArrayList<>();
+        // Lọc bỏ cá ngay từ đầu
+        return items.stream()
                 .filter(i -> !i.getCode().startsWith("f_"))
-                .toList();
+                .collect(Collectors.toList());
+    }
 
-        if (filtered.isEmpty()) return null;
-        return filtered.get(random.nextInt(filtered.size()));
+    private Item getRandomItemFromList(List<Item> items) {
+        if (items == null || items.isEmpty()) return null;
+        return items.get(random.nextInt(items.size()));
     }
 }

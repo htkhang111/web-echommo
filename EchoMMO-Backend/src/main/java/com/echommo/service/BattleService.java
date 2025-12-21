@@ -22,7 +22,7 @@ public class BattleService {
     private final WalletRepository walletRepo;
     private final UserRepository userRepo;
     private final BattleSessionRepository sessionRepo;
-    private final CharacterService charService; // Để sử dụng hàm tính lại chỉ số
+    private final CharacterService charService; // Tiêm vào để gọi hàm tính toán chỉ số chuẩn trang bị
 
     private final Random random = new Random();
 
@@ -38,8 +38,8 @@ public class BattleService {
         Character character = charRepo.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Chưa tạo nhân vật!"));
 
-        // [FIX] Luôn tính toán lại chỉ số từ trang bị mỗi khi lấy nhân vật ra
-        // Điều này giúp baseAtk, baseDef... luôn cập nhật theo vũ khí/giáp đang mặc.
+        // [QUAN TRỌNG] Luôn tính toán lại chỉ số từ trang bị mỗi khi lấy nhân vật ra
+        // Đảm bảo baseAtk, baseDef, Crit... phản ánh đúng vũ khí/giáp đang mặc.
         charService.recalculateStats(character);
 
         return character;
@@ -49,7 +49,7 @@ public class BattleService {
 
     @Transactional
     public BattleResult startBattle() {
-        Character character = getMyCharacter();
+        Character character = getMyCharacter(); // Đã bao gồm tính lại stats
         List<BattleSession> sessions = sessionRepo.findByCharacter_CharId(character.getCharId());
 
         if (sessions.isEmpty()) {
@@ -70,7 +70,7 @@ public class BattleService {
 
     @Transactional
     public BattleResult processTurn(String actionType) {
-        Character character = getMyCharacter(); // Đã bao gồm recalculateStats
+        Character character = getMyCharacter(); // Đã lấy chỉ số mới nhất bao gồm đồ
 
         List<BattleSession> sessions = sessionRepo.findByCharacter_CharId(character.getCharId());
         if (sessions.isEmpty()) throw new RuntimeException("Trận đấu đã kết thúc hoặc không tồn tại.");
@@ -98,7 +98,7 @@ public class BattleService {
             int minDmg = (int) Math.ceil(pAtk * 0.1);
             int damage = Math.max(minDmg, pAtk - eDef);
 
-            // Kiểm tra bạo kích
+            // Kiểm tra bạo kích dựa trên Crit Rate của nhân vật
             if (random.nextInt(100) < pCritRate) {
                 damage = (int) (damage * (pCritDmg / 100.0));
                 logs.add("🔥 BẠO KÍCH! Bạn gây " + damage + " sát thương lên " + s.getEnemyName() + ".");
@@ -115,12 +115,13 @@ public class BattleService {
         int eAtk = s.getEnemyAtk();
         int pDef = character.getBaseDef();
 
-        // Tỷ lệ né của Người chơi (Max 50%)
+        // Tỷ lệ né của Người chơi (Max 50%) dựa trên Speed
         int pDodgeChance = Math.min(50, Math.max(0, (pSpeed - eSpeed) / 2));
 
         if (random.nextInt(100) < pDodgeChance) {
             logs.add("✨ Bạn đã né đòn tấn công từ " + s.getEnemyName() + "!");
         } else {
+            // Quái đánh cũng có sát thương tối thiểu 10%
             int minEDmg = (int) Math.ceil(eAtk * 0.1);
             int eDamage = Math.max(minEDmg, eAtk - pDef);
 
@@ -144,7 +145,7 @@ public class BattleService {
         int expReward = (int) (enemy.getExpReward() != null ? enemy.getExpReward() : 10 * enemyLvl);
         int goldReward = (int) (enemy.getGoldReward() != null ? enemy.getGoldReward() : 5 * enemyLvl);
 
-        // Check Tinh Anh (Elite)
+        // Thưởng gấp 3 nếu là quái Tinh Anh
         boolean isElite = session.getEnemyName().contains("[Tinh Anh]");
         if (isElite) {
             expReward *= 3;
@@ -158,11 +159,11 @@ public class BattleService {
         // Kiểm tra lên cấp
         checkLevelUp(character);
 
-        // Cộng vàng
+        // Cộng vàng vào Wallet
         Wallet wallet = character.getUser().getWallet();
         wallet.setGold(wallet.getGold().add(BigDecimal.valueOf(goldReward)));
 
-        // Tỷ lệ rơi Echo Coin
+        // Tỷ lệ rơi Echo Coin hiếm
         if (isElite && random.nextInt(100) < 25) {
             wallet.setEchoCoin(wallet.getEchoCoin().add(new BigDecimal("0.1")));
             logs.add("💎 [HIẾM] Nhận được 0.1 Echo Coin từ Tinh Anh!");
@@ -185,7 +186,7 @@ public class BattleService {
 
     private BattleResult handleLoss(BattleSession session, Character character, List<String> logs) {
         character.setStatus(CharacterStatus.IDLE);
-        character.setCurrentHp(10); // Hồi lại một ít máu để không bị kẹt
+        character.setCurrentHp(10); // Hồi máu tối thiểu để không kẹt
         charRepo.save(character);
         sessionRepo.delete(session);
 
@@ -199,7 +200,7 @@ public class BattleService {
             c.setLevel(c.getLevel() + 1);
             c.setCurrentExp(c.getCurrentExp() - required);
 
-            // Khi lên cấp, tự động tính lại chỉ số và hồi full
+            // Tự động tính lại chỉ số mới và hồi full máu/năng lượng khi lên cấp
             charService.recalculateStats(c);
             c.setCurrentHp(c.getMaxHp());
             c.setCurrentEnergy(c.getMaxEnergy());

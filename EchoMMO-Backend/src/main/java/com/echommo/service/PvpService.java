@@ -25,7 +25,7 @@ public class PvpService {
     @Autowired private CharacterRepository charRepo;
     @Autowired private PvpQueueRepository queueRepo;
     @Autowired private PvpChatRepository chatRepo;
-    @Autowired private CharacterService charService; // Tiêm vào để cập nhật chỉ số đồ
+    @Autowired private CharacterService charService; // Tiêm vào để cập nhật chỉ số từ trang bị
 
     private final Random random = new Random();
 
@@ -108,13 +108,13 @@ public class PvpService {
     private void resolveTurn(PvpMatch match) {
         String m1 = match.getP1Move();
         String m2 = match.getP2Move();
-        match.setLastP1Move(m1);
+        match.setLastP1Move(m1); // Lưu lại để Frontend hiển thị animation
         match.setLastP2Move(m2);
 
         Character p1 = match.getPlayer1();
         Character p2 = match.getPlayer2();
 
-        // [FIX] Cập nhật lại chỉ số chuẩn từ trang bị trước khi tính toán
+        // Cập nhật lại chỉ số chuẩn từ trang bị trước khi tính toán
         charService.recalculateStats(p1);
         charService.recalculateStats(p2);
 
@@ -141,7 +141,7 @@ public class PvpService {
             if (random.nextInt(100) < dodgeChance) {
                 log.append("💨 ").append(defender.getName()).append(" đã NÉ ĐƯỢC đòn tấn công của ").append(attacker.getName()).append("!");
             } else {
-                // Sát thương (Atk - Def)
+                // Sát thương (Atk - Def) - Tối thiểu 10% Atk
                 int damage = Math.max((int)(attacker.getBaseAtk() * 0.1), attacker.getBaseAtk() - defender.getBaseDef());
 
                 // Chí mạng (Luck/CritRate)
@@ -170,7 +170,7 @@ public class PvpService {
         LocalDateTime now = LocalDateTime.now();
 
         for (PvpMatch match : activeMatches) {
-            // Quá 35 giây (30s quy định + 5s bù lag)
+            // Quá 35 giây (30s quy định + 5s bù lag mạng)
             if (match.getUpdatedAt() != null && match.getUpdatedAt().plusSeconds(35).isBefore(now)) {
                 handleTimeout(match);
             }
@@ -181,26 +181,26 @@ public class PvpService {
         StringBuilder log = new StringBuilder("⏰ HẾT GIỜ! ");
         Character p1 = match.getPlayer1();
         Character p2 = match.getPlayer2();
-        charService.recalculateStats(p1);
+        charService.recalculateStats(p1); // Cập nhật dame thật từ đồ
         charService.recalculateStats(p2);
 
         int hp1 = match.getP1CurrentHp();
         int hp2 = match.getP2CurrentHp();
 
         if (match.getP1Move() == null && match.getP2Move() == null) {
-            // Cả hai cùng treo -> Nhận dame phạt từ Atk đối thủ
+            // Cả hai cùng treo -> Nhận dame phạt từ chỉ số Atk đối thủ
             int d1 = Math.max(25, p2.getBaseAtk() - p1.getBaseDef());
             int d2 = Math.max(25, p1.getBaseAtk() - p2.getBaseDef());
             hp1 = Math.max(0, hp1 - d1);
             hp2 = Math.max(0, hp2 - d2);
             log.append("Cả hai bất động, nhận sát thương phạt từ đối phương!");
         } else if (match.getP1Move() == null) {
-            // P1 treo -> Nhận sát thương từ P2
+            // P1 treo -> Nhận sát thương phạt dựa trên Atk của P2
             int damage = Math.max(30, p2.getBaseAtk() - p1.getBaseDef());
             hp1 = Math.max(0, hp1 - damage);
             log.append(p1.getName()).append(" mất lượt, bị ").append(p2.getName()).append(" đánh mất ").append(damage).append(" HP.");
         } else {
-            // P2 treo
+            // P2 treo -> Nhận sát thương phạt dựa trên Atk của P1
             int damage = Math.max(30, p1.getBaseAtk() - p2.getBaseDef());
             hp2 = Math.max(0, hp2 - damage);
             log.append(p2.getName()).append(" mất lượt, bị ").append(p1.getName()).append(" đánh mất ").append(damage).append(" HP.");
@@ -225,11 +225,11 @@ public class PvpService {
                 updatePvpStats(winnerId, loserId);
             }
         } else {
-            // Tiếp tục hiệp sau
+            // Reset hiệp mới
             match.setP1Move(null);
             match.setP2Move(null);
             match.setTurnCount(match.getTurnCount() + 1);
-            match.setUpdatedAt(LocalDateTime.now()); // Reset mốc 30s
+            match.setUpdatedAt(LocalDateTime.now()); // Reset mốc 30s cho hiệp sau
         }
         match.setLastLog(log.toString());
         matchRepo.save(match);

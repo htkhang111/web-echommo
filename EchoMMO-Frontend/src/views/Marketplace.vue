@@ -1552,6 +1552,20 @@ onMounted(() => {
             <i class="fas fa-search"></i>
             <input v-model="searchQuery" type="text" placeholder="Tìm kiếm bảo vật..." />
           </div>
+          
+          <div class="filter-box">
+            <i class="fas fa-shapes"></i>
+            <select v-model="filterType">
+              <option value="ALL">Tất cả loại</option>
+              <option value="WEAPON">Vũ khí (Weapon)</option>
+              <option value="ARMOR">Giáp (Armor)</option>
+              <option value="ACCESSORY">Trang sức (Accessory)</option>
+              <option value="CONSUMABLE">Tiêu hao (Consumable)</option>
+              <option value="MATERIAL">Nguyên liệu (Material)</option>
+              <option value="TOOL">Công cụ (Tool)</option>
+            </select>
+          </div>
+
           <div class="filter-box">
             <i class="fas fa-filter"></i>
             <select v-model="filterRarity">
@@ -1787,6 +1801,7 @@ const buyQty = reactive({});
 const p2pQty = reactive({});
 const searchQuery = ref("");
 const filterRarity = ref("ALL");
+const filterType = ref("ALL"); // [NEW] Biến lưu loại vật phẩm đang lọc
 
 const confirmModal = reactive({
   visible: false,
@@ -1820,11 +1835,15 @@ const filterItems = (list, isInventory = false) => {
     const itemName = itemData.name || "";
     const nameMatch = itemName.toLowerCase().includes(searchQuery.value.toLowerCase());
     
-    // So sánh trực tiếp Enum backend
+    // Lọc theo Phẩm chất
     const itemRarity = itemData.rarity || "COMMON"; 
     const rarityMatch = filterRarity.value === "ALL" || itemRarity === filterRarity.value;
+
+    // [NEW] Lọc theo Loại
+    const itemType = itemData.type || "";
+    const typeMatch = filterType.value === "ALL" || itemType === filterType.value;
     
-    return nameMatch && rarityMatch;
+    return nameMatch && rarityMatch && typeMatch;
   });
 };
 
