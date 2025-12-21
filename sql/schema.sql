@@ -503,3 +503,20 @@ CREATE TABLE IF NOT EXISTS market_listings (
                                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                status VARCHAR(20) DEFAULT 'ACTIVE'
 );
+
+
+-- 1. Bảng Users: Thêm giới hạn kho đồ
+ALTER TABLE users ADD COLUMN inventory_slots INT DEFAULT 50;
+
+-- 2. Bảng Characters: Thêm chỉ số Nghề & Spa
+ALTER TABLE characters ADD COLUMN gathering_level INT DEFAULT 1;
+ALTER TABLE characters ADD COLUMN gathering_exp BIGINT DEFAULT 0;
+ALTER TABLE characters ADD COLUMN last_free_spa_use DATETIME NULL; -- Theo dõi lượt Spa free
+
+-- 3. Bảng UserItems: Thêm Sao Mythic & Độ bền
+ALTER TABLE user_items ADD COLUMN mythic_stars INT DEFAULT 0;
+ALTER TABLE user_items ADD COLUMN current_durability INT DEFAULT 100;
+ALTER TABLE user_items ADD COLUMN max_durability INT DEFAULT 100;
+
+-- 4. Bảng Items: Thêm loại công cụ & cấp độ yêu cầu (nếu chưa có)
+-- (Nếu bạn dùng cột 'type' và 'tier' có sẵn thì không cần thêm, chỉ cần data seed chuẩn)

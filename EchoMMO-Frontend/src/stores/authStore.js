@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import axiosClient from "../api/axiosClient";
 
-// Hàm tiện ích: Lấy JSON từ LocalStorage an toàn (tránh lỗi cú pháp)
+// Hàm tiện ích: Lấy JSON từ LocalStorage an toàn
 function getSafeJSON(key) {
   try {
     const data = localStorage.getItem(key);
@@ -16,12 +16,12 @@ function getSafeJSON(key) {
 export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: getSafeJSON("user"),
-    // [QUAN TRỌNG] Lưu thông tin nhân vật (Level, HP, Power...)
+    // [QUAN TRỌNG] Chứa level, pvpWins, avatarUrl...
     character: getSafeJSON("character"), 
     token: localStorage.getItem("token") || null,
     isLoading: false,
     
-    // --- TRẠNG THÁI PHONG ẤN (BAN) ---
+    // --- TRẠNG THÁI BAN ---
     isBanned: false, 
     banReason: "Vi phạm thiên quy",
     banTime: null
@@ -31,12 +31,12 @@ export const useAuthStore = defineStore("auth", {
     isAuthenticated: (state) => !!state.token,
     userId: (state) => state.user?.userId || state.user?.id,
     
-    // Lấy ví tiền an toàn (tránh lỗi null)
+    // Lấy ví tiền an toàn
     wallet: (state) => state.user?.wallet || { gold: 0, diamonds: 0 },
     
     isAdmin: (state) => state.user?.role === "ADMIN" || state.user?.roles?.[0] === "ADMIN",
 
-    // [TIỆN ÍCH] Getter lấy Header Auth nhanh gọn cho các file Vue khác
+    // Getter lấy Header Auth
     authHeader: (state) => ({
       Authorization: `Bearer ${state.token}`,
       "Content-Type": "application/json"
@@ -44,15 +44,14 @@ export const useAuthStore = defineStore("auth", {
   },
 
   actions: {
-    // 1. Khởi tạo khi load trang (F5)
+    // 1. Khởi tạo (F5 trang)
     async initialize() {
       const token = localStorage.getItem("token");
       if (token) {
         this.token = token;
-        // Cài đặt header mặc định cho axios
         axiosClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
         
-        // Gọi song song: Lấy thông tin User + Lấy thông tin Nhân vật mới nhất
+        // Gọi song song để tiết kiệm thời gian load
         await Promise.all([this.fetchProfile(), this.fetchCharacter()]);
       } else {
         this.logout();
@@ -82,9 +81,9 @@ export const useAuthStore = defineStore("auth", {
         this.user = tempUser;
         localStorage.setItem("user", JSON.stringify(tempUser));
         
-        // C. Gọi API lấy dữ liệu đầy đủ
+        // C. Lấy dữ liệu chi tiết ngay lập tức
         await this.fetchProfile();
-        await this.fetchCharacter(); // <--- Lấy Level, Power ngay lập tức
+        await this.fetchCharacter(); 
         
         this.isBanned = false; 
         return true;
@@ -95,7 +94,7 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
-    // 3. Lấy Profile User (Ví tiền, thông tin tài khoản)
+    // 3. Lấy Profile (Ví tiền, Account)
     async fetchProfile() {
       if (!this.token) return;
       try {
@@ -108,39 +107,45 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
-    // 4. [QUAN TRỌNG] Lấy thông tin Nhân vật (Level, Power, HP...)
+    // 4. [QUAN TRỌNG] Lấy Character (Stats, Wins, Level)
     async fetchCharacter() {
         if (!this.token) return;
         try {
-            // Gọi đúng endpoint trong CharacterController: /api/character/me
             const res = await axiosClient.get("/character/me"); 
-            
             this.character = res.data;
-            // Lưu vào LocalStorage để F5 không bị mất
+            // Lưu ngay vào LocalStorage để F5 không mất số trận thắng
             localStorage.setItem("character", JSON.stringify(this.character));
         } catch (error) {
-            console.warn("Chưa tạo nhân vật hoặc lỗi fetch character");
+            console.warn("Chưa tạo nhân vật hoặc lỗi API Character");
             this.character = null;
         }
     },
 
-    // 5. Kích hoạt án phạt (Hiển thị màn hình khóa)
+    // 5. Cập nhật nhanh số liệu (Không cần gọi API) - Dùng khi kết thúc trận
+    updateLocalStats(newStats) {
+        if (this.character) {
+            this.character = { ...this.character, ...newStats };
+            localStorage.setItem("character", JSON.stringify(this.character));
+        }
+    },
+
+    // 6. Xử lý Ban
     triggerBan(reason) {
       this.isBanned = true;
-      this.banReason = reason || "Tài khoản của đạo hữu đã bị phong ấn vĩnh viễn.";
+      this.banReason = reason || "Tài khoản bị khóa.";
       this.banTime = new Date().toLocaleString("vi-VN");
     },
 
-    // 6. Đăng xuất
+    // 7. Đăng xuất
     logout() {
       this.token = null;
       this.user = null;
-      this.character = null; // Xóa character
+      this.character = null;
       this.isBanned = false; 
       
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      localStorage.removeItem("character"); // Xóa sạch storage
+      localStorage.removeItem("character");
       
       delete axiosClient.defaults.headers.common["Authorization"];
     },

@@ -17,7 +17,7 @@ public class PvpMatch {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long matchId; // <--- SỬA THÀNH LONG
+    private Long matchId;
 
     @Column(name = "status")
     private String status;
@@ -32,9 +32,9 @@ public class PvpMatch {
     private String lastLog;
 
     @Column(name = "winner_id")
-    private Long winnerId; // <--- SỬA THÀNH LONG CHO ĐỒNG BỘ
+    private Long winnerId;
 
-    // ... Các phần bên dưới giữ nguyên (player1, player2, hp, move...)
+    // --- CÁC TRƯỜNG THÔNG TIN NGƯỜI CHƠI ---
     @ManyToOne
     @JoinColumn(name = "player1_id")
     private Character player1;
@@ -54,6 +54,15 @@ public class PvpMatch {
 
     @Column(name = "p2_move")
     private String p2Move;
+
+    // --- [MỚI THÊM] LƯU LẠI NƯỚC ĐI CỦA HIỆP TRƯỚC ---
+    // Giúp Frontend hiển thị lại kết quả dù turn đã reset
+    @Column(name = "last_p1_move")
+    private String lastP1Move;
+
+    @Column(name = "last_p2_move")
+    private String lastP2Move;
+    // -------------------------------------------------
 
     @Column(name = "p1_accepted")
     private boolean p1Accepted;

@@ -7,13 +7,16 @@
             
             <div class="hero-card">
                 <div class="avatar-frame gold-border">
-                    <img :src="authStore.character?.avatarUrl || defaultAvatar" />
+                    <img :src="characterAvatar" />
                 </div>
                 <div class="hero-info">
-                    <h2>{{ authStore.character?.name }}</h2>
+                    <h2>{{ characterName }}</h2>
                     <div class="stats-row">
-                        <span class="stat-badge level">Lv.{{ authStore.character?.level || 1 }}</span>
-                        <span class="stat-badge wins">🏆 Thắng: {{ authStore.character?.pvpWins || 0 }}</span>
+                        <span class="stat-badge level">Cấp {{ characterLevel }}</span>
+                        <span class="stat-badge wins">🏆 Thắng: {{ characterWins }}</span>
+                        <button class="refresh-btn" @click="manualRefresh" title="Cập nhật thông tin">
+                            <i class="fas fa-sync-alt" :class="{'fa-spin': isRefreshing}"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -89,7 +92,7 @@
                     <img :src="authStore.character?.avatarUrl || defaultAvatar" class="char-img" :class="{'shake-hit': isMyHit}" />
                 </div>
                 <div class="hud player-hud">
-                    <div class="name">{{ authStore.character?.name }} <small>Lv.{{ authStore.character?.level || 1 }}</small></div>
+                    <div class="name">{{ characterName }} <small>Lv.{{ characterLevel }}</small></div>
                     <div class="hp-bar-bg"><div class="hp-fill" :style="{width: percent(myHp, myMaxHp)+'%'}"></div></div>
                     <div class="hp-text">{{ myHp }}/{{ myMaxHp }}</div>
                 </div>
@@ -129,7 +132,6 @@
                     <button class="square-btn scissor" @click="submitRps('SCISSORS')" :disabled="isActionPending" :class="{'btn-disabled': isActionPending}">
                         <i class="fas fa-hand-scissors"></i><span>KÉO</span>
                     </button>
-                    
                     <button class="square-btn surrender" @click="handleSurrender">
                         <i class="fas fa-flag"></i><span>ĐẦU HÀNG</span>
                     </button>
@@ -150,7 +152,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import { useAuthStore } from '../stores/authStore';
 import axios from 'axios';
 
@@ -159,19 +161,28 @@ const API_URL = "http://localhost:8080/api/pvp";
 const authStore = useAuthStore();
 const defaultAvatar = "https://i.imgur.com/7Y7t5Xp.png"; 
 
+// --- REACTIVE CHARACTER DATA (FIX LỖI KHÔNG ĐỒNG BỘ) ---
+// Dùng computed để luôn lấy dữ liệu mới nhất từ Store
+const characterName = computed(() => authStore.character?.name || 'Đại Hiệp');
+const characterLevel = computed(() => authStore.character?.level || 1);
+const characterWins = computed(() => authStore.character?.pvpWins || 0);
+const characterAvatar = computed(() => authStore.character?.avatarUrl || defaultAvatar);
+
 // --- GAME STATE ---
 const gameState = ref('LOBBY'); 
 const matchId = ref(null);
 const battlePhase = ref('RPS_WAIT'); 
 const turnTimer = ref(30);
 const consoleMessage = ref("Sẵn sàng chiến đấu!");
-const currentTurnCount = ref(1);
 const lastResultText = ref('');
 const hasAccepted = ref(false);
 const showLog = ref(false); 
 const isActionPending = ref(false);
 const searchTimer = ref(0);
 const acceptTimer = ref(10);
+const isRefreshing = ref(false); // Cho nút refresh thủ công
+
+const ignoredMatchIds = ref(new Set()); 
 
 // --- DATA ---
 const myHp = ref(100); const myMaxHp = ref(100); const myRpsMove = ref(null);
@@ -179,7 +190,6 @@ const enemyName = ref("Đối thủ"); const enemyLevel = ref(1);
 const enemyHp = ref(100); const enemyMaxHp = ref(100); 
 const enemyRpsMove = ref(null); const enemyAvatar = ref(null);
 
-// --- UI REFS ---
 const isMyHit = ref(false); const isEnemyHit = ref(false);
 const battleLogs = ref([]); const matchMessages = ref([]); const chatInput = ref('');
 const chatBoxRef = ref(null);
@@ -188,7 +198,7 @@ let pollId, searchInterval, acceptInterval, turnTimerInterval;
 
 const getHeaders = () => ({ 'Authorization': `Bearer ${authStore.token}` });
 
-// --- UTILS RESET ---
+// --- UTILS ---
 const resetLocalState = () => {
     matchId.value = null;
     battleLogs.value = [];
@@ -199,35 +209,31 @@ const resetLocalState = () => {
     enemyHp.value = 100; enemyMaxHp.value = 100;
     enemyName.value = "Đối thủ";
     consoleMessage.value = "Sẵn sàng chiến đấu!";
-    currentTurnCount.value = 1;
     hasAccepted.value = false;
     showLog.value = false;
 };
 
-// --- KEYBOARD ---
-const handleKeydown = (e) => {
-    if (document.activeElement.tagName === 'INPUT') return;
-    if (e.key === 'l' || e.key === 'L') showLog.value = !showLog.value;
+// --- MANUAL REFRESH ---
+const manualRefresh = async () => {
+    isRefreshing.value = true;
+    await authStore.fetchCharacter();
+    setTimeout(() => { isRefreshing.value = false; }, 500);
 };
 
-// --- ANIMATION ---
+const handleKeydown = (e) => { if (document.activeElement.tagName !== 'INPUT' && e.key.toLowerCase() === 'l') showLog.value = !showLog.value; };
+
 const getMyAnimClass = () => {
     if (!myRpsMove.value || !enemyRpsMove.value) return '';
     const m = myRpsMove.value; const e = enemyRpsMove.value;
     if (m === e) return 'anim-clash'; 
-    if ((m==='ROCK' && e==='SCISSORS') || (m==='SCISSORS' && e==='PAPER') || (m==='PAPER' && e==='ROCK')) {
-        return m === 'SCISSORS' ? 'anim-cut-win' : 'anim-smash-win';
-    }
+    if ((m==='ROCK' && e==='SCISSORS') || (m==='SCISSORS' && e==='PAPER') || (m==='PAPER' && e==='ROCK')) return m === 'SCISSORS' ? 'anim-cut-win' : 'anim-smash-win';
     return 'anim-lose';
 };
-
 const getEnemyAnimClass = () => {
     if (!myRpsMove.value || !enemyRpsMove.value) return '';
     const m = myRpsMove.value; const e = enemyRpsMove.value;
     if (m === e) return 'anim-clash'; 
-    if ((e==='ROCK' && m==='SCISSORS') || (e==='SCISSORS' && m==='PAPER') || (e==='PAPER' && m==='ROCK')) {
-        return e === 'SCISSORS' ? 'anim-cut-win' : 'anim-smash-win';
-    }
+    if ((e==='ROCK' && m==='SCISSORS') || (e==='SCISSORS' && m==='PAPER') || (e==='PAPER' && m==='ROCK')) return e === 'SCISSORS' ? 'anim-cut-win' : 'anim-smash-win';
     return 'anim-lose';
 };
 
@@ -240,20 +246,16 @@ const toggleSearch = async () => {
   catch(e) { console.error(e); resetToLobby(); }
 };
 
-const cancelSearch = async () => { 
-    try { await axios.post(`${API_URL}/cancel`, {}, { headers: getHeaders() }); } catch(e){} 
-    resetToLobby(); 
-};
+const cancelSearch = async () => { try { await axios.post(`${API_URL}/cancel`, {}, { headers: getHeaders() }); } catch(e){} resetToLobby(); };
 
 const acceptMatch = async () => {
   if(!matchId.value) return;
   hasAccepted.value = true;
-  try { await axios.post(`${API_URL}/accept`, { matchId: matchId.value }, { headers: getHeaders() }); } catch (e) { console.error(e); }
+  try { await axios.post(`${API_URL}/accept`, { matchId: matchId.value }, { headers: getHeaders() }); } catch (e) {}
 };
 
 const declineMatch = async () => { cancelSearch(); };
 
-// --- TIMER & AUTO MOVE ---
 const startTurnTimer = () => {
   if(turnTimerInterval) clearInterval(turnTimerInterval);
   turnTimer.value = 30;
@@ -261,49 +263,38 @@ const startTurnTimer = () => {
     turnTimer.value--;
     if(turnTimer.value <= 0) {
       clearInterval(turnTimerInterval);
-      
-      // TỰ ĐỘNG RANDOM CHIÊU KHI HẾT GIỜ
-      if(gameState.value === 'BATTLE' && battlePhase.value === 'RPS_WAIT') {
-         if(!isActionPending.value) {
-             const randomMoves = ['ROCK', 'PAPER', 'SCISSORS'];
-             const randomChoice = randomMoves[Math.floor(Math.random() * randomMoves.length)];
-             consoleMessage.value = `Hết giờ! Tự động chọn: ${randomChoice}`;
-             submitRps(randomChoice);
-         }
+      if(gameState.value === 'BATTLE' && battlePhase.value === 'RPS_WAIT' && !isActionPending.value) {
+         const moves = ['ROCK', 'PAPER', 'SCISSORS'];
+         const rand = moves[Math.floor(Math.random() * moves.length)];
+         consoleMessage.value = `Hết giờ! Tự động chọn: ${rand}`;
+         submitRps(rand);
       }
     }
   }, 1000);
 };
 
 const submitRps = async (move) => {
-  if (isActionPending.value) return; 
-  if (!matchId.value) return;
-
-  isActionPending.value = true;
-  // Safety reset: Sau 5s tự mở khóa nếu kẹt
+  if (isActionPending.value || !matchId.value) return;
+  isActionPending.value = true; 
   setTimeout(() => { if(isActionPending.value) isActionPending.value = false; }, 5000);
 
   if(turnTimerInterval) clearInterval(turnTimerInterval);
-  consoleMessage.value = `Đang thi triển: ${move === 'ROCK' ? 'BÚA' : move === 'PAPER' ? 'BAO' : 'KÉO'}...`;
+  consoleMessage.value = `Đang thi triển: ${move}...`;
 
   try { 
       await axios.post(`${API_URL}/move`, { matchId: matchId.value, move }, { headers: getHeaders() }); 
       battlePhase.value = 'RPS_REVEAL'; 
-  } 
-  catch (e) { 
-      console.error("Move Error:", e);
-      battlePhase.value = 'RPS_WAIT'; 
-      isActionPending.value = false; // Mở lại ngay nếu lỗi
+  } catch (e) { 
+      battlePhase.value = 'RPS_WAIT'; isActionPending.value = false; 
   }
 };
 
 const handleSurrender = async () => {
-    if(confirm("Đại hiệp muốn rút lui? (Xử thua)")) {
-        // Reset trước để thoát giao diện ngay
+    if(confirm("Đại hiệp muốn rút lui?")) {
+        if(matchId.value) ignoredMatchIds.value.add(Number(matchId.value));
+        try { await axios.post(`${API_URL}/surrender`, { matchId: matchId.value }, { headers: getHeaders() }); } catch(e){} 
+        await authStore.fetchCharacter();
         resetToLobby();
-        try { 
-            if(matchId.value) await axios.post(`${API_URL}/surrender`, { matchId: matchId.value }, { headers: getHeaders() }); 
-        } catch(e){} 
     }
 };
 
@@ -321,10 +312,9 @@ const startPolling = () => {
       const res = await axios.get(`${API_URL}/status`, { headers: getHeaders() });
       const data = res.data; if (!data) return;
 
-      // FIX: BỎ QUA TRẬN CŨ KHI ĐANG Ở SẢNH
+      if (data.matchId && ignoredMatchIds.value.has(Number(data.matchId))) return;
       if (data.status === 'FINISHED' && gameState.value !== 'BATTLE') return;
 
-      // 1. MATCH FOUND
       if (data.status === 'PENDING' && gameState.value !== 'MATCH_FOUND') {
          gameState.value = 'MATCH_FOUND';
          if(searchInterval) clearInterval(searchInterval);
@@ -334,7 +324,6 @@ const startPolling = () => {
          if(acceptInterval) clearInterval(acceptInterval);
          acceptInterval = setInterval(()=> { acceptTimer.value--; if(acceptTimer.value<=0 && !hasAccepted.value) declineMatch(); }, 1000);
       }
-      // 2. ACTIVE
       else if (data.status === 'ACTIVE') {
          if (gameState.value !== 'BATTLE') {
             gameState.value = 'BATTLE'; 
@@ -343,14 +332,25 @@ const startPolling = () => {
          }
          syncBattleData(data);
       }
-      // 3. FINISHED
       else if (data.status === 'FINISHED' && gameState.value === 'BATTLE') {
          syncBattleData(data);
          if(pollId) clearInterval(pollId); pollId = null; 
+         
          const myCharId = Number(authStore.character?.id || authStore.user?.id);
          const winnerId = Number(data.winnerId);
          const msg = (winnerId === myCharId) ? "🏆 CHIẾN THẮNG!" : "💀 THẤT BẠI!";
-         setTimeout(() => { alert(msg); resetToLobby(); }, 1500);
+         
+         setTimeout(async () => { 
+             alert(msg); 
+             
+             // --- FIX ĐỒNG BỘ: CẬP NHẬT CHARACTER SAU 1S ---
+             // Đợi 1 chút để server kịp lưu DB rồi mới fetch
+             setTimeout(async () => {
+                 await authStore.fetchCharacter(); 
+             }, 1000);
+
+             resetToLobby(); 
+         }, 1500);
       }
     } catch (e) {}
   }, 1000);
@@ -368,14 +368,14 @@ const syncBattleData = (data) => {
   syncBasicInfo(data);
   const myCharId = Number(authStore.character?.id || authStore.user?.id);
   const isP1 = (myCharId === Number(data.p1Id));
+  
   const newMyHp = isP1 ? data.p1Hp : data.p2Hp;
   const newEnemyHp = isP1 ? data.p2Hp : data.p1Hp;
   if(newMyHp < myHp.value) { isMyHit.value = true; setTimeout(()=>isMyHit.value=false, 300); }
   if(newEnemyHp < enemyHp.value) { isEnemyHit.value = true; setTimeout(()=>isEnemyHit.value=false, 300); }
   myHp.value = newMyHp; myMaxHp.value = isP1 ? data.p1MaxHp : data.p2MaxHp;
   enemyHp.value = newEnemyHp; enemyMaxHp.value = isP1 ? data.p2MaxHp : data.p1MaxHp;
-  if (currentTurnCount.value !== data.turnCount) currentTurnCount.value = data.turnCount;
-
+  
   const myM = isP1 ? data.p1Move : data.p2Move;
   const enM = isP1 ? data.p2Move : data.p1Move;
   myRpsMove.value = myM; enemyRpsMove.value = enM;
@@ -385,24 +385,24 @@ const syncBattleData = (data) => {
         battlePhase.value = 'RPS_WAIT';
         startTurnTimer();
         consoleMessage.value = `Hiệp ${data.turnCount} bắt đầu!`;
-        isActionPending.value = false; // Mở khóa
+        isActionPending.value = false; 
     }
   } else {
     isActionPending.value = false;
     battlePhase.value = 'RPS_REVEAL';
     if(turnTimerInterval) clearInterval(turnTimerInterval);
-    if(enM) {
-       if(data.lastLog) {
-           if(battleLogs.value.length === 0 || battleLogs.value[battleLogs.value.length-1] !== data.lastLog) {
-               battleLogs.value.push(data.lastLog);
-               lastResultText.value = data.lastLog.includes("thắng") ? "THẮNG" : data.lastLog.includes("Hòa") ? "HÒA" : "THUA";
-               consoleMessage.value = data.lastLog;
-           }
+    
+    if(enM && data.lastLog) {
+       if(battleLogs.value.length === 0 || battleLogs.value[battleLogs.value.length-1] !== data.lastLog) {
+           battleLogs.value.push(data.lastLog);
+           lastResultText.value = data.lastLog.includes("thắng") ? "THẮNG" : data.lastLog.includes("Hòa") ? "HÒA" : "THUA";
+           consoleMessage.value = data.lastLog;
        }
     } else {
        consoleMessage.value = "Chờ đối thủ...";
     }
   }
+
   if(data.messages && data.messages.length > matchMessages.value.length) {
     data.messages.slice(matchMessages.value.length).forEach(m => matchMessages.value.push({ 
        sender: m.senderName, text: m.content, isMe: Number(m.senderId) === myCharId 
@@ -423,7 +423,9 @@ const resetToLobby = () => {
 const percent = (c, m) => (m>0 ? (c/m)*100 : 0);
 const getRpsIcon = (m) => ({ 'ROCK': 'fas fa-hand-rock', 'PAPER': 'fas fa-hand-paper', 'SCISSORS': 'fas fa-hand-scissors' }[m]);
 
-onMounted(() => {
+onMounted(async () => {
+    // Force lấy dữ liệu ngay khi vào component
+    await authStore.fetchCharacter();
     resetToLobby();
     startPolling();
     window.addEventListener('keydown', handleKeydown);
@@ -437,7 +439,7 @@ onUnmounted(() => {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Roboto+Condensed:wght@700&display=swap');
 
-/* --- MAIN --- */
+/* --- LAYOUT --- */
 .wuxia-battle-container {
     width: 100%; height: 100%; min-height: 600px;
     background: #1a1a1a; font-family: 'Roboto Condensed', sans-serif;
@@ -445,14 +447,18 @@ onUnmounted(() => {
     display: flex; flex-direction: column;
 }
 
-/* --- LOBBY --- */
+/* --- LOBBY & CARD --- */
 .lobby-overlay { flex: 1; background: url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1920&auto=format&fit=crop') center/cover; display: flex; align-items: center; justify-content: center; }
 .lobby-content { background: rgba(0,0,0,0.85); border: 2px solid #b8860b; padding: 40px; border-radius: 10px; text-align: center; width: 400px; box-shadow: 0 0 30px #000; }
 .wuxia-title { font-size: 2.5rem; color: #ffd700; margin-bottom: 20px; text-shadow: 0 0 10px #b8860b; }
 .avatar-frame { width: 100px; height: 100px; border-radius: 50%; border: 3px solid #ffd700; overflow: hidden; margin: 0 auto; }
 .avatar-frame img { width: 100%; height: 100%; object-fit: cover; }
-.stats-row { margin-top: 10px; display: flex; justify-content: center; gap: 10px; }
-.stat-badge { background: #333; color: #ffd700; padding: 2px 10px; border-radius: 4px; font-size: 0.9rem; border: 1px solid #555; }
+.stats-row { margin-top: 15px; display: flex; justify-content: center; align-items: center; gap: 10px; }
+.stat-badge { background: #222; border: 1px solid #555; padding: 4px 12px; border-radius: 4px; color: #ccc; font-size: 0.9rem; font-weight: bold; }
+.stat-badge.wins { color: #ffd700; border-color: #ffd700; }
+.refresh-btn { background: transparent; border: none; color: #b8860b; cursor: pointer; font-size: 1rem; margin-left: 5px; }
+.refresh-btn:hover { color: #fff; }
+
 .btn-start { background: #b8860b; color: #000; padding: 15px 30px; border: none; cursor: pointer; margin-top: 20px; width: 100%; font-weight: bold; border-radius: 4px; }
 .btn-cancel { background: #333; color: #fff; padding: 15px 30px; border: none; margin-top: 20px; width: 100%; border-radius: 4px; }
 .match-popup { margin-top: 20px; border-top: 1px solid #555; padding-top: 20px; animation: slideUp 0.3s; }
@@ -472,8 +478,7 @@ onUnmounted(() => {
     position: absolute; top: 15px; left: 15px; z-index: 60;
     background: rgba(0,0,0,0.6); color: #ffd700;
     padding: 8px 15px; border-radius: 20px; border: 1px solid #b8860b;
-    cursor: pointer; font-size: 0.85rem; font-weight: bold;
-    transition: 0.2s;
+    cursor: pointer; font-size: 0.85rem; font-weight: bold; transition: 0.2s;
 }
 .log-hint:hover { background: #b8860b; color: #000; }
 .floating-log-panel {
@@ -504,7 +509,7 @@ onUnmounted(() => {
 .top-timer-floating.urgent { border-color: #ff4444; color: #ff4444; box-shadow: 0 0 20px #ff4444; animation: pulse 0.5s infinite; }
 .timer-text { font-size: 1.8rem; font-weight: bold; color: #fff; }
 
-/* --- SCENE --- */
+/* --- SCENE & CHAR --- */
 .scene-stage { flex: 1; position: relative; }
 .fighter { position: absolute; width: 300px; display: flex; flex-direction: column; align-items: center; }
 .enemy { top: 8%; right: 8%; align-items: flex-end; }
@@ -522,7 +527,7 @@ onUnmounted(() => {
 .vs-spark { font-size: 4rem; animation: sparkPop 0.2s; }
 .result-text { position: absolute; bottom: 25%; font-size: 3rem; font-weight: bold; color: #ffd700; text-shadow: 0 0 20px #d32f2f; animation: fadeInUp 0.5s; }
 
-/* --- CONSOLE --- */
+/* --- CONSOLE (60:40) --- */
 .bottom-console-split {
     height: 240px; background: #080808; border-top: 2px solid #b8860b;
     display: flex; z-index: 50; position: relative;
@@ -550,7 +555,6 @@ onUnmounted(() => {
     gap: 10px; width: 100%; height: 100%;
 }
 .btn-disabled { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
-
 .square-btn {
     background: #222; border: 1px solid #444; color: #eee; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; justify-content: center;

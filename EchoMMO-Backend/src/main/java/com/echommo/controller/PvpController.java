@@ -153,7 +153,6 @@ public class PvpController {
     private Character getCharacterFromUser(UserDetails userDetails) {
         User user = userRepo.findByUsername(userDetails.getUsername()).orElse(null);
         if (user == null) return null;
-        // [FIX] Gọi hàm chuẩn JPA
         return charRepo.findByUser_UserId(user.getUserId()).orElse(null);
     }
 
@@ -163,6 +162,11 @@ public class PvpController {
         res.setTurnCount(match.getTurnCount());
         res.setLastLog(match.getLastLog());
         res.setWinnerId(match.getWinnerId() != null ? match.getWinnerId().intValue() : null);
+
+        // --- [MỚI] TRẢ VỀ LỊCH SỬ NƯỚC ĐI ---
+        res.setLastP1Move(match.getLastP1Move());
+        res.setLastP2Move(match.getLastP2Move());
+        // ------------------------------------
 
         if (match.getChats() != null) {
             List<ChatMessageDTO> chatDtos = match.getChats().stream()
@@ -223,6 +227,13 @@ public class PvpController {
         private Integer p2Id; private String p2Name; private Integer p2Level;
         private Integer p2Hp; private Integer p2MaxHp; private String p2Move;
         private String p2AvatarUrl;
+
+        // --- [MỚI THÊM] FIELDS ---
+        private String lastP1Move;
+        private String lastP2Move;
+        public void setLastP1Move(String m) { this.lastP1Move = m; } public String getLastP1Move() { return lastP1Move; }
+        public void setLastP2Move(String m) { this.lastP2Move = m; } public String getLastP2Move() { return lastP2Move; }
+        // -------------------------
 
         private List<ChatMessageDTO> messages;
 
