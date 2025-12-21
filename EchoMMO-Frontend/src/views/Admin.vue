@@ -935,10 +935,10 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                     <div class="step-label">3. Chọn Hình Dáng (Asset)</div>
                     <div class="assets-wrapper custom-scrollbar">
                        <div class="assets-grid">
-                           <div v-for="(img, idx) in currentAssets" :key="idx" 
-                                :class="['asset-item', { selected: itemForm.imageUrl === img }]"
-                                @click="selectAsset(img)">
-                              <img :src="img" alt="asset" />
+                           <div v-for="(imgUrl, idx) in currentAssets" :key="idx" 
+                                :class="['asset-item', { selected: itemForm.imageUrl === currentRawAssets[idx] }]"
+                                @click="selectAsset(currentRawAssets[idx])">
+                              <img :src="imgUrl" alt="asset" />
                               <div class="asset-check"><i class="fas fa-check"></i></div>
                            </div>
                        </div>
@@ -960,7 +960,7 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                     <div class="rarity-grid">
                         <div v-for="r in rarities" :key="r.value"
                              :class="['rarity-card', r.value, { selected: itemForm.rarity === r.value }]"
-                             @click="itemForm.rarity = r.value; calculatePrice()">
+                             @click="setRarity(r.value)">
                             <span>{{ r.label }}</span>
                             <small>{{ getSubStatInfo(r.value) }}</small>
                         </div>
@@ -981,7 +981,7 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                       <div class="stat-type-selector">
                           <div v-for="stat in getAllowedMainStats" :key="stat.value"
                                :class="['stat-chip', { active: selectedMainStatType === stat.value }]"
-                               @click="selectedMainStatType = stat.value; calculatePrice()">
+                               @click="setMainStatType(stat.value)">
                               <i :class="stat.icon"></i> {{ stat.label }}
                           </div>
                       </div>
@@ -1024,7 +1024,7 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                      
                      <div class="summary-card">
                          <div class="item-preview">
-                             <img :src="itemForm.imageUrl || '/placeholder.png'" class="preview-img"/>
+                             <img :src="resolveItemImage(itemForm.imageUrl)" class="preview-img"/>
                              <div class="preview-info">
                                  <h4 :class="'rarity-' + itemForm.rarity">{{ itemForm.name }}</h4>
                                  <p>{{ itemForm.rarity }} - {{ itemForm.type }}</p>
@@ -1183,12 +1183,12 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from "vue";
+import { ref, reactive, onMounted, computed, watch } from "vue";
 import { useAdminStore } from "../stores/adminStore";
 import { useNotificationStore } from "../stores/notificationStore";
 import { useChatStore } from "../stores/chatStore";
 import axiosClient from "../api/axiosClient";
-import { resolveItemImage } from "../utils/assetHelper"; // Import helper xử lý ảnh
+import { resolveItemImage } from "../utils/assetHelper"; 
 
 const adminStore = useAdminStore();
 const notificationStore = useNotificationStore();
@@ -1203,18 +1203,34 @@ const banReason = ref("");
 // WIZARD STATES
 const currentStep = ref(1);
 const suggestedPrice = ref(0);
+const isPriceManuallyEdited = ref(false);
 const distributionType = ref('DROP'); 
 const selectedMainStatType = ref('ATK'); 
 const selectedMainStatValue = ref(0);
 
-// --- ASSET CONFIG (CHÍNH XÁC TỪ GITHUB) ---
-// Dùng tên file thô để khớp với resolveItemImage
+// --- ASSET CONFIG (CẬP NHẬT CHUẨN) ---
 const assetLibrary = {
     WEAPON: [
-        "s_sword_0.png", "s_sword_1.png", "s_sword_2.png", "s_sword_3.png", "s_sword_4.png",
-        "tool/axe/a-0-strongaxe.png", "tool/axe/a-1-best axeinthegame.png", "tool/axe/a-2-axeofthegods.png",
-        "tool/pickaxe/p-0-strongpickaxe.png", "tool/pickaxe/p-4-dimensionalpickaxe.png",
-        "tool/fishing-rod/fr-0-strongfishingrod.png", "tool/fishing-rod/fr-4-themasterbaiter.png"
+        "s_sword_0.png", "s_sword_1.png", "s_sword_2.png", "s_sword_3.png", "s_sword_4.png"
+    ],
+    PICKAXE: [
+        "tool/pickaxe/p-0-strongpickaxe.png", "tool/pickaxe/p-1-vikingpickaxe.png",
+        "tool/pickaxe/p-2-superduperpickaxe.png", "tool/pickaxe/p-3-deathandaxes.png",
+        "tool/pickaxe/p-4-dimensionalpickaxe.png"
+    ],
+    AXE: [
+        "tool/axe/a-0-strongaxe.png", "tool/axe/a-1-best axeinthegame.png", 
+        "tool/axe/a-2-axeofthegods.png", "tool/axe/a-3-thiccaxe.png",
+        "tool/axe/a-4-heartoftheforest.webp"
+    ],
+    SHOVEL: [
+        "tool/shovel/s-0-strongshovel.png", "tool/shovel/s-1-epicshovel.png",
+        "tool/shovel/s-2-theshovelii.png", "tool/shovel/s-3-supershovel.png",
+        "tool/shovel/s-4-golddigger.png"
+    ],
+    FISHING_ROD: [
+        "tool/fishing-rod/fr-0-strongfishingrod.png", "tool/fishing-rod/fr-1-superfishingrod.png",
+        "tool/fishing-rod/fr-4-themasterbaiter.png"
     ],
     ARMOR: [ "a_armor_0.png", "a_armor_1.png", "a_armor_2.png", "a_armor_3.png", "a_armor_4.png" ],
     HELMET: [ "h_helmet_0.png", "h_helmet_1.png", "h_helmet_2.png", "h_helmet_3.png", "h_helmet_4.png" ],
@@ -1222,7 +1238,7 @@ const assetLibrary = {
     RING: [ "ri_ring_0.png", "ri_ring_1.png", "ri_ring_2.png", "ri_ring_3.png", "ri_ring_4.png" ],
     NECKLACE: [ "n_necklace_0.png", "n_necklace_1.png", "n_necklace_2.png", "n_necklace_3.png", "n_necklace_4.png" ],
     CONSUMABLE: [ "r_potion.png" ],
-    MATERIAL: [ "w_wood.png", "o_iron.png", "o_gold.png", "f_fish.png", "r_coinEcho.png" ]
+    MATERIAL: [ "w_wood.png", "o_iron.png", "o_gold.png", "f_fish.png", "r_coin.png", "r_coin-echo.png" ]
 };
 
 const tabs = [
@@ -1232,6 +1248,7 @@ const tabs = [
   { id: 'notify', label: 'Điều Hành (Action)', icon: 'fas fa-tasks' }
 ];
 
+// [FIX] Bổ sung các loại Tool khớp với SlotType.java
 const itemTypes = [
   { value: 'WEAPON', label: 'Binh Khí', icon: 'fas fa-khanda' },
   { value: 'ARMOR', label: 'Y Phục', icon: 'fas fa-tshirt' },
@@ -1239,6 +1256,12 @@ const itemTypes = [
   { value: 'BOOTS', label: 'Hài (Giày)', icon: 'fas fa-shoe-prints' },
   { value: 'RING', label: 'Nhẫn', icon: 'fas fa-ring' },
   { value: 'NECKLACE', label: 'Vòng Cổ', icon: 'fas fa-gem' },
+  // Tools Group
+  { value: 'PICKAXE', label: 'Cúp Đào', icon: 'fas fa-hammer' },
+  { value: 'AXE', label: 'Rìu Chặt', icon: 'fas fa-tree' },
+  { value: 'SHOVEL', label: 'Xẻng Đào', icon: 'fas fa-trowel' },
+  { value: 'FISHING_ROD', label: 'Cần Câu', icon: 'fas fa-fish' },
+  // Others
   { value: 'CONSUMABLE', label: 'Đan Dược', icon: 'fas fa-flask' },
   { value: 'MATERIAL', label: 'Nguyên Liệu', icon: 'fas fa-cubes' }
 ];
@@ -1289,10 +1312,13 @@ const filteredItems = computed(() => {
 
 const itemOptions = computed(() => (adminStore.items || []).map(i => ({ id: i.itemId, name: i.name })));
 
+// [FIX] Computed asset list theo đúng loại
+const currentRawAssets = computed(() => {
+    return assetLibrary[itemForm.type] || assetLibrary['WEAPON'];
+});
+
 const currentAssets = computed(() => {
-    const list = assetLibrary[itemForm.type] || assetLibrary['WEAPON'];
-    // Dùng resolveItemImage để tạo link full cho Preview trong Wizard
-    return list.map(path => resolveItemImage(path));
+    return currentRawAssets.value.map(path => resolveItemImage(path));
 });
 
 const getAllowedMainStats = computed(() => {
@@ -1302,6 +1328,7 @@ const getAllowedMainStats = computed(() => {
         { value: 'HP', label: 'Sinh Lực', icon: 'fas fa-heart' },
         { value: 'SPEED', label: 'Tốc Độ', icon: 'fas fa-wind' }
     ];
+    // Tools thường không có combat stats, nhưng cho phép chọn nếu muốn buff ẩn
     switch(itemForm.type) {
         case 'WEAPON': return [all[0]]; 
         case 'ARMOR': return [all[1]]; 
@@ -1309,6 +1336,8 @@ const getAllowedMainStats = computed(() => {
         case 'BOOTS': return [all[3], all[1]];
         case 'RING': return [all[0], all[3]];
         case 'NECKLACE': return [all[0], all[1], all[2]];
+        case 'PICKAXE': case 'AXE': case 'SHOVEL': case 'FISHING_ROD':
+            return all; // Cho phép chọn hết nếu muốn
         default: return all;
     }
 });
@@ -1340,26 +1369,28 @@ const toggleCreateMode = () => {
         selectedMainStatType.value = 'ATK';
         selectedMainStatValue.value = 0;
         suggestedPrice.value = 0;
+        isPriceManuallyEdited.value = false;
     }
 };
 
 const selectType = (t) => {
     itemForm.type = t; 
-    itemForm.slotType = t;
+    itemForm.slotType = t; // [FIX] Gán luôn slotType theo Type
     setTimeout(() => nextStep(), 200);
 };
 
-// Khi chọn asset, ta cần lấy lại tên file gốc (bỏ domain) để lưu vào DB
-const selectAsset = (fullUrl) => {
-    // Tách tên file từ URL (ví dụ: https://.../resources/tool/axe/a-0.png -> tool/axe/a-0.png)
-    // Cách đơn giản nhất là dựa vào phần sau 'resources/' hoặc lấy tên file nếu assetHelper xử lý
-    // Ở đây ta gán tạm fullUrl vào để hiển thị, lúc save sẽ xử lý sau hoặc Backend tự xử lý
-    // Tuy nhiên để đồng bộ với logic assetHelper mới, ta nên lưu tên file nếu có thể.
-    // Hack: Ta duyệt lại mảng gốc để tìm match
-    const rawList = assetLibrary[itemForm.type] || assetLibrary['WEAPON'];
-    const matched = rawList.find(raw => resolveItemImage(raw) === fullUrl);
-    
-    itemForm.imageUrl = matched || fullUrl; // Lưu tên file gốc (vd: tool/axe/...)
+const selectAsset = (rawPath) => {
+    itemForm.imageUrl = rawPath; 
+};
+
+const setRarity = (r) => {
+    itemForm.rarity = r;
+    calculatePrice();
+};
+
+const setMainStatType = (type) => {
+    selectedMainStatType.value = type;
+    calculatePrice();
 };
 
 const nextStep = () => {
@@ -1387,24 +1418,32 @@ const calculatePrice = () => {
     let score = 200;
     score += (itemForm.atkBonus || 0) + (itemForm.defBonus || 0) + (itemForm.hpBonus || 0) + ((itemForm.speedBonus || 0) * 200);
     const mult = { COMMON: 1, UNCOMMON: 2, RARE: 5, EPIC: 15, LEGENDARY: 50, MYTHIC: 200 };
+    
     suggestedPrice.value = score * (mult[itemForm.rarity] || 1);
-    itemForm.basePrice = suggestedPrice.value;
+
+    if (!isPriceManuallyEdited.value) {
+        itemForm.basePrice = suggestedPrice.value;
+    }
 };
+
+watch(() => itemForm.basePrice, (newVal) => {
+    if (newVal !== suggestedPrice.value) {
+        isPriceManuallyEdited.value = true;
+    }
+});
 
 const createItem = async () => {
     try {
-        calculatePrice(); 
-        if (!itemForm.slotType) itemForm.slotType = itemForm.type;
+        // [FIX] Đảm bảo slotType luôn khớp với type trước khi gửi
+        itemForm.slotType = itemForm.type;
         
-        // [FIX LOGIC LIMITED]
         if (distributionType.value === 'SHOP') {
             itemForm.isSystemItem = true;
             itemForm.isLimited = false;
         } else if (distributionType.value === 'LIMITED') {
             itemForm.isSystemItem = false;
-            itemForm.isLimited = true; // Backend cần trường này!
+            itemForm.isLimited = true; 
         } else {
-            // DROP
             itemForm.isSystemItem = false;
             itemForm.isLimited = false;
         }
@@ -1419,7 +1458,7 @@ const createItem = async () => {
     }
 };
 
-// Existing Actions
+// ... (Các hàm grant gold, item, notification giữ nguyên) ...
 const handleGrantGold = async () => {
     try { await adminStore.grantGold(grantGoldForm.username, grantGoldForm.amount); notificationStore.showToast("Đã cấp ngân lượng!", "success"); } catch(e) { notificationStore.showToast("Lỗi!", "error"); }
 };

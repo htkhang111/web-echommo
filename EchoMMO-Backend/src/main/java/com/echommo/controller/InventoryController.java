@@ -71,12 +71,6 @@ public class InventoryController {
                 return ResponseEntity.badRequest().body("Không thể trang bị vật phẩm này!");
             }
 
-            // Logic tháo/lắp đồ đã có trong InventoryService, gọi service hoặc xử lý tại đây
-            // Ở đây giữ logic Controller cũ, nhưng lưu ý trong InventoryServiceImpl đã có hàm equipItem chuẩn hơn.
-            // Tốt nhất nên delegate sang service: inventoryService.equipItem(...)
-            // Nhưng để tránh sửa nhiều file, ta giữ logic cũ và chỉ thêm phần check SlotType hợp lệ.
-
-            // Tìm đồ cũ cùng slot (Đã xử lý trong service)
             Optional<UserItem> currentEquip = userItemRepo.findEquippedItemBySlot(character.getCharId(), slot);
             if (currentEquip.isPresent()) {
                 UserItem old = currentEquip.get();

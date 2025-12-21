@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Optional;
+import java.util.Random;
 
 @Service
 public class PvpService {
@@ -22,6 +23,8 @@ public class PvpService {
     @Autowired private CharacterRepository charRepo;
     @Autowired private PvpQueueRepository queueRepo;
     @Autowired private PvpChatRepository chatRepo;
+
+    private final Random random = new Random(); // Random cho tỷ lệ hên xui
 
     // --- 1. TÌM TRẬN ---
     @Transactional
@@ -33,7 +36,6 @@ public class PvpService {
         Optional<PvpQueue> myQueue = queueRepo.findByCharId(charId);
         if (myQueue.isPresent()) return null;
 
-        // Tìm đối thủ chênh lệch +/- 5 level
         Optional<PvpQueue> opponentQueue = queueRepo.findMatchCandidate(charId, myChar.getLevel() - 5, myChar.getLevel() + 5)
                 .filter(q -> !q.getCharId().equals(charId));
 
@@ -100,12 +102,11 @@ public class PvpService {
         return match;
     }
 
-    // --- 4. XỬ LÝ TURN (LOGIC SÁT THƯƠNG ĐÃ FIX) ---
+    // --- 4. XỬ LÝ TURN (ĐÃ FIX: THÊM NÉ TRÁNH VÀ CHÍ MẠNG) ---
     private void resolveTurn(PvpMatch match) {
         String m1 = match.getP1Move();
         String m2 = match.getP2Move();
 
-        // Lưu lại move của hiệp này để hiển thị ở FE
         match.setLastP1Move(m1);
         match.setLastP2Move(m2);
 
@@ -116,7 +117,7 @@ public class PvpService {
         StringBuilder log = new StringBuilder();
 
         if (m1.equals(m2)) {
-            // HÒA: Trừ mỗi bên một ít máu cố định (hoặc 5% MaxHP) để trận đấu không kéo dài mãi
+            // HÒA
             int drawDamage = 20;
             hp1 = Math.max(0, hp1 - drawDamage);
             hp2 = Math.max(0, hp2 - drawDamage);
@@ -132,33 +133,62 @@ public class PvpService {
             Character defender = p1Wins ? p2 : p1;
             String winningMove = p1Wins ? m1 : m2;
 
-            // [FIX] CÔNG THỨC SÁT THƯƠNG: ATK - DEF
-            int atkValue = attacker.getBaseAtk() != null ? attacker.getBaseAtk() : 10;
-            int defValue = defender.getBaseDef() != null ? defender.getBaseDef() : 0;
+            // --- LẤY CHỈ SỐ (Đã tính toán từ CharacterService) ---
+            int atk = attacker.getBaseAtk() != null ? attacker.getBaseAtk() : 10;
+            int def = defender.getBaseDef() != null ? defender.getBaseDef() : 5;
 
-            // Sát thương = Công - Giáp
-            int damage = atkValue - defValue;
+            // Tốc độ & Crit
+            int atkSpeed = attacker.getBaseSpeed() != null ? attacker.getBaseSpeed() : 10;
+            int defSpeed = defender.getBaseSpeed() != null ? defender.getBaseSpeed() : 10;
 
-            // Đảm bảo sát thương tối thiểu là 1 (tránh trường hợp Giáp > Công hồi máu hoặc đánh không mất máu)
-            if (damage < 1) damage = 1;
+            int critRate = attacker.getBaseCritRate() != null ? attacker.getBaseCritRate() : 5;
+            int critDmgPct = attacker.getBaseCritDmg() != null ? attacker.getBaseCritDmg() : 150;
 
-            if (p1Wins) {
-                hp2 = Math.max(0, hp2 - damage);
-                log.append("💥 ").append(p1.getName()).append(" dùng ").append(translateMove(winningMove))
-                        .append(" thắng! (Công ").append(atkValue).append(" - Giáp ").append(defValue)
-                        .append(") gây ").append(damage).append(" sát thương.");
+            // 1. TÍNH NÉ TRÁNH (DODGE)
+            // Cơ bản 5% + (Tốc độ thủ - Tốc độ công)
+            // Ví dụ: Thủ 150 tốc, Công 100 tốc => Né = 5 + 50 = 55%
+            int dodgeChance = 5 + (defSpeed - atkSpeed);
+            dodgeChance = Math.max(0, Math.min(60, dodgeChance)); // Giới hạn né tối đa 60%
+
+            boolean isDodged = random.nextInt(100) < dodgeChance;
+
+            if (isDodged) {
+                log.append("💨 ").append(defender.getName()).append(" (Tốc ").append(defSpeed).append(") đã NÉ ĐƯỢC đòn của ")
+                        .append(attacker.getName()).append("!");
             } else {
-                hp1 = Math.max(0, hp1 - damage);
-                log.append("💥 ").append(p2.getName()).append(" dùng ").append(translateMove(winningMove))
-                        .append(" thắng! (Công ").append(atkValue).append(" - Giáp ").append(defValue)
-                        .append(") gây ").append(damage).append(" sát thương.");
+                // 2. TÍNH CHÍ MẠNG (CRIT)
+                boolean isCrit = random.nextInt(100) < critRate;
+
+                // 3. TÍNH SÁT THƯƠNG
+                int rawDmg = atk - def;
+
+                // Sát thương tối thiểu (Xuyên giáp 5%) để tránh đánh không mất máu
+                int minDmg = (int) Math.ceil(atk * 0.05);
+                int damage = Math.max(minDmg, rawDmg);
+
+                // Áp dụng Crit Damage
+                if (isCrit) {
+                    damage = (int) (damage * (critDmgPct / 100.0));
+                }
+
+                // Trừ máu
+                if (p1Wins) {
+                    hp2 = Math.max(0, hp2 - damage);
+                } else {
+                    hp1 = Math.max(0, hp1 - damage);
+                }
+
+                log.append(isCrit ? "🔥 CHÍ MẠNG! " : "💥 ")
+                        .append(attacker.getName()).append(" dùng ").append(translateMove(winningMove))
+                        .append(" trúng đích! (Công ").append(atk).append(" vs Giáp ").append(def).append(")")
+                        .append(" gây ").append(damage).append(" sát thương.");
             }
         }
 
         match.setP1CurrentHp(hp1);
         match.setP2CurrentHp(hp2);
 
-        // Kiểm tra kết quả trận đấu
+        // --- KIỂM TRA KẾT THÚC ---
         if (hp1 <= 0 && hp2 <= 0) {
             match.setStatus("FINISHED");
             match.setWinnerId(null);
@@ -171,7 +201,7 @@ public class PvpService {
             log.append("\n🏆 ").append(hp1 <= 0 ? p2.getName() : p1.getName()).append(" ĐÃ CHIẾN THẮNG!");
             updatePvpStats(wId, lId);
         } else {
-            // Reset move cho turn sau
+            // Reset move
             match.setP1Move(null);
             match.setP2Move(null);
             match.setTurnCount(match.getTurnCount() + 1);
