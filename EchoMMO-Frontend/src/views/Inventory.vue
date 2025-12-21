@@ -3917,7 +3917,7 @@ onMounted(async () => {
                 :src="getItemImage(getSafeItem(u).image || getSafeItem(u).imageUrl)"
                 class="item-icon"
                 alt="item"
-                @error="$event.target.src = getItemImage('o_coalOre.png')"
+                @error="$event.target.src = getItemImage('o_coalOre')"
               />
 
               <div class="qty-tag" v-if="u.quantity > 1 || u.isVirtual">
@@ -3966,7 +3966,7 @@ onMounted(async () => {
                 >
                   <img
                     :src="getItemImage(getSafeItem(selectedItem).image || getSafeItem(selectedItem).imageUrl)"
-                    @error="$event.target.src = getItemImage('o_coalOre.png')"
+                    @error="$event.target.src = getItemImage('o_coalOre')"
                   />
                 </div>
 
@@ -4220,7 +4220,8 @@ const createVirtualItem = (id, name, imgCode, qty) => ({
     name,
     type: "MATERIAL",
     rarity: "COMMON",
-    // [FIX] Truyền đúng tên file có đuôi .png
+    // [FIX] Chỉ truyền tên gốc (ví dụ: w_wood), không truyền .png
+    // assetHelper sẽ tự xử lý thêm đuôi file.
     imageUrl: imgCode, 
     description: "Tài nguyên khai thác được.",
     basePrice: 0,
@@ -4243,12 +4244,12 @@ const filteredItems = computed(() => {
     const platinumVal = w.platinum || 0;
     const fishVal = w.fish || 0;
 
-    // [FIX] Thêm đuôi .png vào tên file ảnh
-    if (woodVal > 0) items.push(createVirtualItem("v_wood", "Gỗ Sồi", "w_wood.png", woodVal));
-    if (stoneVal > 0) items.push(createVirtualItem("v_stone", "Đá", "o_coalOre.png", stoneVal)); 
-    if (ironVal > 0) items.push(createVirtualItem("v_iron", "Quặng Sắt", "o_ironOre.png", ironVal));
-    if (platinumVal > 0) items.push(createVirtualItem("v_plat", "Bạch Kim", "o_platinumOre.png", platinumVal));
-    if (fishVal > 0) items.push(createVirtualItem("v_fish", "Cá", "r_fish.png", fishVal));
+    // [FIX] Sửa lại tên resource cho khớp với file ảnh thực tế trên GitHub Pages
+    if (woodVal > 0) items.push(createVirtualItem("v_wood", "Gỗ Sồi", "w_wood", woodVal));
+    if (stoneVal > 0) items.push(createVirtualItem("v_stone", "Đá", "o_coal", stoneVal)); // Dùng o_coal thay vì o_coalOre
+    if (ironVal > 0) items.push(createVirtualItem("v_iron", "Quặng Sắt", "o_iron", ironVal));
+    if (platinumVal > 0) items.push(createVirtualItem("v_plat", "Bạch Kim", "o_platinum", platinumVal));
+    if (fishVal > 0) items.push(createVirtualItem("v_fish", "Cá", "f_fish", fishVal));
   }
 
   if (filter.value === "EQUIP") {
