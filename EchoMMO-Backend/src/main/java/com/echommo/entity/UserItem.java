@@ -37,7 +37,6 @@ public class UserItem {
     @Column(name = "acquired_at")
     private LocalDateTime acquiredAt;
 
-    // [FIX] Đổi tên biến thành enhanceLevel để Lombok sinh getter/setter đúng tên
     @Builder.Default
     @Column(name = "enhance_level")
     private Integer enhanceLevel = 0;
@@ -58,11 +57,15 @@ public class UserItem {
     @Column(name = "visual_variant")
     private Integer visualVariant = 0;
 
-    // Thêm vào class UserItem
-    @Column(name = "mythic_stars")
     @Builder.Default
+    @Column(name = "is_mythic")
+    private boolean isMythic = false;
+
+    @Builder.Default
+    @Column(name = "mythic_stars")
     private Integer mythicStars = 0;
 
+    // [NEW] Độ bền công cụ
     @Column(name = "current_durability")
     @Builder.Default
     private Integer currentDurability = 100;
@@ -71,32 +74,19 @@ public class UserItem {
     @Builder.Default
     private Integer maxDurability = 100;
 
-    @Builder.Default
-    @Column(name = "is_mythic")
-    private boolean isMythic = false;
-
     @Column(name = "original_main_stat_value")
     private BigDecimal originalMainStatValue;
 
     @PrePersist
     protected void onCreate() { if (acquiredAt == null) acquiredAt = LocalDateTime.now(); }
 
-    // --- HELPER METHODS ---
-
     public User getUser() {
         return this.character != null ? this.character.getUser() : null;
     }
 
-    // Alias cho code cũ nếu lỡ gọi getLevel()
-    public Integer getLevel() {
-        return this.enhanceLevel != null ? this.enhanceLevel : 0;
-    }
-
-    public void setLevel(Integer level) {
-        this.enhanceLevel = level;
-    }
-
-    // [FIX] Alias getter/setter cho boolean isMythic để tương thích code Service
+    // Helpers
+    public Integer getLevel() { return this.enhanceLevel != null ? this.enhanceLevel : 0; }
+    public void setLevel(Integer level) { this.enhanceLevel = level; }
     public Boolean getIsMythic() { return isMythic; }
     public void setIsMythic(boolean v) { this.isMythic = v; }
 }

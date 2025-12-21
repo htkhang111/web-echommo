@@ -30,10 +30,12 @@ public class EquipmentService {
 
     // --- LOGIC MỚI: NÂNG CẤP SAO MYTHIC (1-10 SAO) ---
     @Transactional
-    public UserItem enhanceMythicStars(Long userItemId, Long userId) {
+    // [FIX] Đổi userId từ Long -> Integer
+    public UserItem enhanceMythicStars(Long userItemId, Integer userId) {
         UserItem item = userItemRepo.findById(userItemId)
                 .orElseThrow(() -> new RuntimeException("Trang bị không tồn tại!"));
 
+        // Check chính chủ (Integer vs Integer ok)
         if (!item.getCharacter().getUser().getUserId().equals(userId)) {
             throw new RuntimeException("Vật phẩm không thuộc về bạn!");
         }
@@ -77,7 +79,7 @@ public class EquipmentService {
             throw new RuntimeException("Thiếu Echo Coin! Cần " + coinCost);
         }
 
-        // Trừ tiền (Luôn trừ)
+        // Trừ tiền
         w.setGold(w.getGold().subtract(BigDecimal.valueOf(goldCost)));
         w.setEchoCoin(w.getEchoCoin().subtract(coinCost));
         walletRepo.save(w);
@@ -94,13 +96,11 @@ public class EquipmentService {
             return userItemRepo.save(item);
         } else {
             // THẤT BẠI
-            // Ném Exception với message đặc biệt để Frontend hiển thị popup "Tiếc quá"
-            // Lưu ý: Không rollback Transaction của Wallet vì tiền đã trừ
             throw new RuntimeException("Nâng cấp THẤT BẠI! Bạn mất tài nguyên nhưng trang bị vẫn an toàn.");
         }
     }
 
-    // --- CÁC HÀM CŨ GIỮ NGUYÊN ---
+    // --- CÁC HÀM CŨ GIỮ NGUYÊN (Không thay đổi) ---
 
     private void checkAndConsumeResources(UserItem targetItem, Map<Integer, Integer> materialCosts, int goldCost) {
         Wallet wallet = walletRepo.findByUser_UserId(targetItem.getCharacter().getUser().getUserId())
@@ -147,7 +147,6 @@ public class EquipmentService {
         Map<Integer, Integer> mats = new HashMap<>();
         int gold = nextLv * 2000;
 
-        // Logic nguyên liệu cũ
         if (nextLv <= 10) {
             mats.put(GameConstants.MAT_COAL, 5);
             mats.put(GameConstants.MAT_WOOD_OAK, 5);
@@ -184,8 +183,8 @@ public class EquipmentService {
         walletRepo.save(w);
 
         item.setIsMythic(true);
-        item.setMythicStars(1); // Khởi đầu 1 sao
-        item.setMainStatValue(item.getMainStatValue().multiply(BigDecimal.valueOf(1.5))); // Tăng 50% chỉ số
+        item.setMythicStars(1);
+        item.setMainStatValue(item.getMainStatValue().multiply(BigDecimal.valueOf(1.5)));
 
         return userItemRepo.save(item);
     }

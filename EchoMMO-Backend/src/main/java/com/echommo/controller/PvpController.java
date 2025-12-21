@@ -41,7 +41,7 @@ public class PvpController {
         MatchResponse response = new MatchResponse();
         response.setMyId(myChar.getCharId());
 
-        // Ưu tiên tìm trận đang đánh
+        // Ưu tiên tìm trận đang đánh (ACTIVE hoặc FINISHED nhưng chưa thoát)
         Optional<PvpMatch> matchOpt = matchRepo.findActiveMatchByCharId(myChar.getCharId());
 
         if (matchOpt.isPresent()) {
@@ -102,10 +102,17 @@ public class PvpController {
         if (request.getMove() == null) return ResponseEntity.badRequest().body("Move is required");
 
         try {
+            // Check status trước khi gọi service để tránh Exception log rác
+            Optional<PvpMatch> matchOpt = matchRepo.findById(request.getMatchId());
+            if (matchOpt.isPresent() && "FINISHED".equals(matchOpt.get().getStatus())) {
+                return ResponseEntity.ok("Match already finished");
+            }
+
             pvpService.submitMove(request.getMatchId(), myChar.getCharId(), request.getMove());
             return ResponseEntity.ok("Move submitted");
         } catch (Exception e) {
-            e.printStackTrace();
+            // Log nhẹ warning thay vì printStackTrace full
+            System.out.println("Move Error: " + e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -130,7 +137,7 @@ public class PvpController {
         }
     }
 
-    // --- 6. ĐẦU HÀNG (FIX LỖI NULL POINTER Ở ĐÂY) ---
+    // --- 6. ĐẦU HÀNG ---
     @PostMapping("/surrender")
     public ResponseEntity<?> surrender(@AuthenticationPrincipal UserDetails userDetails,
                                        @RequestBody Map<String, Long> payload) {
@@ -138,8 +145,6 @@ public class PvpController {
         if (myChar == null) return ResponseEntity.badRequest().body("Character not found");
 
         Long matchId = payload.get("matchId");
-
-        // [FIX QUAN TRỌNG]: Kiểm tra null trước khi gọi Repository
         if (matchId == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "Match ID is required"));
         }
@@ -150,26 +155,13 @@ public class PvpController {
 
             // Chỉ xử lý nếu trận đấu tồn tại và đang ACTIVE
             if (match != null && "ACTIVE".equals(match.getStatus())) {
-                Integer winnerId = match.getPlayer1().getCharId().equals(myChar.getCharId())
-                        ? match.getPlayer2().getCharId()
-                        : match.getPlayer1().getCharId();
-
-                match.setStatus("FINISHED");
-                match.setWinnerId(Long.valueOf(winnerId));
-                match.setLastLog("⚡ " + myChar.getName() + " đã đầu hàng! Đối thủ chiến thắng.");
-
-                // Gọi service để cộng điểm/xử lý hậu kỳ nếu cần
-                // pvpService.processMatchResult(match); // Uncomment nếu bạn có hàm này
-
-                matchRepo.save(match);
+                pvpService.surrenderMatch(matchId, myChar.getCharId());
                 return ResponseEntity.ok(Map.of("message", "Surrender accepted"));
             } else {
-                // Nếu trận đấu không tìm thấy hoặc đã kết thúc, vẫn trả về OK để Client thoát
                 return ResponseEntity.ok(Map.of("message", "Match already finished or not found"));
             }
         } catch (Exception e) {
             e.printStackTrace();
-            // Trả về OK để Client không bị kẹt dù Server lỗi
             return ResponseEntity.ok(Map.of("message", "Force exit triggered due to error"));
         }
     }
@@ -202,6 +194,11 @@ public class PvpController {
         res.setLastLog(match.getLastLog());
         res.setWinnerId(match.getWinnerId() != null ? match.getWinnerId().intValue() : null);
 
+        // [QUAN TRỌNG] Map lịch sử nước đi để Frontend hiển thị animation
+        // Frontend sẽ dùng trường này khi thấy turnCount thay đổi hoặc lastLog thay đổi
+        res.setLastP1Move(match.getLastP1Move());
+        res.setLastP2Move(match.getLastP2Move());
+
         // Map Chat
         if (match.getChats() != null) {
             List<ChatMessageDTO> chatDtos = match.getChats().stream()
@@ -214,9 +211,7 @@ public class PvpController {
 
         boolean isP1 = match.getPlayer1().getCharId().equals(myCharId);
 
-        // Player 1 Info (Trong response P1 luôn là người chơi hiện tại nếu isP1=true để dễ xử lý ở frontend,
-        // NHƯNG ở đây ta map đúng theo DB, frontend sẽ tự check ID)
-
+        // Player 1 Info
         res.setP1Id(match.getPlayer1().getCharId());
         res.setP1Name(match.getPlayer1().getName());
         res.setP1Level(match.getPlayer1().getLevel());
@@ -224,6 +219,7 @@ public class PvpController {
         res.setP1MaxHp(match.getPlayer1().getMaxHp());
         res.setP1AvatarUrl(match.getPlayer1().getAvatarUrl());
 
+        // Player 2 Info
         res.setP2Id(match.getPlayer2().getCharId());
         res.setP2Name(match.getPlayer2().getName());
         res.setP2Level(match.getPlayer2().getLevel());
@@ -231,19 +227,19 @@ public class PvpController {
         res.setP2MaxHp(match.getPlayer2().getMaxHp());
         res.setP2AvatarUrl(match.getPlayer2().getAvatarUrl());
 
-        // Logic ẩn nước đi
+        // Logic ẩn nước đi hiện tại (Chưa có kết quả)
         String p1Move = match.getP1Move();
         String p2Move = match.getP2Move();
         boolean bothMoved = (p1Move != null && p2Move != null);
         if ("FINISHED".equals(match.getStatus())) bothMoved = true;
 
-        // Nếu mình là P1: Thấy move của mình, ẩn move của địch nếu địch chưa đánh xong
         if (isP1) {
             res.setP1Move(p1Move);
+            // Ẩn move của địch nếu họ chưa đánh xong
             res.setP2Move(bothMoved ? p2Move : (p2Move != null ? "HIDDEN" : null));
         } else {
-            // Nếu mình là P2
             res.setP2Move(p2Move);
+            // Ẩn move của địch nếu họ chưa đánh xong
             res.setP1Move(bothMoved ? p1Move : (p1Move != null ? "HIDDEN" : null));
         }
     }
@@ -270,6 +266,7 @@ public class PvpController {
         private Integer p2Hp; private Integer p2MaxHp; private String p2Move;
         private String p2AvatarUrl;
 
+        // [QUAN TRỌNG] Frontend cần cái này để replay turn
         private String lastP1Move;
         private String lastP2Move;
 

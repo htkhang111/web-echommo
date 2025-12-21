@@ -21,8 +21,7 @@
             <span class="brand-subtitle">Võ Lâm Tranh Bá</span>
           </div>
         </transition>
-        
-        </div>
+      </div>
 
       <nav class="nav-links custom-scroll">
         <div class="nav-group-label" v-if="!isCollapsed">
@@ -56,6 +55,10 @@
           <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">Lôi Đài</span></transition>
           <div class="active-bar"></div>
         </router-link>
+        <router-link to="/dump" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-scroll"></i></div> <transition name="slide-fade"><span v-if="!isCollapsed" class="nav-label">Tàng Kinh Các</span></transition>
+          <div class="active-bar"></div>
+        </router-link>
 
         <div class="nav-group-label" v-if="!isCollapsed">
           <span class="line"></span><span>HÀNH TRANG</span><span class="line"></span>
@@ -85,6 +88,7 @@
           <div class="active-bar"></div>
         </router-link>
 
+      
         <template v-if="authStore.user?.role === 'ADMIN'">
           <div class="nav-group-label admin" v-if="!isCollapsed">
             <span class="line red"></span><span>TRIỀU ĐÌNH</span><span class="line red"></span>
