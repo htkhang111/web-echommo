@@ -23,6 +23,17 @@ public class AdminService {
     private final CharacterRepository characterRepository;
     private final NotificationService notificationService;
 
+    // [NEW] Inject thêm các Repo để xóa dữ liệu liên quan
+    private final MarketListingRepository marketListingRepository;
+    private final FriendshipRepository friendshipRepository;
+    private final MessageRepository messageRepository;
+    private final PrivateMessageRepository privateMessageRepository;
+    private final DailyQuestRepository dailyQuestRepository;
+    private final NotificationRepository notificationRepository;
+    private final BattleSessionRepository battleSessionRepository;
+    private final PvpQueueRepository pvpQueueRepository;
+    private final PvpMatchRepository pvpMatchRepository;
+
     public Map<String, Object> getSystemStats() {
         Map<String, Object> stats = new HashMap<>();
         stats.put("totalUsers", userRepository.count());
@@ -65,7 +76,70 @@ public class AdminService {
 
     @Transactional
     public void deleteUser(Integer userId) {
-        userRepository.deleteById(userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+
+        // 1. Dọn dẹp dữ liệu liên quan đến Character (nếu có)
+        // Vì quan hệ OneToMany không được cascade triệt để trong code Entity, ta phải xóa tay
+        if (user.getCharacter() != null) {
+            Character character = user.getCharacter();
+            Integer charId = character.getCharId();
+
+            // Xóa UserItems
+            userItemRepository.findAll().stream()
+                    .filter(ui -> ui.getCharacter().getCharId().equals(charId))
+                    .forEach(userItemRepository::delete);
+
+            // Xóa BattleSession
+            battleSessionRepository.findAll().stream()
+                    .filter(bs -> bs.getCharacter().getCharId().equals(charId))
+                    .forEach(battleSessionRepository::delete);
+
+            // Xóa PVP Queue
+            pvpQueueRepository.findAll().stream()
+                    .filter(pq -> pq.getCharId().equals(charId))
+                    .forEach(pvpQueueRepository::delete);
+
+            // Xóa Lịch sử PVP
+            pvpMatchRepository.findAll().stream()
+                    .filter(pm -> (pm.getPlayer1() != null && pm.getPlayer1().getCharId().equals(charId)) ||
+                            (pm.getPlayer2() != null && pm.getPlayer2().getCharId().equals(charId)))
+                    .forEach(pvpMatchRepository::delete);
+        }
+
+        // 2. Dọn dẹp dữ liệu liên quan đến User
+        // Xóa Market Listings
+        marketListingRepository.findAll().stream()
+                .filter(ml -> ml.getSeller().getUserId().equals(userId))
+                .forEach(marketListingRepository::delete);
+
+        // Xóa Friendships [FIX: Sử dụng getRequester().getUserId() thay vì getRequesterId()]
+        friendshipRepository.findAll().stream()
+                .filter(f -> f.getRequester().getUserId().equals(userId) || f.getAddressee().getUserId().equals(userId))
+                .forEach(friendshipRepository::delete);
+
+        // Xóa Chat Messages (Global)
+        messageRepository.findAll().stream()
+                .filter(m -> m.getSender().getUserId().equals(userId))
+                .forEach(messageRepository::delete);
+
+        // Xóa Private Messages [FIX: Sử dụng getSender().getUserId() thay vì getSenderId()]
+        privateMessageRepository.findAll().stream()
+                .filter(pm -> pm.getSender().getUserId().equals(userId) || pm.getReceiver().getUserId().equals(userId))
+                .forEach(privateMessageRepository::delete);
+
+        // Xóa Daily Quests [FIX: Sử dụng getUser().getUserId() thay vì getUserId()]
+        dailyQuestRepository.findAll().stream()
+                .filter(dq -> dq.getUser().getUserId().equals(userId))
+                .forEach(dailyQuestRepository::delete);
+
+        // Xóa Notifications
+        notificationRepository.findAll().stream()
+                .filter(n -> n.getUser().getUserId().equals(userId))
+                .forEach(notificationRepository::delete);
+
+        // 3. Cuối cùng xóa User (Sẽ tự cascade xóa Wallet và Character entity)
+        userRepository.delete(user);
     }
 
     // --- ITEM MANAGEMENT ---

@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/inventory") // [LƯU Ý] Đã đổi path từ /api/equipment thành /api/inventory cho đúng chuẩn
+@RequestMapping("/api/inventory") // [XÁC NHẬN]: Đường dẫn gốc là /api/inventory
 @CrossOrigin(origins = "*")
 public class InventoryController {
 
@@ -38,12 +38,12 @@ public class InventoryController {
                 .orElseThrow(() -> new RuntimeException("Bạn chưa tạo nhân vật!"));
     }
 
+    // Endpoint lấy danh sách đồ: /api/inventory/items
     @GetMapping("/items")
     public ResponseEntity<List<UserItem>> getInventory() {
         return ResponseEntity.ok(inventoryService.getInventory(getCurrentCharacter().getCharId()));
     }
 
-    // [NEW] Endpoint mở rộng kho
     @PostMapping("/expand")
     public ResponseEntity<?> expandInventory(Authentication auth) {
         User user = userService.getUserFromAuth(auth);
@@ -68,11 +68,11 @@ public class InventoryController {
             }
 
             SlotType slot = newItem.getItem().getSlotType();
+            // Nếu slot bị null do lỗi DB mapping trước đó, dòng này sẽ throw exception
             if (slot == null || slot == SlotType.CONSUMABLE || slot == SlotType.MATERIAL) {
                 return ResponseEntity.badRequest().body("Không thể trang bị vật phẩm này!");
             }
 
-            // Tháo đồ cũ nếu có
             Optional<UserItem> currentEquip = userItemRepo.findEquippedItemBySlot(character.getCharId(), slot);
             if (currentEquip.isPresent()) {
                 UserItem old = currentEquip.get();
@@ -84,6 +84,7 @@ public class InventoryController {
             userItemRepo.save(newItem);
             return ResponseEntity.ok("Đã trang bị: " + newItem.getItem().getName());
         } catch (Exception e) {
+            e.printStackTrace(); // In lỗi ra console server để dễ debug
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -124,7 +125,6 @@ public class InventoryController {
                 return ResponseEntity.badRequest().body("Không thể sử dụng vật phẩm này!");
             }
 
-            // Logic hồi máu đơn giản
             int heal = 50;
             if (uItem.getItem().getName().toLowerCase().contains("cao cấp")) heal = 200;
 

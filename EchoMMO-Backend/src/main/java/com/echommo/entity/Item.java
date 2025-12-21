@@ -28,6 +28,7 @@ public class Item {
     private String type;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "slot_type") // [FIX QUAN TRỌNG]: Thêm dòng này
     private SlotType slotType;
 
     private Integer tier;
@@ -60,8 +61,8 @@ public class Item {
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // [FIX] Helper method để lấy chỉ số chính mà không cần sửa DB hay Service
-    @Transient // Không lưu vào DB, chỉ dùng để tính toán
+    // Helper method để lấy chỉ số chính
+    @Transient
     public Integer getBaseMainStat() {
         if (atkBonus != null && atkBonus > 0) return atkBonus;
         if (defBonus != null && defBonus > 0) return defBonus;
