@@ -748,7 +748,8 @@ const viewMode = ref('list');
 
 // --- CONFIG WHEEL ---
 const ITEM_HEIGHT = 50; 
-const VISIBLE_COUNT = 13;
+// Giới hạn buffer render để tối ưu, nhưng vẫn đủ để hiển thị 3 trên + 3 dưới + 1 giữa + buffer
+const VISIBLE_COUNT = 9; 
 const scrollY = ref(0);
 const wheelContainer = ref(null);
 
@@ -805,14 +806,14 @@ watch(filteredItems, (newItems) => {
     }
 }, { immediate: true });
 
-// --- RENDER LOGIC ---
+// --- RENDER LOGIC (UPDATED FOR 3 TOP / 3 BOTTOM) ---
 const renderedItems = computed(() => {
     if (viewMode.value !== 'list') return [];
     const items = filteredItems.value;
     const total = items.length;
     if (total === 0) return [];
 
-    const containerHeight = wheelContainer.value ? wheelContainer.value.clientHeight : 500;
+    const containerHeight = wheelContainer.value ? wheelContainer.value.clientHeight : 350;
     const centerY = containerHeight / 2;
 
     const result = [];
@@ -823,36 +824,55 @@ const renderedItems = computed(() => {
         let dataIndex = ((i % total) + total) % total;
         const itemData = items[dataIndex];
         
+        // Tính khoảng cách pixel so với tâm
         const itemY = i * ITEM_HEIGHT - scrollY.value; 
-        const absDist = Math.abs(itemY);
-        const maxDist = (VISIBLE_COUNT * ITEM_HEIGHT) / 2;
         
+        // Khoảng cách theo đơn vị slot (0 = tâm, 1 = ngay trên/dưới)
+        const distSlots = Math.abs(itemY / ITEM_HEIGHT);
+
         let scale = 1;
         let opacity = 1;
         let rotateX = 0;
         let brightness = 1;
         let zIndex = 10;
+        let blurAmount = 0;
 
-        if (absDist < maxDist) {
-            const ratio = 1 - (absDist / maxDist);
-            scale = 0.85 + (ratio * 0.15); 
-            opacity = 0.2 + (ratio * 0.8);
-            brightness = 0.3 + (ratio * 0.7);
-            rotateX = -itemY * 0.1;
-            zIndex = Math.floor(ratio * 100);
+        // Logic hiển thị: Chỉ rõ nét trong khoảng 3.5 slot
+        if (distSlots <= 3.5) {
+            if (distSlots < 0.5) {
+                // ITEM Ở GIỮA (Active)
+                scale = 1.05;
+                opacity = 1;
+                brightness = 1.2;
+                zIndex = 100;
+                blurAmount = 0;
+            } else {
+                // CÁC ITEM XUNG QUANH (1, 2, 3)
+                const ratio = 1 - (distSlots / 4); // Càng xa càng giảm
+                scale = 0.9 + (ratio * 0.1); 
+                opacity = 0.3 + (ratio * 0.7); // 3: mờ dần
+                brightness = 0.5 + (ratio * 0.5);
+                rotateX = -itemY * 0.15; // Góc nghiêng nhẹ
+                zIndex = Math.floor((4 - distSlots) * 10);
+                
+                // Hiệu ứng mờ (blur) tăng dần theo khoảng cách
+                blurAmount = (distSlots - 0.5) * 1.5; 
+            }
         } else {
-            scale = 0.8;
+            // NGOÀI VÙNG 3 ITEM -> Ẩn hoặc rất mờ
             opacity = 0;
+            scale = 0.8;
+            blurAmount = 5;
         }
 
-        const isActive = absDist < (ITEM_HEIGHT / 2);
+        const isActive = distSlots < 0.5;
 
         const style = {
             transform: `translateY(${centerY + itemY - (ITEM_HEIGHT/2)}px) perspective(500px) rotateX(${rotateX}deg) scale(${scale})`,
             opacity: opacity,
             zIndex: zIndex,
-            filter: `brightness(${brightness})`,
-            visibility: opacity <= 0.01 ? 'hidden' : 'visible'
+            filter: `brightness(${brightness}) blur(${blurAmount}px)`,
+            visibility: opacity <= 0.05 ? 'hidden' : 'visible'
         };
 
         result.push({
@@ -971,7 +991,7 @@ const switchTab = (tabId) => {
     velocity = 0;
 };
 
-// --- [FIXED] HELPERS HIỂN THỊ CHỈ SỐ ---
+// --- HELPERS ---
 const selectItem = (item) => { selectedItem.value = item; };
 
 const parsedSubStats = computed(() => {
@@ -979,7 +999,6 @@ const parsedSubStats = computed(() => {
   try { return JSON.parse(selectedItem.value.subStats); } catch (e) { return []; }
 });
 
-// [FIXED] TỪ ĐIỂN FULL
 const getStatName = (code) => {
     const dict = { 
         "ATK": "Công Lực", "ATK_FLAT": "Công Lực", "ATK_PERCENT": "Công Lực %",
@@ -993,20 +1012,15 @@ const getStatName = (code) => {
     return dict[code] || code;
 };
 
-// [FIXED] LOGIC THÔNG MINH: TỰ ĐOÁN NẾU THIẾU DỮ LIỆU
 const getStatLabel = (mainStatType, itemType) => {
-    // 1. Có mã -> Dịch
     if (mainStatType && typeof mainStatType === 'string') {
         return getStatName(mainStatType);
     }
-    
-    // 2. Không có mã -> Đoán theo loại vật phẩm (Fallback cho item cũ)
     if (itemType) {
         if (itemType === 'WEAPON') return "Công Lực";
         if (['ARMOR', 'HELMET', 'BOOTS', 'RING', 'NECKLACE'].includes(itemType)) return "Hộ Thể";
         if (itemType === 'TOOL') return "Hiệu Suất";
     }
-    
     return "Sức Mạnh";
 };
 
@@ -1043,7 +1057,6 @@ const expandSlots = async () => {
         toast.value?.show(msg || "Mở rộng thành công!", "success");
     } catch (e) { toast.value?.show(typeof e === 'string' ? e : "Lỗi", "error"); }
 };
-const shouldShowDurability = (uItem) => uItem.item.type === 'TOOL' && uItem.maxDurability > 0;
 const getDurabilityPercent = (uItem) => (!uItem.maxDurability) ? 100 : Math.max(0, Math.min(100, (uItem.currentDurability / uItem.maxDurability) * 100));
 const getDurabilityColorClass = (uItem) => { const pct = getDurabilityPercent(uItem); return pct < 30 ? 'dur-low' : 'dur-high'; };
 const needsRepair = (uItem) => uItem.item.type === 'TOOL' && uItem.maxDurability && uItem.currentDurability < uItem.maxDurability;
@@ -1150,6 +1163,12 @@ onUnmounted(() => {
     overflow: hidden;
     background: radial-gradient(circle at center, rgba(62, 39, 35, 0.2) 0%, transparent 80%);
     cursor: grab;
+    /* CỐ ĐỊNH CHIỀU CAO ĐỂ VỪA 7 ITEM (7 * 50px = 350px) */
+    min-height: 350px;
+    max-height: 350px; 
+    /* MASK ĐỂ LÀM MỜ 2 ĐẦU */
+    mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
 }
 .infinite-wheel-container:active { cursor: grabbing; }
 
@@ -1169,8 +1188,9 @@ onUnmounted(() => {
     position: absolute; left: 0; right: 0; top: 0; height: 50px;
     display: flex; align-items: center; justify-content: center;
     padding: 0 10px;
-    will-change: transform, opacity;
+    will-change: transform, opacity, filter;
     cursor: pointer;
+    transition: filter 0.2s;
 }
 
 .wheel-inner {
@@ -1288,4 +1308,4 @@ onUnmounted(() => {
   .inventory-layout { grid-template-columns: 1fr; height: auto; }
   .infinite-wheel-container, .grid-view-container { height: 320px; }
 }
-</style>a
+</style>

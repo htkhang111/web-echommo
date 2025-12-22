@@ -48,7 +48,7 @@ public class CharacterService {
 
         Character c = characterRepo.findByUser(user).orElse(null);
         if (c != null) {
-            recalculateStats(c);
+            recalculateStats(c); // Đảm bảo đồng bộ khi lấy data
         }
         return c;
     }
@@ -91,15 +91,16 @@ public class CharacterService {
     }
 
     /**
-     * TÍNH TOÁN LẠI TẤT CẢ CHỈ SỐ (SMART FALLBACK FIX)
-     * Fix lỗi: Mang đồ có dòng chính (HP) nhưng mất dòng phụ gốc (Def/Atk) của item system.
+     * [FIXED LOGIC] TÍNH TOÁN LẠI TẤT CẢ CHỈ SỐ
+     * - Fix lỗi chỉ tính ATK mà bỏ qua DEF, HP, SPEED
+     * - Fix lỗi không cộng chỉ số gốc của vật phẩm (Base Stat)
      */
     @Transactional
     public void recalculateStats(Character c) {
         ensureNoNullStats(c);
         int lvl = safeInt(c.getLevel());
 
-        // 1. STATS CƠ BẢN (BASE)
+        // 1. CHỈ SỐ CƠ BẢN TỪ THUỘC TÍNH (STR, VIT...)
         int rawMaxHp = 100 + (safeInt(c.getVit()) * 15);
         int rawAtk = 5 + (safeInt(c.getStr()) * 2);
         int rawDef = 2 + (safeInt(c.getVit()) / 3);
@@ -109,7 +110,7 @@ public class CharacterService {
         double totalCritDmg = 150.0 + (safeInt(c.getDex()) / 5.0);
         double totalSpeed = rawSpeed;
 
-        // 2. QUÉT TRANG BỊ
+        // 2. CỘNG DỒN TỪ TRANG BỊ
         List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(c.getCharId());
 
         BigDecimal equipAtk = BigDecimal.ZERO;
@@ -117,94 +118,69 @@ public class CharacterService {
         BigDecimal equipHp = BigDecimal.ZERO;
 
         for (UserItem uItem : equippedItems) {
-            // [LOGIC] Kiểm tra độ bền. Nếu hỏng (<=0) thì bỏ qua
+            // [Check] Độ bền
             Integer currentDur = uItem.getCurrentDurability();
-            if (currentDur != null && currentDur <= 0) {
-                continue;
-            }
+            if (currentDur != null && currentDur <= 0) continue;
 
-            // --- [LOGIC A] MAIN STAT (Từ UserItem) ---
+            // --- A. MAIN STAT (Dòng chính) ---
             BigDecimal val = safe(uItem.getMainStatValue());
             String type = uItem.getMainStatType();
             String typeUpper = (type != null) ? type.toUpperCase() : "";
 
-            if (val.compareTo(BigDecimal.ZERO) > 0 && type != null) {
-                switch (typeUpper) {
-                    case "ATK", "ATK_FLAT" -> equipAtk = equipAtk.add(val);
-                    case "DEF", "DEF_FLAT" -> equipDef = equipDef.add(val);
-                    case "HP", "HP_FLAT"   -> equipHp = equipHp.add(val);
-                    case "SPEED"           -> totalSpeed += val.doubleValue();
-                    case "CRIT_RATE"       -> totalCritRate += val.doubleValue();
-                    case "CRIT_DMG"        -> totalCritDmg += val.doubleValue();
+            if (val.compareTo(BigDecimal.ZERO) > 0 && !typeUpper.isEmpty()) {
+                if (typeUpper.contains("ATK")) equipAtk = equipAtk.add(val);
+                else if (typeUpper.contains("DEF")) equipDef = equipDef.add(val);
+                else if (typeUpper.contains("HP")) equipHp = equipHp.add(val);
+                else if (typeUpper.contains("SPEED")) totalSpeed += val.doubleValue();
+                else if (typeUpper.contains("CRIT")) totalCritRate += val.doubleValue();
 
-                    // Percent Stats
-                    case "ATK_PERCENT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
-                    case "DEF_PERCENT" -> equipDef = equipDef.add(BigDecimal.valueOf(rawDef).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
-                    case "HP_PERCENT"  -> equipHp  = equipHp.add(BigDecimal.valueOf(rawMaxHp).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
-                }
+                // Xử lý % nếu có
+                if (typeUpper.equals("ATK_PERCENT")) equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+                if (typeUpper.equals("HP_PERCENT")) equipHp = equipHp.add(BigDecimal.valueOf(rawMaxHp).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
             }
 
-            // --- [LOGIC B] SMART FALLBACK (Từ Item Template) ---
-            // Chỉ cộng chỉ số gốc NẾU chỉ số đó chưa được cộng bởi Main Stat
+            // --- B. BASE STAT FALLBACK (Chỉ số gốc của Item) ---
             if (uItem.getItem() != null) {
                 Item tpl = uItem.getItem();
-
-                // 1. ATK: Nếu MainStat không phải là ATK thì lấy ATK gốc
-                if (tpl.getAtkBonus() != null && !typeUpper.contains("ATK")) {
-                    equipAtk = equipAtk.add(BigDecimal.valueOf(tpl.getAtkBonus()));
-                }
-
-                // 2. DEF: Nếu MainStat không phải là DEF thì lấy DEF gốc
-                if (tpl.getDefBonus() != null && !typeUpper.contains("DEF")) {
-                    equipDef = equipDef.add(BigDecimal.valueOf(tpl.getDefBonus()));
-                }
-
-                // 3. HP: Nếu MainStat không phải là HP thì lấy HP gốc
-                if (tpl.getHpBonus() != null && !typeUpper.contains("HP")) {
-                    equipHp = equipHp.add(BigDecimal.valueOf(tpl.getHpBonus()));
-                }
-
-                // 4. SPEED: Nếu MainStat không phải SPEED thì lấy SPEED gốc
-                if (tpl.getSpeedBonus() != null && !typeUpper.contains("SPEED")) {
-                    totalSpeed += tpl.getSpeedBonus();
-                }
+                // Chỉ cộng nếu Main Stat KHÔNG PHẢI là chỉ số đó (Tránh cộng 2 lần nếu DB thiết kế trùng)
+                if (tpl.getAtkBonus() != null && !typeUpper.contains("ATK")) equipAtk = equipAtk.add(BigDecimal.valueOf(tpl.getAtkBonus()));
+                if (tpl.getDefBonus() != null && !typeUpper.contains("DEF")) equipDef = equipDef.add(BigDecimal.valueOf(tpl.getDefBonus()));
+                if (tpl.getHpBonus() != null && !typeUpper.contains("HP")) equipHp = equipHp.add(BigDecimal.valueOf(tpl.getHpBonus()));
+                if (tpl.getSpeedBonus() != null && !typeUpper.contains("SPEED")) totalSpeed += tpl.getSpeedBonus();
             }
 
-            // [LOGIC C] SUBSTATS (Dòng ẩn) - Giữ nguyên logic cũ
+            // --- C. SUBSTATS (Dòng ẩn) ---
             try {
-                if (uItem.getSubStats() != null && !uItem.getSubStats().equals("[]") && uItem.getSubStats().length() > 2) {
+                if (uItem.getSubStats() != null && uItem.getSubStats().length() > 2) {
                     List<SubStatDTO> subs = objectMapper.readValue(uItem.getSubStats(), new TypeReference<List<SubStatDTO>>() {});
                     for (SubStatDTO sub : subs) {
                         double subVal = sub.getValue();
-                        String subCode = sub.getCode() != null ? sub.getCode().toUpperCase() : "";
-                        switch (subCode) {
-                            case "ATK", "ATK_FLAT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(subVal));
-                            case "DEF", "DEF_FLAT" -> equipDef = equipDef.add(BigDecimal.valueOf(subVal));
-                            case "HP", "HP_FLAT"   -> equipHp  = equipHp.add(BigDecimal.valueOf(subVal));
-                            case "SPEED"    -> totalSpeed += subVal;
-                            case "CRIT_RATE"-> totalCritRate += subVal;
-                            case "CRIT_DMG" -> totalCritDmg += subVal;
-                            case "ATK_PERCENT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk * (subVal / 100.0)));
-                            case "DEF_PERCENT" -> equipDef = equipDef.add(BigDecimal.valueOf(rawDef * (subVal / 100.0)));
-                            case "HP_PERCENT"  -> equipHp  = equipHp.add(BigDecimal.valueOf(rawMaxHp * (subVal / 100.0)));
-                        }
+                        String subCode = (sub.getCode() != null) ? sub.getCode().toUpperCase() : "";
+
+                        if (subCode.contains("ATK")) equipAtk = equipAtk.add(BigDecimal.valueOf(subVal));
+                        else if (subCode.contains("DEF")) equipDef = equipDef.add(BigDecimal.valueOf(subVal));
+                        else if (subCode.contains("HP")) equipHp = equipHp.add(BigDecimal.valueOf(subVal));
+                        else if (subCode.contains("SPEED")) totalSpeed += subVal;
+                        else if (subCode.contains("CRIT")) totalCritRate += subVal;
                     }
                 }
             } catch (Exception ignored) {}
         }
 
-        // 3. TỔNG HỢP VÀ LƯU
+        // 3. LƯU VÀO DATABASE
         c.setBaseAtk(rawAtk + equipAtk.setScale(0, RoundingMode.HALF_UP).intValue());
         c.setBaseDef(rawDef + equipDef.setScale(0, RoundingMode.HALF_UP).intValue());
         c.setMaxHp(rawMaxHp + equipHp.setScale(0, RoundingMode.HALF_UP).intValue());
+
         c.setBaseSpeed((int) Math.round(totalSpeed));
         c.setBaseCritRate((int) Math.round(totalCritRate));
         c.setBaseCritDmg((int) Math.round(totalCritDmg));
 
-        // Tính lực chiến
-        int power = (c.getMaxHp() / 5) + (c.getBaseAtk() * 2) + (c.getBaseDef() * 4) + (lvl * 10);
+        // Tính lực chiến (Combat Power)
+        int power = (c.getMaxHp() / 5) + (c.getBaseAtk() * 2) + (c.getBaseDef() * 3) + (c.getBaseSpeed() * 2) + (lvl * 10);
         c.setTotalPower(power);
 
+        // Fix máu hiện tại không quá Max
         if (c.getCurrentHp() == null || c.getCurrentHp() > c.getMaxHp()) {
             c.setCurrentHp(c.getMaxHp());
         }
@@ -241,7 +217,7 @@ public class CharacterService {
 
         c = characterRepo.save(c);
         recalculateStatPoints(c);
-        recalculateStats(c);
+        recalculateStats(c); // Gọi lại để update BaseAtk/Def/Hp mới
 
         return c;
     }

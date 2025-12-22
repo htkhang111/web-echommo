@@ -5,6 +5,7 @@ import com.echommo.entity.Character;
 import com.echommo.enums.NotificationType;
 import com.echommo.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +24,10 @@ public class AdminService {
     private final CharacterRepository characterRepository;
     private final NotificationService notificationService;
 
-    // [NEW] Inject thêm các Repo để xóa dữ liệu liên quan
+    // Inject PasswordEncoder để mã hóa mật khẩu khi admin đổi pass cho user
+    private final PasswordEncoder passwordEncoder;
+
+    // Các Repo để xóa dữ liệu liên quan
     private final MarketListingRepository marketListingRepository;
     private final FriendshipRepository friendshipRepository;
     private final MessageRepository messageRepository;
@@ -43,7 +47,6 @@ public class AdminService {
                 .map(w -> w.getEchoCoin() != null ? w.getEchoCoin() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // [FIX] Tính tổng Gold bằng BigDecimal
         BigDecimal totalGold = walletRepository.findAll().stream()
                 .map(Wallet::getGold)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -56,6 +59,28 @@ public class AdminService {
     // --- USER MANAGEMENT ---
     public List<User> getAllUsers() {
         return userRepository.findAll();
+    }
+
+    // [NEW] Hàm cập nhật thông tin User
+    @Transactional
+    public void updateUser(Integer userId, Map<String, Object> payload) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+
+        if (payload.containsKey("email")) {
+            user.setEmail((String) payload.get("email"));
+        }
+        if (payload.containsKey("avatarUrl")) {
+            user.setAvatarUrl((String) payload.get("avatarUrl"));
+        }
+        // Xử lý đổi mật khẩu nếu có
+        if (payload.containsKey("newPassword")) {
+            String newPass = (String) payload.get("newPassword");
+            if (newPass != null && !newPass.trim().isEmpty()) {
+                user.setPassword(passwordEncoder.encode(newPass));
+            }
+        }
+        userRepository.save(user);
     }
 
     @Transactional
@@ -79,28 +104,23 @@ public class AdminService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
-        // 1. Dọn dẹp dữ liệu liên quan đến Character (nếu có)
-        // Vì quan hệ OneToMany không được cascade triệt để trong code Entity, ta phải xóa tay
+        // 1. Dọn dẹp dữ liệu liên quan đến Character
         if (user.getCharacter() != null) {
             Character character = user.getCharacter();
             Integer charId = character.getCharId();
 
-            // Xóa UserItems
             userItemRepository.findAll().stream()
                     .filter(ui -> ui.getCharacter().getCharId().equals(charId))
                     .forEach(userItemRepository::delete);
 
-            // Xóa BattleSession
             battleSessionRepository.findAll().stream()
                     .filter(bs -> bs.getCharacter().getCharId().equals(charId))
                     .forEach(battleSessionRepository::delete);
 
-            // Xóa PVP Queue
             pvpQueueRepository.findAll().stream()
                     .filter(pq -> pq.getCharId().equals(charId))
                     .forEach(pvpQueueRepository::delete);
 
-            // Xóa Lịch sử PVP
             pvpMatchRepository.findAll().stream()
                     .filter(pm -> (pm.getPlayer1() != null && pm.getPlayer1().getCharId().equals(charId)) ||
                             (pm.getPlayer2() != null && pm.getPlayer2().getCharId().equals(charId)))
@@ -108,43 +128,62 @@ public class AdminService {
         }
 
         // 2. Dọn dẹp dữ liệu liên quan đến User
-        // Xóa Market Listings
         marketListingRepository.findAll().stream()
                 .filter(ml -> ml.getSeller().getUserId().equals(userId))
                 .forEach(marketListingRepository::delete);
 
-        // Xóa Friendships [FIX: Sử dụng getRequester().getUserId() thay vì getRequesterId()]
         friendshipRepository.findAll().stream()
                 .filter(f -> f.getRequester().getUserId().equals(userId) || f.getAddressee().getUserId().equals(userId))
                 .forEach(friendshipRepository::delete);
 
-        // Xóa Chat Messages (Global)
         messageRepository.findAll().stream()
                 .filter(m -> m.getSender().getUserId().equals(userId))
                 .forEach(messageRepository::delete);
 
-        // Xóa Private Messages [FIX: Sử dụng getSender().getUserId() thay vì getSenderId()]
         privateMessageRepository.findAll().stream()
                 .filter(pm -> pm.getSender().getUserId().equals(userId) || pm.getReceiver().getUserId().equals(userId))
                 .forEach(privateMessageRepository::delete);
 
-        // Xóa Daily Quests [FIX: Sử dụng getUser().getUserId() thay vì getUserId()]
         dailyQuestRepository.findAll().stream()
                 .filter(dq -> dq.getUser().getUserId().equals(userId))
                 .forEach(dailyQuestRepository::delete);
 
-        // Xóa Notifications
         notificationRepository.findAll().stream()
                 .filter(n -> n.getUser().getUserId().equals(userId))
                 .forEach(notificationRepository::delete);
 
-        // 3. Cuối cùng xóa User (Sẽ tự cascade xóa Wallet và Character entity)
+        // 3. Xóa User
         userRepository.delete(user);
     }
 
     // --- ITEM MANAGEMENT ---
     public List<Item> getAllItems() {
         return itemRepository.findAll();
+    }
+
+    // [NEW] Hàm cập nhật Item
+    @Transactional
+    public Item updateItem(Integer itemId, Item itemDetails) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new RuntimeException("Item not found: " + itemId));
+
+        // Update basic info
+        item.setName(itemDetails.getName());
+        item.setDescription(itemDetails.getDescription());
+        item.setBasePrice(itemDetails.getBasePrice());
+        item.setImageUrl(itemDetails.getImageUrl());
+
+        // Update stats
+        item.setAtkBonus(itemDetails.getAtkBonus());
+        item.setDefBonus(itemDetails.getDefBonus());
+        item.setHpBonus(itemDetails.getHpBonus());
+        item.setSpeedBonus(itemDetails.getSpeedBonus());
+
+        // Update tool stats
+        item.setMaxDurability(itemDetails.getMaxDurability());
+        item.setMaxLuck(itemDetails.getMaxLuck());
+
+        return itemRepository.save(item);
     }
 
     @Transactional
@@ -166,7 +205,6 @@ public class AdminService {
         Wallet wallet = walletRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
-        // [FIX] Cộng Gold dùng BigDecimal
         wallet.setGold(wallet.getGold().add(BigDecimal.valueOf(amount)));
         walletRepository.save(wallet);
 

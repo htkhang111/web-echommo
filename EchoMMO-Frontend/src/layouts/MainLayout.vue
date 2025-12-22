@@ -53,6 +53,19 @@
           >
           <div class="active-bar"></div>
         </router-link>
+        <router-link
+          to="/leaderboard"
+          class="nav-item"
+          @click="closeMobileMenu"
+        >
+          <div class="nav-icon"><i class="fas fa-crown"></i></div>
+          <transition name="slide-fade"
+            ><span v-if="!isCollapsed" class="nav-label"
+              >Thiên Thư</span
+            ></transition
+          >
+          <div class="active-bar"></div>
+        </router-link>
 
         <div class="nav-group-label" v-if="!isCollapsed">
           <span class="line"></span><span>GIANG HỒ</span
@@ -68,6 +81,15 @@
           >
           <div class="active-bar"></div>
         </router-link>
+        <router-link to="/pvp" class="nav-item" @click="closeMobileMenu">
+          <div class="nav-icon"><i class="fas fa-fist-raised"></i></div>
+          <transition name="slide-fade"
+            ><span v-if="!isCollapsed" class="nav-label"
+              >Lôi Đài</span
+            ></transition
+          >
+          <div class="active-bar"></div>
+        </router-link>
 
         <router-link to="/village" class="nav-item" @click="closeMobileMenu">
           <div class="nav-icon"><i class="fas fa-campground"></i></div>
@@ -78,16 +100,22 @@
           >
           <div class="active-bar"></div>
         </router-link>
-
-        <router-link to="/pvp" class="nav-item" @click="closeMobileMenu">
-          <div class="nav-icon"><i class="fas fa-fist-raised"></i></div>
+        <router-link
+          to="/marketplace"
+          class="nav-item"
+          @click="closeMobileMenu"
+        >
+          <div class="nav-icon"><i class="fas fa-coins"></i></div>
           <transition name="slide-fade"
             ><span v-if="!isCollapsed" class="nav-label"
-              >Lôi Đài</span
+              >Thương Hội</span
             ></transition
           >
           <div class="active-bar"></div>
         </router-link>
+
+
+        
         <router-link to="/dump" class="nav-item" @click="closeMobileMenu">
           <div class="nav-icon"><i class="fas fa-scroll"></i></div>
           <transition name="slide-fade"
@@ -97,19 +125,7 @@
           >
           <div class="active-bar"></div>
         </router-link>
-        <router-link
-          to="/leaderboard"
-          class="nav-item"
-          @click="closeMobileMenu"
-        >
-          <div class="nav-icon"><i class="fas fa-crown"></i></div>
-          <transition name="slide-fade"
-            ><span v-if="!isCollapsed" class="nav-label"
-              >Thiên Thư</span
-            ></transition
-          >
-          <div class="active-bar"></div>
-        </router-link>
+        
         <div class="nav-group-label" v-if="!isCollapsed">
           <span class="line"></span><span>HÀNH TRANG</span
           ><span class="line"></span>
@@ -135,20 +151,7 @@
           <div class="active-bar"></div>
         </router-link>
 
-        <router-link
-          to="/marketplace"
-          class="nav-item"
-          @click="closeMobileMenu"
-        >
-          <div class="nav-icon"><i class="fas fa-coins"></i></div>
-          <transition name="slide-fade"
-            ><span v-if="!isCollapsed" class="nav-label"
-              >Thương Hội</span
-            ></transition
-          >
-          <div class="active-bar"></div>
-        </router-link>
-
+        
         <template v-if="authStore.user?.role === 'ADMIN'">
           <div class="nav-group-label admin" v-if="!isCollapsed">
             <span class="line red"></span><span>TRIỀU ĐÌNH</span

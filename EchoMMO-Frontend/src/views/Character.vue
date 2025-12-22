@@ -237,15 +237,21 @@
               <span class="c-val">{{ totalStats.def }}</span>
             </div>
             <div class="c-stat">
-              <span class="c-label speed"><i class="fas fa-wind"></i> Tốc</span>
+              <span class="c-label speed"
+                ><i class="fas fa-wind"></i> Tốc</span
+              >
               <span class="c-val">{{ totalStats.speed }}</span>
             </div>
             <div class="c-stat">
-              <span class="c-label hp"><i class="fas fa-heart"></i> Máu</span>
+              <span class="c-label hp"
+                ><i class="fas fa-heart"></i> Máu</span
+              >
               <span class="c-val">{{ totalStats.hp }}</span>
             </div>
             <div class="c-stat">
-              <span class="c-label crit"><i class="fas fa-bolt"></i> Bạo</span>
+              <span class="c-label crit"
+                ><i class="fas fa-bolt"></i> Bạo</span
+              >
               <span class="c-val">{{ totalStats.crit }}%</span>
             </div>
           </div>
@@ -356,31 +362,34 @@ const updateDayNight = () => {
   isNight.value = h >= 18 || h < 6;
 };
 
+// --- HELPER: LẤY GIÁ TRỊ AN TOÀN (FIX LỖI KHÔNG NHẬN CHỈ SỐ) ---
+// Hàm này sẽ tìm mọi biến thể tên (camelCase hoặc snake_case) để đảm bảo lấy được số
+const safeVal = (obj, ...keys) => {
+  if (!obj) return 0;
+  for (const k of keys) {
+    if (obj[k] !== undefined && obj[k] !== null) return Number(obj[k]);
+  }
+  return 0;
+};
+
 // --- LOGIC STATS ---
 const pendingStats = reactive({
-  str: 0,
-  vit: 0,
-  agi: 0,
-  dex: 0,
-  int: 0,
-  luck: 0,
+  str: 0, vit: 0, agi: 0, dex: 0, int: 0, luck: 0,
 });
 
 const getBaseStat = (key) => {
   const char = charStore.character || {};
-  if (key === "int") return char.intelligence || char.int_stat || 0;
-  return char[key] || 0;
+  if (key === "int") return safeVal(char, 'intelligence', 'int_stat', 'int');
+  return safeVal(char, key);
 };
 
 const availablePoints = computed(() => {
-  const currentPoints = charStore.character?.statPoints || 0;
+  const currentPoints = safeVal(charStore.character, 'statPoints', 'stat_points');
   const used = Object.values(pendingStats).reduce((a, b) => a + b, 0);
   return Math.max(0, currentPoints - used);
 });
 
-const isPendingChanges = computed(() =>
-  Object.values(pendingStats).some((v) => v > 0)
-);
+const isPendingChanges = computed(() => Object.values(pendingStats).some((v) => v > 0));
 
 const increaseStat = (key) => {
   if (availablePoints.value > 0) pendingStats[key]++;
@@ -418,7 +427,9 @@ const SLOT_CONFIG = {
 
 const determineSlot = (item) => {
   if (!item) return null;
-  const dbSlot = (item.slotType || item.slot_type || "").toUpperCase();
+  // Fix: Tìm cả slotType và slot_type, uppercase để so sánh chuẩn
+  const typeStr = item.slotType || item.slot_type || "";
+  const dbSlot = typeStr.toUpperCase();
   if (SLOT_CONFIG[dbSlot]) return dbSlot;
   return null;
 };
@@ -453,19 +464,19 @@ const userSkinImg = computed(() => {
 
 const hoveredType = ref(null);
 
-// --- HELPER: TOOLTIP HIỂN THỊ CHỈ SỐ ---
+// --- TOOLTIP ---
 const getItemTooltip = (ui) => {
   if (!ui || !ui.item) return "";
   let text = `${ui.item.name} (+${ui.enhanceLevel || 0})\n`;
-  text += `Độ bền: ${ui.currentDurability ?? 100}/${ui.maxDurability ?? 100}\n`;
-  
-  // Stats calculation for display
-  const type = ui.mainStatType ? ui.mainStatType.toUpperCase() : "";
-  const val = Number(ui.mainStatValue || 0);
-  
+  const curDur = safeVal(ui, 'currentDurability', 'current_durability');
+  const maxDur = safeVal(ui, 'maxDurability', 'max_durability') || 100;
+  text += `Độ bền: ${curDur}/${maxDur}\n`;
+
+  // Stats
+  const type = (ui.mainStatType || "").toUpperCase();
+  const val = safeVal(ui, 'mainStatValue', 'main_stat_value');
+
   let stats = [];
-  
-  // 1. Main Stat (UserItem)
   if (val > 0) {
      if (type.includes("ATK")) stats.push(`Công: +${val}`);
      else if (type.includes("DEF")) stats.push(`Thủ: +${val}`);
@@ -475,30 +486,36 @@ const getItemTooltip = (ui) => {
      else stats.push(`${type}: +${val}`);
   }
   
-  // 2. Base Stats (Fallback - chỉ hiện nếu chưa được cộng ở trên)
-  if (!type.includes("ATK") && ui.item.atkBonus > 0) stats.push(`Công: +${ui.item.atkBonus}`);
-  if (!type.includes("DEF") && ui.item.defBonus > 0) stats.push(`Thủ: +${ui.item.defBonus}`);
-  if (!type.includes("HP") && ui.item.hpBonus > 0) stats.push(`Máu: +${ui.item.hpBonus}`);
-  if (!type.includes("SPEED") && ui.item.speedBonus > 0) stats.push(`Tốc: +${ui.item.speedBonus}`);
-  
+  // Base fallback display (Fix: Dùng safeVal để lấy đúng chỉ số gốc)
+  const baseAtk = safeVal(ui.item, 'atkBonus', 'atk_bonus');
+  const baseDef = safeVal(ui.item, 'defBonus', 'def_bonus');
+  const baseHp = safeVal(ui.item, 'hpBonus', 'hp_bonus');
+  const baseSpeed = safeVal(ui.item, 'speedBonus', 'speed_bonus');
+
+  if (!type.includes("ATK") && baseAtk > 0) stats.push(`Công (Gốc): +${baseAtk}`);
+  if (!type.includes("DEF") && baseDef > 0) stats.push(`Thủ (Gốc): +${baseDef}`);
+  if (!type.includes("HP") && baseHp > 0) stats.push(`Máu (Gốc): +${baseHp}`);
+  if (!type.includes("SPEED") && baseSpeed > 0) stats.push(`Tốc (Gốc): +${baseSpeed}`);
+
   return text + stats.join("\n");
 };
 
-// --- [CORE FIX] CALCULATE TOTAL STATS (SMART FALLBACK) ---
+// --- [CORE FIX] TÍNH TỔNG CHỈ SỐ ---
 const totalStats = computed(() => {
   const char = charStore.character || {};
 
-  // 1. Base Attributes
+  // 1. Chỉ số cơ bản (Attribute)
+  // Fix: Dùng safeVal để đảm bảo không bị NaN nếu dữ liệu thiếu
   let totalAttr = {
-    str: (char.str || 0) + pendingStats.str,
-    vit: (char.vit || 0) + pendingStats.vit,
-    agi: (char.agi || 0) + pendingStats.agi,
-    dex: (char.dex || 0) + pendingStats.dex,
-    int: (char.intelligence || char.int_stat || 0) + pendingStats.int,
-    luck: (char.luck || 0) + pendingStats.luck,
+    str: safeVal(char, 'str') + pendingStats.str,
+    vit: safeVal(char, 'vit') + pendingStats.vit,
+    agi: safeVal(char, 'agi') + pendingStats.agi,
+    dex: safeVal(char, 'dex') + pendingStats.dex,
+    int: safeVal(char, 'intelligence', 'int', 'int_stat') + pendingStats.int,
+    luck: safeVal(char, 'luck') + pendingStats.luck,
   };
 
-  // 2. Base Combat Stats
+  // 2. Chỉ số chiến đấu nền (Combat Base)
   let combat = {
     atk: 5 + totalAttr.str * 2,
     def: 2 + Math.floor(totalAttr.vit / 3),
@@ -506,58 +523,62 @@ const totalStats = computed(() => {
     speed: 10 + totalAttr.agi,
     crit: 1 + totalAttr.luck / 10,
   };
-  let critDmg = 150 + totalAttr.dex / 5;
 
-  // 3. Process Equipment
+  // 3. Cộng dồn từ trang bị
   Object.values(equipment.value).forEach((ui) => {
     if (!ui || !ui.item) return;
 
-    // Check durability
-    const dur = ui.currentDurability !== undefined ? ui.currentDurability : 100;
-    if (dur <= 0) return;
+    // Check độ bền
+    const curDur = safeVal(ui, 'currentDurability', 'current_durability');
+    if (curDur <= 0 && (ui.maxDurability || ui.max_durability)) return; // Hỏng thì bỏ qua
 
-    // Get Main Stat Type
-    const type = ui.mainStatType ? ui.mainStatType.toUpperCase() : "";
-    const val = Number(ui.mainStatValue || 0);
+    const type = (ui.mainStatType || "").toUpperCase();
+    const val = safeVal(ui, 'mainStatValue', 'main_stat_value');
 
-    // A. Add Main Stat
-    if (val > 0 && type) {
-      if (["ATK", "ATK_FLAT"].includes(type)) combat.atk += val;
-      else if (["DEF", "DEF_FLAT"].includes(type)) combat.def += val;
-      else if (["HP", "HP_FLAT"].includes(type)) combat.hp += val;
-      else if (type === "SPEED") combat.speed += val;
-      else if (type === "CRIT_RATE") combat.crit += val;
-      else if (type === "CRIT_DMG") critDmg += val;
+    // A. Cộng Main Stat (Chỉ số dòng chính)
+    if (val > 0) {
+      if (type.includes("ATK")) combat.atk += val;
+      else if (type.includes("DEF")) combat.def += val;
+      else if (type.includes("HP")) combat.hp += val;
+      else if (type.includes("SPEED")) combat.speed += val;
+      else if (type.includes("CRIT")) combat.crit += val;
+      
+      // Percentages
       else if (type === "ATK_PERCENT") combat.atk += (5 + totalAttr.str * 2) * (val / 100);
       else if (type === "HP_PERCENT") combat.hp += (100 + totalAttr.vit * 15) * (val / 100);
     }
 
-    // B. Smart Fallback: Add Base Stats NOT covered by Main Stat
-    
-    // Add Base ATK if main stat is NOT ATK
-    if (!type.includes("ATK")) combat.atk += (ui.item.atkBonus || 0);
-    
-    // Add Base DEF if main stat is NOT DEF
-    if (!type.includes("DEF")) combat.def += (ui.item.defBonus || 0);
-    
-    // Add Base HP if main stat is NOT HP
-    if (!type.includes("HP")) combat.hp += (ui.item.hpBonus || 0);
-    
-    // Add Base SPEED if main stat is NOT SPEED
-    if (!type.includes("SPEED")) combat.speed += (ui.item.speedBonus || 0);
+    // B. Smart Fallback: Cộng chỉ số gốc (Base Stats) từ Item Template
+    // FIX QUAN TRỌNG: Dùng safeVal để lấy atkBonus/defBonus bất kể BE trả về key gì
+    const baseAtk = safeVal(ui.item, 'atkBonus', 'atk_bonus');
+    const baseDef = safeVal(ui.item, 'defBonus', 'def_bonus');
+    const baseHp = safeVal(ui.item, 'hpBonus', 'hp_bonus');
+    const baseSpeed = safeVal(ui.item, 'speedBonus', 'speed_bonus');
 
-    // C. Sub Stats (Same as before)
+    // Logic: Nếu dòng chính KHÔNG PHẢI là Atk thì mới cộng Base Atk (tránh cộng trùng)
+    // Hoặc nếu dòng chính là Atk nhưng giá trị = 0 (trường hợp lỗi) thì vẫn cộng base
+    if (!type.includes("ATK")) combat.atk += baseAtk;
+    if (!type.includes("DEF")) combat.def += baseDef;
+    if (!type.includes("HP")) combat.hp += baseHp;
+    if (!type.includes("SPEED")) combat.speed += baseSpeed;
+
+    // C. Substats (Dòng phụ)
     if (ui.subStats) {
       let subs = [];
-      try { subs = typeof ui.subStats === "string" ? JSON.parse(ui.subStats) : ui.subStats; } catch (e) {}
+      try { 
+        subs = typeof ui.subStats === "string" ? JSON.parse(ui.subStats) : ui.subStats; 
+      } catch (e) {}
+      
       if (Array.isArray(subs)) {
         subs.forEach((stat) => {
           const sType = (stat.code || stat.type || "").toUpperCase();
           const sVal = Number(stat.value || 0);
-          if (["ATK", "ATK_FLAT"].includes(sType)) combat.atk += sVal;
-          else if (["DEF", "DEF_FLAT"].includes(sType)) combat.def += sVal;
-          else if (["HP", "HP_FLAT"].includes(sType)) combat.hp += sVal;
-          // ... add other substats as needed
+          
+          if (sType.includes("ATK")) combat.atk += sVal;
+          else if (sType.includes("DEF")) combat.def += sVal;
+          else if (sType.includes("HP")) combat.hp += sVal;
+          else if (sType.includes("SPEED")) combat.speed += sVal;
+          else if (sType.includes("CRIT")) combat.crit += sVal;
         });
       }
     }
@@ -573,7 +594,7 @@ const totalStats = computed(() => {
   };
 });
 
-// Helper: Color class for Enhance Level
+// Helper: Color class
 const getLevelClass = (lv) => {
   if (!lv) return "";
   if (lv >= 15) return "lvl-red";
@@ -584,20 +605,11 @@ const getLevelClass = (lv) => {
 
 // Helper: Durability
 const getDurabilityPercent = (item) => {
-  if (
-    item.maxDurability === undefined &&
-    item.max_durability === undefined
-  )
-    return 100;
-
-  const max = item.maxDurability || item.max_durability || 100;
-  const cur =
-    item.currentDurability !== undefined
-      ? item.currentDurability
-      : item.current_durability !== undefined
-      ? item.current_durability
-      : max;
-
+  const max = safeVal(item, 'maxDurability', 'max_durability') || 100;
+  const cur = safeVal(item, 'currentDurability', 'current_durability');
+  // Nếu cur = 0 mà max > 0, tức là hỏng hoặc chưa init, check kỹ:
+  // Nếu trong DB field là null, safeVal trả về 0. Nên cần logic fallback:
+  if (item.currentDurability === undefined && item.current_durability === undefined) return 100; 
   return Math.max(0, (cur / max) * 100);
 };
 
@@ -615,15 +627,16 @@ const equip = async (userItem) => {
   if (slot) {
     try {
       await inventoryStore.equipItem(userItem.userItemId);
+      // Gọi cả 2 để update UI ngay lập tức
       await Promise.all([
-        inventoryStore.fetchInventory(),
-        charStore.fetchCharacter(),
+          inventoryStore.fetchInventory(), 
+          charStore.fetchCharacter()
       ]);
     } catch (e) {
       console.error("Lỗi Equip:", e);
     }
   } else {
-    alert(`Vật phẩm lỗi loại: ${userItem.item.type}`);
+    alert(`Vật phẩm lỗi loại (Slot Type): ${userItem.item.slotType}`);
   }
 };
 
@@ -642,10 +655,7 @@ const confirmUnequip = async () => {
   if (itemToUnequip.value) {
     try {
       await inventoryStore.unequipItem(itemToUnequip.value.userItemId);
-      await Promise.all([
-        inventoryStore.fetchInventory(),
-        charStore.fetchCharacter(),
-      ]);
+      await Promise.all([inventoryStore.fetchInventory(), charStore.fetchCharacter()]);
     } catch (e) {
       console.error("Lỗi Unequip:", e);
     }
@@ -660,10 +670,7 @@ const closeModal = () => {
 
 onMounted(async () => {
   updateDayNight();
-  await Promise.all([
-    charStore.fetchCharacter(),
-    inventoryStore.fetchInventory(),
-  ]);
+  await Promise.all([charStore.fetchCharacter(), inventoryStore.fetchInventory()]);
 });
 </script>
 
@@ -712,21 +719,13 @@ onMounted(async () => {
 .wood-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    to bottom,
-    rgba(62, 39, 35, 0.7),
-    rgba(30, 20, 15, 0.9)
-  );
+  background: linear-gradient(to bottom, rgba(62, 39, 35, 0.7), rgba(30, 20, 15, 0.9));
   mix-blend-mode: multiply;
   transition: background 2s ease;
 }
 
 .wood-overlay.night-mode {
-  background: linear-gradient(
-    to bottom,
-    rgba(10, 5, 20, 0.85),
-    rgba(0, 0, 0, 0.95)
-  );
+  background: linear-gradient(to bottom, rgba(10, 5, 20, 0.85), rgba(0, 0, 0, 0.95));
 }
 
 .vignette {
@@ -878,8 +877,7 @@ onMounted(async () => {
   animation: popIn 0.3s;
 }
 
-.btn-plus,
-.btn-minus {
+.btn-plus, .btn-minus {
   width: 24px;
   height: 24px;
   border: 1px solid #5d4037;
@@ -891,56 +889,20 @@ onMounted(async () => {
   font-size: 0.8rem;
 }
 
-.btn-plus {
-  background: #1b5e20;
-  color: #a5d6a7;
-}
+.btn-plus { background: #1b5e20; color: #a5d6a7; }
+.btn-plus:hover { background: #2e7d32; }
+.btn-minus { background: #b71c1c; color: #ffcdd2; }
+.btn-minus:hover { background: #c62828; }
 
-.btn-plus:hover {
-  background: #2e7d32;
-}
+.text-red { color: #ef5350; }
+.text-green { color: #66bb6a; }
+.text-blue { color: #42a5f5; }
+.text-yellow { color: #ffee58; }
+.text-purple { color: #ab47bc; }
+.text-gold { color: #ffca28; }
 
-.btn-minus {
-  background: #b71c1c;
-  color: #ffcdd2;
-}
-
-.btn-minus:hover {
-  background: #c62828;
-}
-
-.text-red {
-  color: #ef5350;
-}
-
-.text-green {
-  color: #66bb6a;
-}
-
-.text-blue {
-  color: #42a5f5;
-}
-
-.text-yellow {
-  color: #ffee58;
-}
-
-.text-purple {
-  color: #ab47bc;
-}
-
-.text-gold {
-  color: #ffca28;
-}
-
-.save-stats-area {
-  margin-top: 10px;
-  animation: slideUp 0.3s;
-}
-
-.full-width {
-  width: 100%;
-}
+.save-stats-area { margin-top: 10px; animation: slideUp 0.3s; }
+.full-width { width: 100%; }
 
 .combat-stats-box {
   display: grid;
@@ -961,43 +923,16 @@ onMounted(async () => {
   border-radius: 4px;
 }
 
-.c-label {
-  font-size: 0.8rem;
-  opacity: 0.8;
-  margin-bottom: 2px;
-}
-
-.c-val {
-  font-weight: bold;
-  font-size: 1rem;
-}
-
-.c-label.atk {
-  color: #ef5350;
-}
-
-.c-label.def {
-  color: #42a5f5;
-}
-
-.c-label.hp {
-  color: #e53935;
-}
-
-.c-label.speed {
-  color: #66bb6a;
-}
-
-.c-label.crit {
-  color: #ab47bc;
-}
+.c-label { font-size: 0.8rem; opacity: 0.8; margin-bottom: 2px; }
+.c-val { font-weight: bold; font-size: 1rem; }
+.c-label.atk { color: #ef5350; }
+.c-label.def { color: #42a5f5; }
+.c-label.hp { color: #e53935; }
+.c-label.speed { color: #66bb6a; }
+.c-label.crit { color: #ab47bc; }
 
 .hero-panel {
-  background: radial-gradient(
-    circle at center,
-    rgba(78, 52, 46, 0.8) 0%,
-    rgba(38, 24, 21, 0.9) 100%
-  );
+  background: radial-gradient(circle at center, rgba(78, 52, 46, 0.8) 0%, rgba(38, 24, 21, 0.9) 100%);
   border-color: var(--gold);
   display: flex;
   flex-direction: row;
@@ -1024,13 +959,7 @@ onMounted(async () => {
   justify-content: center;
 }
 
-.char-figure {
-  z-index: 1;
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-
+.char-figure { z-index: 1; flex: 1; display: flex; align-items: center; }
 .skin-preview {
   height: 250px;
   width: 250px;
@@ -1044,15 +973,9 @@ onMounted(async () => {
   position: absolute;
   width: 300px;
   height: 300px;
-  background: radial-gradient(
-    circle,
-    rgba(255, 236, 179, 0.1),
-    transparent 70%
-  );
+  background: radial-gradient(circle, rgba(255, 236, 179, 0.1), transparent 70%);
   animation: pulseAura 4s infinite;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  top: 50%; left: 50%; transform: translate(-50%, -50%);
   z-index: 0;
 }
 
@@ -1074,319 +997,122 @@ onMounted(async () => {
   letter-spacing: 1px;
 }
 
-.tool-row {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
+.tool-row { display: flex; gap: 8px; justify-content: center; }
 
 .mini-tool-slot {
-  width: 36px;
-  height: 36px;
+  width: 36px; height: 36px;
   background: rgba(0, 0, 0, 0.6);
   border: 1px solid #8d6e63;
   border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   transition: 0.2s;
   position: relative;
 }
 
-.mini-tool-slot:hover {
-  transform: scale(1.1);
-  border-color: var(--gold);
-}
-
-.mini-tool-slot.filled {
-  border-color: var(--gold);
-  background: rgba(255, 236, 179, 0.1);
-}
-
-/* HIEN THI DO HONG */
-.mini-tool-slot.broken,
-.equip-slot.broken-item .slot-frame {
+.mini-tool-slot:hover { transform: scale(1.1); border-color: var(--gold); }
+.mini-tool-slot.filled { border-color: var(--gold); background: rgba(255, 236, 179, 0.1); }
+.mini-tool-slot.broken, .equip-slot.broken-item .slot-frame {
   border-color: #d32f2f;
   box-shadow: 0 0 5px #d32f2f;
   background: rgba(211, 47, 47, 0.1);
   filter: grayscale(100%);
 }
-
-.equip-slot.broken-item .slot-level-tag {
-  background: #d32f2f;
-}
-
-.mini-tool-slot img {
-  width: 80%;
-  height: 80%;
-  object-fit: contain;
-}
-
-.mini-tool-slot i {
-  color: #5d4037;
-  font-size: 1rem;
-}
-
-.tool-durability-bar {
-  position: absolute;
-  bottom: 2px;
-  left: 2px;
-  right: 2px;
-  height: 3px;
-  background: #333;
-  border-radius: 1px;
-  overflow: hidden;
-}
-
-.tool-dur-fill {
-  height: 100%;
-  transition: width 0.3s;
-}
-
-.bg-red-600 {
-  background: #d32f2f;
-}
-
-.bg-orange-500 {
-  background: #f57c00;
-}
-
-.bg-green-500 {
-  background: #388e3c;
-}
+.equip-slot.broken-item .slot-level-tag { background: #d32f2f; }
+.mini-tool-slot img { width: 80%; height: 80%; object-fit: contain; }
+.mini-tool-slot i { color: #5d4037; font-size: 1rem; }
+.tool-durability-bar { position: absolute; bottom: 2px; left: 2px; right: 2px; height: 3px; background: #333; border-radius: 1px; overflow: hidden; }
+.tool-dur-fill { height: 100%; transition: width 0.3s; }
+.bg-red-600 { background: #d32f2f; }
+.bg-orange-500 { background: #f57c00; }
+.bg-green-500 { background: #388e3c; }
 
 /* EQUIP SLOTS */
-.equip-slot {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.equip-slot:hover {
-  transform: scale(1.1);
-  z-index: 10;
-}
-
+.equip-slot { position: relative; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: 0.2s; }
+.equip-slot:hover { transform: scale(1.1); z-index: 10; }
 .slot-frame {
-  width: 55px;
-  height: 55px;
+  width: 55px; height: 55px;
   background: rgba(0, 0, 0, 0.6);
   border: 2px solid #8d6e63;
   border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
   position: relative;
 }
-
 .equip-slot.filled .slot-frame {
   border-color: var(--gold);
   background: rgba(255, 236, 179, 0.05);
   box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
 }
-
-.slot-frame img {
-  width: 90%;
-  height: 90%;
-  object-fit: contain;
-}
-
-.placeholder {
-  font-size: 1.5rem;
-  color: #5d4037;
-  opacity: 0.5;
-}
-
+.slot-frame img { width: 90%; height: 90%; object-fit: contain; }
+.placeholder { font-size: 1.5rem; color: #5d4037; opacity: 0.5; }
 .slot-label-small {
-  font-size: 9px;
-  color: #aaa;
-  margin-top: 4px;
-  text-transform: uppercase;
-  text-shadow: 1px 1px 1px #000;
+  font-size: 9px; color: #aaa; margin-top: 4px;
+  text-transform: uppercase; text-shadow: 1px 1px 1px #000;
 }
-
 .slot-level-tag {
-  position: absolute;
-  bottom: -5px;
-  right: -5px;
-  font-size: 9px;
-  font-weight: 900;
-  background: #000;
-  border: 1px solid #444;
-  padding: 0 3px;
-  border-radius: 4px;
+  position: absolute; bottom: -5px; right: -5px;
+  font-size: 9px; font-weight: 900;
+  background: #000; border: 1px solid #444; padding: 0 3px; border-radius: 4px;
 }
 
 /* BAG */
-.bag-info {
-  text-align: right;
-  padding: 5px;
-  color: #a1887f;
-  font-size: 0.8rem;
-}
-
+.bag-info { text-align: right; padding: 5px; color: #a1887f; font-size: 0.8rem; }
 .mini-grid {
-  padding: 5px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  overflow-y: auto;
-  max-height: 400px;
+  padding: 5px; display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 8px; overflow-y: auto; max-height: 400px;
 }
-
 .mini-slot {
-  height: 50px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid #4e342e;
-  border-radius: 4px;
-  position: relative;
-  cursor: pointer;
+  height: 50px; background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #4e342e; border-radius: 4px;
+  position: relative; cursor: pointer;
 }
-
-.mini-slot img {
-  width: 100%;
-  height: 100%;
-  padding: 4px;
-  object-fit: contain;
-}
-
-.mini-slot.empty {
-  opacity: 0.15;
-  border-style: dashed;
-}
-
+.mini-slot img { width: 100%; height: 100%; padding: 4px; object-fit: contain; }
+.mini-slot.empty { opacity: 0.15; border-style: dashed; }
 .qty {
-  position: absolute;
-  bottom: 1px;
-  right: 1px;
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  font-size: 9px;
-  padding: 0 3px;
-  border-radius: 2px;
+  position: absolute; bottom: 1px; right: 1px;
+  background: rgba(0, 0, 0, 0.8); color: white;
+  font-size: 9px; padding: 0 3px; border-radius: 2px;
 }
 
 /* MODAL & BTNS */
 .modal-overlay {
-  position: fixed;
-  inset: 0;
+  position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.85);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
+  display: flex; justify-content: center; align-items: center; z-index: 1000;
 }
-
 .dark-modal {
-  width: 300px;
-  background: var(--wood-dark);
-  border: 1px solid #5d4037;
-  box-shadow: 0 0 30px #000;
+  width: 300px; background: var(--wood-dark);
+  border: 1px solid #5d4037; box-shadow: 0 0 30px #000;
 }
-
-.modal-content {
-  padding: 20px;
-  text-align: center;
-}
-
+.modal-content { padding: 20px; text-align: center; }
 .item-preview-box {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 10px;
-  margin: 15px 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  background: rgba(0, 0, 0, 0.3); padding: 10px; margin: 15px 0;
+  display: flex; align-items: center; gap: 10px;
 }
-
-.preview-img {
-  width: 50px;
-  height: 50px;
-  border: 1px solid var(--gold);
-}
-
-.modal-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-wood {
-  flex: 1;
-  padding: 10px;
-  cursor: pointer;
-  font-weight: bold;
-  border-radius: 4px;
-  border: none;
-  color: #ccc;
-  transition: 0.2s;
-}
-
-.cancel {
-  background: #4e342e;
-}
-
-.cancel:hover {
-  background: #5d4037;
-}
-
-.confirm {
-  background: var(--red-seal);
-  color: white;
-}
-
-.confirm:hover {
-  background: #d32f2f;
-}
+.preview-img { width: 50px; height: 50px; border: 1px solid var(--gold); }
+.modal-actions { display: flex; gap: 10px; }
+.btn-wood { flex: 1; padding: 10px; cursor: pointer; font-weight: bold; border-radius: 4px; border: none; color: #ccc; transition: 0.2s; }
+.cancel { background: #4e342e; }
+.cancel:hover { background: #5d4037; }
+.confirm { background: var(--red-seal); color: white; }
+.confirm:hover { background: #d32f2f; }
 
 @keyframes pulseAura {
-  0%,
-  100% {
-    opacity: 0.5;
-    transform: translate(-50%, -50%) scale(0.9);
-  }
-
-  50% {
-    opacity: 0.8;
-    transform: translate(-50%, -50%) scale(1.1);
-  }
+  0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(0.9); }
+  50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); }
 }
-
 @keyframes popIn {
-  0% {
-    transform: scale(0);
-  }
-
-  100% {
-    transform: scale(1);
-  }
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
 }
-
 @keyframes slideUp {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 900px) {
-  .char-grid {
-    grid-template-columns: 1fr;
-    height: auto;
-    gap: 20px;
-  }
-
-  .hero-panel {
-    height: 450px;
-    order: -1;
-  }
+  .char-grid { grid-template-columns: 1fr; height: auto; gap: 20px; }
+  .hero-panel { height: 450px; order: -1; }
 }
 </style>

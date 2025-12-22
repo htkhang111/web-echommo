@@ -33,6 +33,13 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getAllUsers());
     }
 
+    // [NEW] API Update User
+    @PutMapping("/user/{id}")
+    public ResponseEntity<?> updateUser(@PathVariable Integer id, @RequestBody Map<String, Object> payload) {
+        adminService.updateUser(id, payload);
+        return ResponseEntity.ok("User updated successfully");
+    }
+
     @PostMapping("/user/ban/{id}")
     public ResponseEntity<?> banUser(@PathVariable Integer id, @RequestBody Map<String, String> payload) {
         adminService.banUser(id, payload.get("reason"));
@@ -57,6 +64,12 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getAllItems());
     }
 
+    // [NEW] API Update Item
+    @PutMapping("/item/{id}")
+    public ResponseEntity<?> updateItem(@PathVariable Integer id, @RequestBody Item item) {
+        return ResponseEntity.ok(adminService.updateItem(id, item));
+    }
+
     @PostMapping("/item/create")
     public ResponseEntity<?> createItem(@RequestBody Item item) {
         return ResponseEntity.ok(adminService.createItem(item));
@@ -79,11 +92,9 @@ public class AdminController {
         return ResponseEntity.ok("Gold granted successfully");
     }
 
-    // [NEW] API Ban thưởng EchoCoin
     @PostMapping("/grant-echo")
     public ResponseEntity<?> grantEcho(@RequestBody Map<String, Object> payload) {
         String username = (String) payload.get("username");
-        // Chuyển đổi an toàn sang BigDecimal
         BigDecimal amount = new BigDecimal(payload.get("amount").toString());
 
         adminService.grantEcho(username, amount);

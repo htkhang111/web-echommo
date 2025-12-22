@@ -14,13 +14,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -38,36 +39,58 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> authenticateUser(@RequestBody AuthRequest loginRequest) {
-        User user = userRepository.findByUsername(loginRequest.getUsername()).orElse(null);
+        try {
+            // 1. Kiểm tra User có tồn tại không trước
+            User user = userRepository.findByUsername(loginRequest.getUsername()).orElse(null);
 
-        if (user != null && Boolean.FALSE.equals(user.getIsActive())) {
-            Map<String, String> response = new HashMap<>();
-            response.put("error", "BANNED");
-            response.put("message", "Tài khoản đã bị khóa!");
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("message", "Tài khoản không tồn tại!"));
+            }
+
+            // 2. Kiểm tra Ban
+            if (Boolean.FALSE.equals(user.getIsActive())) {
+                Map<String, String> response = new HashMap<>();
+                response.put("error", "BANNED");
+                response.put("message", "Tài khoản đã bị khóa!");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+
+            // 3. Thực hiện xác thực (Check mật khẩu)
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+
+            // 4. Nếu thành công -> Sinh Token
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            String jwt = jwtUtils.generateToken((UserDetails) authentication.getPrincipal());
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+
+            Wallet wallet = walletRepository.findByUser(user).orElse(new Wallet());
+            String roleStr = user.getRole() != null ? user.getRole().name() : "USER";
+
+            return ResponseEntity.ok(new AuthResponse(
+                    jwt,
+                    user.getUserId(),
+                    userDetails.getUsername(),
+                    user.getEmail(),
+                    roleStr,
+                    wallet.getEchoCoin(),
+                    wallet.getGold(),
+                    user.getAvatarUrl()
+            ));
+
+        } catch (BadCredentialsException e) {
+            // [FIX] Bắt lỗi sai mật khẩu và trả về message rõ ràng
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Mật khẩu không chính xác!"));
+        } catch (DisabledException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "Tài khoản đã bị vô hiệu hóa!"));
+        } catch (Exception e) {
+            e.printStackTrace(); // Log lỗi server nếu có
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Lỗi đăng nhập: " + e.getMessage()));
         }
-
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
-
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtUtils.generateToken((UserDetails) authentication.getPrincipal());
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-
-        Wallet wallet = walletRepository.findByUser(user).orElse(new Wallet());
-        String roleStr = user != null ? user.getRole().name() : "USER";
-
-        // [FIX] Truyền thẳng BigDecimal, không cần ép sang Long
-        return ResponseEntity.ok(new AuthResponse(
-                jwt,
-                user.getUserId(),
-                userDetails.getUsername(),
-                user.getEmail(),
-                roleStr,
-                wallet.getEchoCoin(),
-                wallet.getGold(),
-                user.getAvatarUrl()
-        ));
     }
 
     @PostMapping("/register")
@@ -92,7 +115,6 @@ public class AuthController {
             User user = userRepository.findByUsername(signUpRequest.getUsername()).orElseThrow();
             Wallet wallet = user.getWallet();
 
-            // [FIX] Truyền thẳng BigDecimal
             return ResponseEntity.ok(new AuthResponse(
                     jwt,
                     user.getUserId(),
