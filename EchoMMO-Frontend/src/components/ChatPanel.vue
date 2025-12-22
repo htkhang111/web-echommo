@@ -54,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, nextTick } from "vue";
+import { ref, onMounted, onUnmounted, computed, nextTick, watch } from "vue";
 import { useChatStore } from "@/stores/chatStore";
 import { useAuthStore } from "@/stores/authStore";
 import SockJS from "sockjs-client";
@@ -71,15 +71,26 @@ const isConnected = computed(() => chatStore.isConnected);
 let stompClient = null;
 let reconnectInterval = null;
 
-// Hàm kết nối WebSocket
+// --- AUTO SCROLL FIX ---
+// Tự động cuộn xuống khi danh sách tin nhắn thay đổi
+watch(messages, () => {
+    scrollToBottom();
+}, { deep: true });
+
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (chatContainer.value) {
+      chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+    }
+  });
+};
+// -----------------------
+
 const connectWebSocket = () => {
   if (stompClient && stompClient.connected) return;
 
-  // URL WebSocket Backend (Thay localhost:8080 bằng URL thật khi deploy)
   const socket = new SockJS("http://localhost:8080/ws");
   stompClient = Stomp.over(socket);
-
-  // Tắt log debug của Stomp để đỡ rối console
   stompClient.debug = () => {};
 
   stompClient.connect(
@@ -87,14 +98,12 @@ const connectWebSocket = () => {
     () => {
       chatStore.setConnected(true);
 
-      // Subscribe topic chung
       stompClient.subscribe("/topic/public", (payload) => {
         const msg = JSON.parse(payload.body);
         chatStore.addMessage(msg);
-        scrollToBottom();
+        // Watcher sẽ tự gọi scrollToBottom
       });
 
-      // Gửi thông báo Join (Optional)
       stompClient.send(
         "/app/chat.addUser",
         {},
@@ -105,10 +114,7 @@ const connectWebSocket = () => {
       );
     },
     (error) => {
-      // Chỉ log lỗi nếu không phải là do refresh trang
-      // console.error("WS Lost:", error);
       chatStore.setConnected(false);
-      // Tự động reconnect sau 5s
       if (!reconnectInterval) {
         reconnectInterval = setTimeout(connectWebSocket, 5000);
       }
@@ -128,23 +134,13 @@ const sendMessage = () => {
   try {
     stompClient.send("/app/chat.sendMessage", {}, JSON.stringify(chatMessage));
     newMessage.value = "";
-    scrollToBottom();
   } catch (e) {
     console.error("Gửi tin nhắn lỗi", e);
   }
 };
 
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (chatContainer.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
-    }
-  });
-};
-
 const formatTime = (timeStr) => {
   if (!timeStr) return "";
-  // Nếu server trả về ISO string, format lại. Nếu trả về HH:mm rồi thì giữ nguyên
   if (timeStr.includes("T")) {
     const date = new Date(timeStr);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -159,7 +155,6 @@ const getRoleClass = (role) => {
 };
 
 const handleUserClick = (msg) => {
-  // Có thể mở menu tương tác (PM, Kết bạn) tại đây
   console.log("Clicked user:", msg.senderName);
 };
 
@@ -188,8 +183,11 @@ onUnmounted(() => {
   font-family: "Roboto", sans-serif;
   font-size: 0.9em;
   border: 1px solid #5d4037;
+  /* Đảm bảo border box */
+  box-sizing: border-box; 
 }
 .chat-header {
+  flex-shrink: 0; /* Header không được co lại */
   background: #2b1d1a;
   padding: 6px 10px;
   color: #fbc02d;
@@ -199,6 +197,8 @@ onUnmounted(() => {
   align-items: center;
   border-bottom: 1px solid #5d4037;
   font-size: 0.85em;
+  height: 32px;
+  box-sizing: border-box;
 }
 .connection-status {
   display: flex;
@@ -209,12 +209,8 @@ onUnmounted(() => {
   font-size: 0.8em;
   font-weight: normal;
 }
-.status-text.online {
-  color: #00e676;
-}
-.status-text.offline {
-  color: #757575;
-}
+.status-text.online { color: #00e676; }
+.status-text.offline { color: #757575; }
 .status-dot {
   width: 8px;
   height: 8px;
@@ -228,7 +224,8 @@ onUnmounted(() => {
 }
 
 .chat-messages {
-  flex: 1;
+  flex: 1; /* Chiếm hết khoảng trống */
+  min-height: 0; /* --- QUAN TRỌNG: Để flex item có thể thu nhỏ và scroll --- */
   overflow-y: auto;
   padding: 8px;
   display: flex;
@@ -249,29 +246,9 @@ onUnmounted(() => {
   word-wrap: break-word;
   font-size: 0.95em;
 }
-.timestamp {
-  color: #757575;
-  font-size: 0.8em;
-  margin-right: 5px;
-}
-.tag-admin {
-  color: #fff;
-  background: #d32f2f;
-  padding: 0 4px;
-  border-radius: 3px;
-  font-size: 0.75em;
-  margin-right: 4px;
-  font-weight: bold;
-}
-.tag-vip {
-  color: #000;
-  background: #fbc02d;
-  padding: 0 4px;
-  border-radius: 3px;
-  font-size: 0.75em;
-  margin-right: 4px;
-  font-weight: bold;
-}
+.timestamp { color: #757575; font-size: 0.8em; margin-right: 5px; }
+.tag-admin { color: #fff; background: #d32f2f; padding: 0 4px; border-radius: 3px; font-size: 0.75em; margin-right: 4px; font-weight: bold; }
+.tag-vip { color: #000; background: #fbc02d; padding: 0 4px; border-radius: 3px; font-size: 0.75em; margin-right: 4px; font-weight: bold; }
 
 .sender {
   font-weight: bold;
@@ -283,24 +260,17 @@ onUnmounted(() => {
   text-decoration: underline;
   filter: brightness(1.2);
 }
-.content {
-  color: #e0e0e0;
-}
-
-.text-red {
-  color: #ff5252;
-}
-.text-gold {
-  color: #ffd740;
-}
-.text-blue {
-  color: #448aff;
-}
+.content { color: #e0e0e0; }
+.text-red { color: #ff5252; }
+.text-gold { color: #ffd740; }
+.text-blue { color: #448aff; }
 
 .chat-input {
+  flex-shrink: 0; /* Input không được co lại */
   display: flex;
   border-top: 1px solid #5d4037;
   height: 36px;
+  box-sizing: border-box;
 }
 .chat-input input {
   flex: 1;
@@ -310,14 +280,10 @@ onUnmounted(() => {
   padding: 0 10px;
   outline: none;
   font-size: 0.9em;
+  min-width: 0; /* Tránh input vỡ layout */
 }
-.chat-input input:focus {
-  background: rgba(0, 0, 0, 0.5);
-}
-.chat-input input:disabled {
-  background: rgba(0, 0, 0, 0.1);
-  cursor: not-allowed;
-}
+.chat-input input:focus { background: rgba(0, 0, 0, 0.5); }
+.chat-input input:disabled { background: rgba(0, 0, 0, 0.1); cursor: not-allowed; }
 .chat-input button {
   background: #3e2723;
   border: none;
@@ -327,24 +293,11 @@ onUnmounted(() => {
   transition: 0.2s;
   border-left: 1px solid #5d4037;
 }
-.chat-input button:hover {
-  background: #4e342e;
-}
-.chat-input button:disabled {
-  color: #555;
-  cursor: not-allowed;
-  background: #2b1d1a;
-}
+.chat-input button:hover { background: #4e342e; }
+.chat-input button:disabled { color: #555; cursor: not-allowed; background: #2b1d1a; }
 
 /* Custom Scrollbar */
-.custom-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-.custom-scroll::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-}
-.custom-scroll::-webkit-scrollbar-thumb {
-  background: #5d4037;
-  border-radius: 2px;
-}
+.custom-scroll::-webkit-scrollbar { width: 4px; }
+.custom-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); }
+.custom-scroll::-webkit-scrollbar-thumb { background: #5d4037; border-radius: 2px; }
 </style>

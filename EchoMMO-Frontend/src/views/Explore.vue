@@ -71,7 +71,7 @@
           <transition name="fade-slide" mode="out-in">
             <div v-if="currentLog" class="single-log-panel" :class="currentLog.type" :key="'log'">
               <div class="log-icon" v-if="currentLog.image">
-                 <img :src="currentLog.image" alt="icon" />
+                 <img :src="currentLog.image" alt="icon" @error="handleImgError" />
               </div>
               <div class="log-content-box">
                 <div class="log-text" v-html="currentLog.msg"></div>
@@ -192,6 +192,11 @@ const setLog = (msg, type = "TEXT", image = null, action = null) => {
     currentLog.value = { msg, type, image, action };
 };
 
+// Fallback nếu ảnh lỗi
+const handleImgError = (e) => {
+  e.target.style.display = 'none'; // Ẩn ảnh nếu lỗi để layout không bị vỡ
+};
+
 let moveInterval = null;
 const startMovingJS = () => {
   if (moveInterval) clearInterval(moveInterval);
@@ -277,8 +282,8 @@ onUnmounted(() => clearInterval(moveInterval));
   width: 100%; 
   height: 100vh; 
   display: flex;
-  align-items: center; /* Căn giữa dọc */
-  justify-content: center; /* Căn giữa ngang */
+  align-items: center; 
+  justify-content: center; 
   box-sizing: border-box;
   color: #eee; 
   font-family: "Noto Serif TC", serif; 
@@ -290,19 +295,18 @@ onUnmounted(() => clearInterval(moveInterval));
 .mountain-bg { position: absolute; inset: 0; background-size: cover; opacity: 0.5; filter: sepia(20%) contrast(1.1); }
 .wood-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(62, 39, 35, 0.8), rgba(20, 10, 5, 0.95)); mix-blend-mode: multiply; }
 
-/* === DASHBOARD LAYOUT (COMPACT) === */
+/* === DASHBOARD LAYOUT (FIXED HEIGHT) === */
 .explore-dashboard {
   position: relative;
   z-index: 10;
   display: grid;
-  grid-template-columns: 1fr 320px; /* Chat rộng 320px */
+  grid-template-columns: 1fr 320px;
   gap: 15px;
   width: 95%;
   max-width: 1200px;
-  /* Quan trọng: Chiều cao tự động, không giãn full màn */
-  height: auto; 
-  max-height: 90vh; /* Giới hạn chiều cao tối đa */
-  align-items: stretch; /* Đảm bảo 2 cột cao bằng nhau */
+  height: 520px; /* Cố định chiều cao */
+  min-height: 520px;
+  align-items: stretch;
 }
 
 /* Wood Panel Style */
@@ -322,16 +326,23 @@ onUnmounted(() => clearInterval(moveInterval));
   display: flex;
   flex-direction: column;
   gap: 15px;
+  height: 100%;
 }
 
 /* 1. STAGE (MAP) */
 .stage-zone-wrapper {
-  flex: 0 0 auto; /* Không giãn */
+  flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: space-between; 
 }
-.game-board { display: flex; flex-direction: column; }
-.status-header { padding: 10px 15px; background: rgba(0,0,0,0.4); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 12px; }
+.game-board { display: flex; flex-direction: column; height: 100%; }
+
+.status-header { 
+  flex: 0 0 auto; 
+  padding: 10px 15px; background: rgba(0,0,0,0.4); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 12px; 
+}
+
 .level-badge span { font-weight: 900; color: var(--gold-accent); border: 1px solid var(--gold-accent); padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; background: rgba(0,0,0,0.3); }
 .bars-container { flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .stat-group { display: flex; gap: 15px; }
@@ -342,14 +353,20 @@ onUnmounted(() => clearInterval(moveInterval));
 .progress-fill.energy { background: linear-gradient(to right, #0d47a1, #42a5f5); }
 .stat-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.65rem; font-weight: bold; color: #fff; }
 
-/* Viewport Map Cao 200px */
-.stage-viewport { height: 200px; position: relative; border-top: 1px solid rgba(0,0,0,0.5); border-bottom: 1px solid rgba(0,0,0,0.5); overflow: hidden; }
+.stage-viewport { 
+  flex: 1; 
+  min-height: 180px; 
+  position: relative; border-top: 1px solid rgba(0,0,0,0.5); border-bottom: 1px solid rgba(0,0,0,0.5); overflow: hidden; 
+}
 .stage-background { width: 100%; height: 100%; background-size: cover; background-position: center bottom; filter: sepia(15%); }
 .actor { position: absolute; bottom: 15px; display: flex; flex-direction: column; align-items: center; width: 100px; transition: left 0.1s linear; }
 .avatar-circle { width: 70px; height: 70px; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.7)); }
 .avatar-img { width: 100%; height: 100%; object-fit: contain; transform: scale(1.3); }
 
-.action-panel { height: 70px; background: rgba(20, 10, 5, 0.8); display: flex; gap: 12px; padding: 12px; align-items: center; justify-content: center; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+.action-panel { 
+  flex: 0 0 70px;
+  background: rgba(20, 10, 5, 0.8); display: flex; gap: 12px; padding: 12px; align-items: center; justify-content: center; border-top: 1px solid rgba(255, 255, 255, 0.05); 
+}
 .btn-action { height: 100%; border: 1px solid #4e342e; border-radius: 4px; cursor: pointer; color: #d7ccc8; font-weight: bold; transition: all 0.2s; display: flex; align-items: center; justify-content: center; background: linear-gradient(to bottom, #3e2723, #261815); }
 .btn-action:hover:not(:disabled) { border-color: var(--gold-accent); color: var(--gold-accent); background: #4e342e; }
 .map-btn { flex: 1; }
@@ -357,35 +374,65 @@ onUnmounted(() => clearInterval(moveInterval));
 .main-btn:active { transform: translateY(1px); }
 .sub-btn { flex: 0.5; font-size: 1.2rem; }
 
-/* 2. LOG ZONE (NGẮN LẠI) */
+/* 2. LOG ZONE (UPDATED) */
 .log-zone-wrapper {
-  height: 120px; /* Cố định chiều cao ngắn */
-  flex: none; /* Không giãn */
-  display: flex; align-items: center; justify-content: center; padding: 10px 20px;
+  flex: 0 0 120px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  padding: 10px 20px;
 }
-.single-log-panel { width: 100%; display: flex; align-items: center; gap: 20px; }
-.log-icon img { width: 64px; height: 64px; object-fit: contain; border: 1px solid #5d4037; border-radius: 6px; background: rgba(0,0,0,0.3); padding: 4px; }
-.log-content-box { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+
+/* Fix Center Icon & Text */
+.single-log-panel { 
+  width: 100%; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; /* Căn giữa toàn bộ cụm nội dung */
+  gap: 20px; 
+}
+
+/* Fix Image Shrink */
+.log-icon {
+  flex-shrink: 0; /* Không cho icon bị co lại */
+}
+.log-icon img { 
+  width: 64px; 
+  height: 64px; 
+  object-fit: contain; 
+  border: 1px solid #5d4037; 
+  border-radius: 6px; 
+  background: rgba(0,0,0,0.3); 
+  padding: 4px; 
+}
+
+/* Fix Center Text Content */
+.log-content-box { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column; 
+  justify-content: center; 
+  align-items: center; /* Căn giữa theo chiều ngang */
+  text-align: center;  /* Căn giữa chữ */
+  gap: 6px; 
+}
+
 .log-text { font-size: 1rem; color: #fff; line-height: 1.3; }
 .wuxia-btn-small { background: #b71c1c; color: #fff; border: 1px solid #ef5350; padding: 4px 15px; border-radius: 4px; font-size: 0.85rem; cursor: pointer; }
 .log-placeholder { color: #a1887f; font-style: italic; font-size: 1rem; display: flex; align-items: center; gap: 10px; }
 .blink { animation: blinking 2s infinite; }
 @keyframes blinking { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-/* === RIGHT COLUMN: CHAT (ĐỒNG BỘ CHIỀU CAO) === */
+/* === RIGHT COLUMN === */
 .right-side-col {
-  /* Tự động cao bằng cột trái do cha dùng align-items: stretch */
-  height: auto; 
-  min-height: 100%;
+  height: 100%;
   display: flex; 
   flex-direction: column;
-  overflow: hidden; /* Để scroll hoạt động bên trong */
+  overflow: hidden; 
 }
-
-/* Chat Wrapper */
 .chat-zone-wrapper { 
-  flex: 1; /* Chiếm hết chiều cao cột */
-  height: 100%; /* Đảm bảo con cũng full height */
+  flex: 1; 
+  height: 100%;
   background: transparent; 
   overflow: hidden; 
   display: flex; 
@@ -406,9 +453,9 @@ onUnmounted(() => clearInterval(moveInterval));
 ::-webkit-scrollbar-thumb { background: #4e342e; border-radius: 2px; }
 
 @media (max-width: 900px) {
-  .explore-page { height: auto; padding: 10px 10px 80px 10px; display: block; overflow-y: auto; } /* Mobile cho scroll thoải mái */
-  .explore-dashboard { display: flex; flex-direction: column; gap: 15px; height: auto; max-height: none; }
+  .explore-page { height: auto; padding: 10px 10px 80px 10px; display: block; overflow-y: auto; }
+  .explore-dashboard { display: flex; flex-direction: column; gap: 15px; height: auto; min-height: 0; }
   .left-main-col { height: auto; }
-  .right-side-col { height: 400px; } /* Chat mobile cao cố định */
+  .right-side-col { height: 400px; }
 }
 </style>
