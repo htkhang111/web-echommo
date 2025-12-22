@@ -93,14 +93,15 @@ public class CharacterService {
     }
 
     /**
-     * TÍNH TOÁN LẠI TẤT CẢ CHỈ SỐ TỪ 6 MÓN TRANG BỊ
+     * TÍNH TOÁN LẠI TẤT CẢ CHỈ SỐ
+     * Fix: Chỉ cộng chỉ số từ UserItem (Túi đồ) để tránh nhân đôi
      */
     @Transactional
     public void recalculateStats(Character c) {
         ensureNoNullStats(c);
         int lvl = safeInt(c.getLevel());
 
-        // 1. Chỉ số gốc (Base Stats)
+        // 1. Chỉ số gốc từ điểm tiềm năng
         int rawMaxHp = 200 + (safeInt(c.getVit()) * 20);
         int rawAtk = 10 + (safeInt(c.getStr()) * 2);
         int rawDef = 5 + (safeInt(c.getVit()) / 5);
@@ -108,7 +109,7 @@ public class CharacterService {
         int rawCritRate = 5 + (safeInt(c.getLuck()) / 5);
         int rawCritDmg = 150 + (safeInt(c.getDex()) / 2);
 
-        // 2. Quét toàn bộ trang bị đang mặc (isEquipped = true)
+        // 2. Quét trang bị đang mặc
         List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(c.getCharId());
 
         BigDecimal equipAtk = BigDecimal.ZERO;
@@ -123,12 +124,12 @@ public class CharacterService {
             BigDecimal mainVal = safe(item.getMainStatValue());
             String type = item.getMainStatType();
 
-            // Xử lý null hoặc "NONE" cho type
+            // Nếu type lỗi, gán mặc định để xử lý ở switch
             if (type == null || type.equals("NONE") || type.isEmpty()) {
                 type = "UNKNOWN";
             }
 
-            // --- LOGIC CỘNG CHỈ SỐ CHÍNH (QUAN TRỌNG) ---
+            // --- XỬ LÝ CHỈ SỐ CHÍNH (MAIN STAT) ---
             switch (type) {
                 case "ATK_FLAT":
                 case "ATK":
@@ -155,17 +156,15 @@ public class CharacterService {
                 case "CRIT_DMG": bonusCritDmg += mainVal.doubleValue(); break;
                 case "SPEED": bonusSpeed += mainVal.doubleValue(); break;
 
-                // [FIX QUAN TRỌNG]: Nếu không rõ loại chỉ số, tự động phân loại theo Slot
+                // [FALLBACK] Nếu không rõ loại chỉ số, tự động cộng dựa trên Slot
                 case "UNKNOWN":
                 default:
                     SlotType slot = item.getItem().getSlotType();
                     if (slot == SlotType.WEAPON || slot == SlotType.RING) {
-                        // Vũ khí và Nhẫn -> Cộng Công
-                        equipAtk = equipAtk.add(mainVal);
+                        equipAtk = equipAtk.add(mainVal); // Kiếm/Nhẫn -> Cộng Công
                     } else if (slot == SlotType.ARMOR || slot == SlotType.HELMET ||
                             slot == SlotType.BOOTS || slot == SlotType.NECKLACE) {
-                        // Áo, Mũ, Giày, Dây chuyền -> Cộng Thủ
-                        equipDef = equipDef.add(mainVal);
+                        equipDef = equipDef.add(mainVal); // Áo/Mũ/Giày -> Cộng Thủ
                     }
                     break;
             }
@@ -190,9 +189,12 @@ public class CharacterService {
                     }
                 }
             } catch (Exception ignored) {}
+
+            // Debug Log để kiểm tra
+            System.out.println("SCAN ITEM: " + item.getItem().getName() + " | Type: " + type + " | Value: " + mainVal);
         }
 
-        // 3. Cập nhật vào Character
+        // 3. Tổng hợp và lưu (Làm tròn HALF_UP)
         c.setBaseAtk(rawAtk + equipAtk.setScale(0, RoundingMode.HALF_UP).intValue());
         c.setBaseDef(rawDef + equipDef.setScale(0, RoundingMode.HALF_UP).intValue());
         c.setMaxHp(rawMaxHp + equipHp.setScale(0, RoundingMode.HALF_UP).intValue());
@@ -208,9 +210,8 @@ public class CharacterService {
             c.setCurrentHp(c.getMaxHp());
         }
 
-        // Lưu xuống DB ngay lập tức
+        System.out.println("FINAL STATS for " + c.getName() + ": ATK=" + c.getBaseAtk() + " (Raw:" + rawAtk + " + Equip:" + equipAtk + ")");
         characterRepo.saveAndFlush(c);
-        System.out.println(">>> Updated Stats for " + c.getName() + ": ATK=" + c.getBaseAtk() + ", DEF=" + c.getBaseDef());
     }
 
     @Transactional
