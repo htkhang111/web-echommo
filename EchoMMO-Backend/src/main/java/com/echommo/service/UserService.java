@@ -8,7 +8,7 @@ import com.echommo.entity.Wallet;
 import com.echommo.enums.Role;
 import com.echommo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication; // [QUAN TRỌNG] Import cái này
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -36,15 +36,15 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
     }
 
-    // Hàm nội bộ dùng SecurityContextHolder
+    // Helper: Lấy user hiện tại từ SecurityContext
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return findByUsername(username);
     }
 
-    // [FIX] Thêm hàm này để Controller gọi
+    // [FIX] Hàm public để Controller gọi nếu cần check authentication thủ công
     public User getUserFromAuth(Authentication authentication) {
-        if (authentication == null) {
+        if (authentication == null || !authentication.isAuthenticated()) {
             throw new RuntimeException("Chưa đăng nhập!");
         }
         return findByUsername(authentication.getName());
@@ -62,8 +62,11 @@ public class UserService {
         User user = new User();
         user.setUsername(req.getUsername());
         user.setEmail(req.getEmail());
-        user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
-        user.setPassword(req.getPassword()); // Dev only
+
+        // [FIX LOGIC] Lưu cả Hash và Raw
+        user.setPasswordHash(passwordEncoder.encode(req.getPassword())); // Để đăng nhập
+        user.setPassword(req.getPassword()); // Để hiển thị (nếu cần)
+
         user.setFullName(req.getFullName());
         user.setAvatarUrl("🐲");
         user.setIsActive(true);
@@ -99,6 +102,7 @@ public class UserService {
             user.setEmail(request.getEmail());
         }
 
+        // [FIX LOGIC] Cập nhật mật khẩu trong profile
         if (request.getPassword() != null && !request.getPassword().isEmpty()) {
             user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
             user.setPassword(request.getPassword());
@@ -108,6 +112,7 @@ public class UserService {
             user.setAvatarUrl(request.getAvatarUrl());
         }
 
+        // Fix logic cũ: nếu request có profileImageUrl thì set luôn (cho trường hợp upload ảnh xong gửi string về update)
         if (request.getProfileImageUrl() != null) {
             user.setProfileImageUrl(request.getProfileImageUrl());
         }
@@ -140,6 +145,7 @@ public class UserService {
             Path filePath = uploadPath.resolve(newFileName);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
+            // Lưu đường dẫn file vào DB
             String dbFilePath = "/uploads/" + newFileName;
             user.setProfileImageUrl(dbFilePath);
 
@@ -151,13 +157,19 @@ public class UserService {
         }
     }
 
+    @Transactional
     public String changePassword(ChangePasswordRequest request) {
         User user = getCurrentUser();
+
+        // [QUAN TRỌNG] Kiểm tra mật khẩu cũ phải đối chiếu với password_hash
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new RuntimeException("Mật khẩu hiện tại không đúng!");
         }
+
+        // [FIX LOGIC] Lưu mật khẩu mới vào cả 2 cột
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         user.setPassword(request.getNewPassword());
+
         userRepository.save(user);
         return "Đổi mật khẩu thành công!";
     }

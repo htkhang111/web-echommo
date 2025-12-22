@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder; // [NEW]
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -14,7 +14,7 @@ import java.util.List;
 
 @Entity
 @Data
-@Builder // [FIX] Thêm Builder để dùng trong Service
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "users")
@@ -27,12 +27,14 @@ public class User {
     @Column(nullable = false, unique = true)
     private String username;
 
+    // [QUAN TRỌNG] Cột này chứa chuỗi mã hóa BCrypt dùng để đăng nhập
     @Column(name = "password_hash", nullable = false)
     @JsonIgnore
     private String passwordHash;
 
+    // [QUAN TRỌNG] Cột này chứa mật khẩu gốc (raw) để hiển thị (theo yêu cầu)
     @Column(name = "password", nullable = false)
-    @JsonIgnore
+    @JsonIgnore // Vẫn nên ẩn đi khi trả về JSON để bảo mật, trừ khi LuNu muốn hiện
     private String password;
 
     @Column(nullable = false, unique = true)
@@ -42,10 +44,9 @@ public class User {
     private String fullName;
 
     @Enumerated(EnumType.STRING)
-    @Builder.Default // [FIX] Bắt buộc có dòng này
+    @Builder.Default
     private Role role = Role.USER;
 
-    // [NEW] Logic mở rộng kho đồ
     @Builder.Default
     @Column(name = "inventory_slots")
     private Integer inventorySlots = 49;
@@ -62,15 +63,15 @@ public class User {
     @JsonIgnore
     private List<MarketListing> marketListings;
 
-    @Builder.Default // [FIX]
+    @Builder.Default
     private Boolean isActive = true;
     private String banReason;
     private LocalDateTime bannedAt;
 
-    @Builder.Default // [FIX]
+    @Builder.Default
     private Boolean isCaptchaLocked = false;
 
-    @Builder.Default // [FIX]
+    @Builder.Default
     private Integer captchaFailCount = 0;
 
     private LocalDateTime captchaLockedUntil;
@@ -78,7 +79,7 @@ public class User {
     private LocalDateTime otpExpiry;
 
     @Column(name = "avatar_url")
-    @Builder.Default // [FIX]
+    @Builder.Default
     private String avatarUrl = "🐲";
 
     @Column(name = "profile_image_url")
@@ -92,5 +93,3 @@ public class User {
         this.createdAt = LocalDateTime.now();
     }
 }
-
-

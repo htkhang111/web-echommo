@@ -3688,13 +3688,13 @@ import { useAuthStore } from "../stores/authStore";
 import { useCharacterStore } from "../stores/characterStore";
 import { useMarketStore } from "../stores/marketStore";
 import { resolveItemImage } from "@/utils/assetHelper";
-import GameToast from "@/components/GameToast.vue"; // Import Toast
+import GameToast from "@/components/GameToast.vue";
 
 const inventoryStore = useInventoryStore();
 const authStore = useAuthStore();
 const characterStore = useCharacterStore();
 const marketStore = useMarketStore();
-const toast = ref(null); // Ref Toast
+const toast = ref(null);
 
 // --- BACKGROUND LOGIC ---
 const bgImage = "https://htkhang111.github.io/background/b_doanhtrai.png";
@@ -3752,7 +3752,7 @@ const parsedSubStats = computed(() => {
   }
 });
 
-// [LOGIC ĐỒNG BỘ BACKEND] Tính toán chi phí
+// [FIXED] Đồng bộ tên nguyên liệu với Database (seed_core.sql)
 const upgradeCost = computed(() => {
   if (!selectedItem.value) return { gold: 0, materials: [] };
 
@@ -3785,7 +3785,7 @@ const upgradeCost = computed(() => {
     };
   }
 
-  // [FIX] Logic Normal Enhance
+  // Logic Normal Enhance
   const nextLv = item.enhanceLevel + 1;
   const gold = nextLv * 1000;
   let mats = [];
@@ -3794,21 +3794,20 @@ const upgradeCost = computed(() => {
     const mainQty = nextLv * 15;
     const subQty = nextLv * 5;
 
-    // Vũ khí dùng Đồng (o_copper.png), Giáp dùng Đá (o_coal.png - dùng icon than đá cho đá)
+    // [FIX] Sửa tên "Than Đá" thành "Than"
     if (item.item.type === "WEAPON") {
       mats.push({ name: "Quặng Đồng", qty: mainQty, img: "o_copper.png" });
     } else {
-      mats.push({ name: "Than Đá", qty: mainQty, img: "o_coal.png" });
+      mats.push({ name: "Than", qty: mainQty, img: "o_coal.png" }); 
     }
-    // [FIX] Ảnh Gỗ Sồi: w_wood.png (thay vì r_wood.png)
     mats.push({ name: "Gỗ Sồi", qty: subQty, img: "w_wood.png" });
   } else if (nextLv <= 20) {
     const scale = nextLv - 10;
     const mainQty = scale * 15;
     const subQty = scale * 5;
 
-    // [FIX] Ảnh Quặng Sắt: o_iron.png | Gỗ Khô: w_wood-red.png
-    mats.push({ name: "Quặng Sắt", qty: mainQty, img: "o_iron.png" });
+    // [FIX] Sửa tên "Quặng Sắt" thành "Sắt"
+    mats.push({ name: "Sắt", qty: mainQty, img: "o_iron.png" }); 
     mats.push({ name: "Gỗ Khô", qty: subQty, img: "w_wood-red.png" });
   } else {
     // 21 - 30
@@ -3816,7 +3815,6 @@ const upgradeCost = computed(() => {
     const mainQty = scale * 20;
     const subQty = scale * 10;
 
-    // [FIX] Ảnh Bạch Kim: o_platinum.png | Gỗ Lạnh: w_wood-white.png
     mats.push({ name: "Bạch Kim", qty: mainQty, img: "o_platinum.png" });
     mats.push({ name: "Gỗ Lạnh", qty: subQty, img: "w_wood-white.png" });
   }

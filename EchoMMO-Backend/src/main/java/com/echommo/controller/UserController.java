@@ -13,7 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/user")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*") // Cẩn thận với CORS production, nhưng dev thì ok
 public class UserController {
 
     @Autowired
@@ -25,13 +25,24 @@ public class UserController {
     // --- 1. Lấy thông tin cá nhân (Kèm Vàng/Ngọc) ---
     @GetMapping("/me")
     public ResponseEntity<?> getMyProfile() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByUsernameWithWallet(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return ResponseEntity.ok(user);
+        try {
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            // Dùng hàm repository custom để fetch luôn wallet nếu cần,
+            // hoặc dùng userService.findByUsername(username) nếu Lazy Load đã được xử lý
+            User user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            // Đảm bảo password không bị trả về client (dù đã có @JsonIgnore nhưng cẩn tắc vô áy náy)
+            user.setPassword(null);
+            user.setPasswordHash(null);
+
+            return ResponseEntity.ok(user);
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body("Unauthorized: " + e.getMessage());
+        }
     }
 
-    // --- 2. Cập nhật thông tin text (Tên, Email...) ---
+    // --- 2. Cập nhật thông tin text (Tên, Email, Password raw...) ---
     @PutMapping("/update")
     public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request) {
         try {
@@ -41,7 +52,7 @@ public class UserController {
         }
     }
 
-    // --- 2.1 API MỚI: Upload Avatar (File) ---
+    // --- 2.1 API Upload Avatar (File) ---
     @PostMapping("/upload-avatar")
     public ResponseEntity<?> uploadAvatar(@RequestParam("file") MultipartFile file) {
         try {
@@ -51,7 +62,7 @@ public class UserController {
         }
     }
 
-    // --- 3. Đổi mật khẩu ---
+    // --- 3. Đổi mật khẩu (Chuyên biệt) ---
     @PostMapping("/change-password")
     public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
         try {

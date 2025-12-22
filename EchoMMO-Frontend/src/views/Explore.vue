@@ -84,7 +84,10 @@
             </div>
             
             <div v-else-if="isMoving" class="log-placeholder running" :key="'run'">
-               <i class="fas fa-shoe-prints fa-spin"></i> <span style="margin-left: 10px">Đang thám thính...</span>
+               <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                 <i class="fas fa-shoe-prints fa-spin" style="font-size: 24px;"></i> 
+                 <span>Đang thám thính...</span>
+               </div>
             </div>
             
             <div v-else class="log-placeholder idle" :key="'idle'">
@@ -376,26 +379,24 @@ onUnmounted(() => clearInterval(moveInterval));
 
 /* 2. LOG ZONE (UPDATED) */
 .log-zone-wrapper {
-  flex: 0 0 120px;
+  flex: 0 0 160px; /* Increased height for column layout */
   display: flex; 
   align-items: center; 
   justify-content: center; 
   padding: 10px 20px;
 }
 
-/* Fix Center Icon & Text */
+/* Fix Center Icon & Text - Stacked Layout */
 .single-log-panel { 
   width: 100%; 
   display: flex; 
+  flex-direction: column; /* Stack Vertically */
   align-items: center; 
-  justify-content: center; /* Căn giữa toàn bộ cụm nội dung */
-  gap: 20px; 
+  justify-content: center; 
+  gap: 10px; 
+  text-align: center;
 }
 
-/* Fix Image Shrink */
-.log-icon {
-  flex-shrink: 0; /* Không cho icon bị co lại */
-}
 .log-icon img { 
   width: 64px; 
   height: 64px; 
@@ -404,22 +405,22 @@ onUnmounted(() => clearInterval(moveInterval));
   border-radius: 6px; 
   background: rgba(0,0,0,0.3); 
   padding: 4px; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.5);
 }
 
 /* Fix Center Text Content */
 .log-content-box { 
-  flex: 1; 
+  width: 100%;
   display: flex; 
   flex-direction: column; 
   justify-content: center; 
-  align-items: center; /* Căn giữa theo chiều ngang */
-  text-align: center;  /* Căn giữa chữ */
+  align-items: center; 
   gap: 6px; 
 }
 
 .log-text { font-size: 1rem; color: #fff; line-height: 1.3; }
-.wuxia-btn-small { background: #b71c1c; color: #fff; border: 1px solid #ef5350; padding: 4px 15px; border-radius: 4px; font-size: 0.85rem; cursor: pointer; }
-.log-placeholder { color: #a1887f; font-style: italic; font-size: 1rem; display: flex; align-items: center; gap: 10px; }
+.wuxia-btn-small { background: #b71c1c; color: #fff; border: 1px solid #ef5350; padding: 4px 15px; border-radius: 4px; font-size: 0.85rem; cursor: pointer; margin-top: 5px; }
+.log-placeholder { color: #a1887f; font-style: italic; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; }
 .blink { animation: blinking 2s infinite; }
 @keyframes blinking { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
