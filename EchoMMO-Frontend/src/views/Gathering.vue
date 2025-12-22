@@ -149,12 +149,17 @@ const playerLevel = computed(() => {
   return charStore.character?.level || 1;
 });
 
+// [CHỈNH SỬA] Đã đổi hoàn toàn "Stone/Mỏ Đá" thành "Coal/Mỏ Than" (ID 5)
+// Loại bỏ hoàn toàn khái niệm Mỏ Đá để tránh lỗi và nhầm lẫn.
 const EVENT_TYPES = [
   { id: "wood", codePrefix: "w_", rewardItemId: 1, name: "Cây Gỗ Sồi", image: resolveItemImage("w_wood.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Sồi" },
   { id: "dried_wood", codePrefix: "w_", rewardItemId: 2, name: "Cây Gỗ Khô", image: resolveItemImage("w_wood-red.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Khô" },
   { id: "cold_wood", codePrefix: "w_", rewardItemId: 3, name: "Cây Gỗ Lạnh", image: resolveItemImage("w_wood-white.png"), rarityClass: "uncommon", rarityText: "Ít Gặp", reqLevel: 10, reqTool: "Rìu", lootName: "Gỗ Lạnh" },
   { id: "strange_wood", codePrefix: "w_", rewardItemId: 4, name: "Cây Gỗ Lạ", image: resolveItemImage("w_wood-black.png"), rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Rìu", lootName: "Gỗ Lạ" },
-  { id: "stone", codePrefix: "o_", rewardItemId: 5, name: "Mỏ Đá", image: resolveItemImage("o_coal.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cúp", lootName: "Đá/Than" },
+
+  // Dòng này trước là Stone, giờ là Coal chính hiệu
+  { id: "coal", codePrefix: "o_", rewardItemId: 5, name: "Mỏ Than", image: resolveItemImage("o_coal.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Cúp", lootName: "Than Đen" },
+
   { id: "copper", codePrefix: "o_", rewardItemId: 6, name: "Mạch Đồng", image: resolveItemImage("o_copper.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 5, reqTool: "Cúp", lootName: "Quặng Đồng" },
   { id: "iron", codePrefix: "o_", rewardItemId: 7, name: "Mỏ Sắt", image: resolveItemImage("o_iron.png"), rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Cúp", lootName: "Quặng Sắt" },
   { id: "platinum", codePrefix: "o_", rewardItemId: 8, name: "Tinh Thể Bạch Kim", image: resolveItemImage("o_platinum.png"), rarityClass: "epic", rarityText: "Cực Phẩm", reqLevel: 40, reqTool: "Cúp", lootName: "Bạch Kim" },
