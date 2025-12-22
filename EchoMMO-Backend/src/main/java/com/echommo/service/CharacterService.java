@@ -48,7 +48,7 @@ public class CharacterService {
 
         Character c = characterRepo.findByUser(user).orElse(null);
         if (c != null) {
-            recalculateStats(c); // Đảm bảo đồng bộ khi lấy data
+            recalculateStats(c);
         }
         return c;
     }
@@ -91,13 +91,15 @@ public class CharacterService {
     }
 
     /**
-     * [FIXED LOGIC] TÍNH TOÁN LẠI TẤT CẢ CHỈ SỐ
-     * - Fix lỗi chỉ tính ATK mà bỏ qua DEF, HP, SPEED
-     * - Fix lỗi không cộng chỉ số gốc của vật phẩm (Base Stat)
+     * [FIXED] Tự động tính lại cả Điểm Tiềm Năng khi gọi hàm này
      */
     @Transactional
     public void recalculateStats(Character c) {
         ensureNoNullStats(c);
+
+        // [FIX QUAN TRỌNG] Gọi hàm này để cập nhật điểm tiềm năng dựa trên Level hiện tại
+        recalculateStatPoints(c);
+
         int lvl = safeInt(c.getLevel());
 
         // 1. CHỈ SỐ CƠ BẢN TỪ THUỘC TÍNH (STR, VIT...)
@@ -142,7 +144,6 @@ public class CharacterService {
             // --- B. BASE STAT FALLBACK (Chỉ số gốc của Item) ---
             if (uItem.getItem() != null) {
                 Item tpl = uItem.getItem();
-                // Chỉ cộng nếu Main Stat KHÔNG PHẢI là chỉ số đó (Tránh cộng 2 lần nếu DB thiết kế trùng)
                 if (tpl.getAtkBonus() != null && !typeUpper.contains("ATK")) equipAtk = equipAtk.add(BigDecimal.valueOf(tpl.getAtkBonus()));
                 if (tpl.getDefBonus() != null && !typeUpper.contains("DEF")) equipDef = equipDef.add(BigDecimal.valueOf(tpl.getDefBonus()));
                 if (tpl.getHpBonus() != null && !typeUpper.contains("HP")) equipHp = equipHp.add(BigDecimal.valueOf(tpl.getHpBonus()));
@@ -180,7 +181,6 @@ public class CharacterService {
         int power = (c.getMaxHp() / 5) + (c.getBaseAtk() * 2) + (c.getBaseDef() * 3) + (c.getBaseSpeed() * 2) + (lvl * 10);
         c.setTotalPower(power);
 
-        // Fix máu hiện tại không quá Max
         if (c.getCurrentHp() == null || c.getCurrentHp() > c.getMaxHp()) {
             c.setCurrentHp(c.getMaxHp());
         }
@@ -217,20 +217,23 @@ public class CharacterService {
 
         c = characterRepo.save(c);
         recalculateStatPoints(c);
-        recalculateStats(c); // Gọi lại để update BaseAtk/Def/Hp mới
+        recalculateStats(c);
 
         return c;
     }
 
+    // Logic: Mỗi cấp được 5 điểm. Trừ đi số điểm đã cộng vào 6 chỉ số (tính từ mốc 5).
     private void recalculateStatPoints(Character c) {
         int lvl = safeInt(c.getLevel());
-        int totalPointsEarned = (lvl - 1) * 5;
+        int totalPointsEarned = (lvl - 1) * 5; // Cấp 1 có 0 điểm, Cấp 2 có 5 điểm...
+
         int usedPoints = (safeInt(c.getStr()) - 5) +
                 (safeInt(c.getVit()) - 5) +
                 (safeInt(c.getAgi()) - 5) +
                 (safeInt(c.getDex()) - 5) +
                 (safeInt(c.getIntelligence()) - 5) +
                 (safeInt(c.getLuck()) - 5);
+
         c.setStatPoints(Math.max(0, totalPointsEarned - usedPoints));
     }
 

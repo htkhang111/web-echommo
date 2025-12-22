@@ -546,7 +546,6 @@ public class InventoryServiceImpl implements InventoryService {
 
         Item itemBase = newItem.getItem();
 
-        // 1. Check Loại (Gear hoặc Tool)
         boolean isGear = List.of("WEAPON", "ARMOR", "HELMET", "BOOTS", "RING", "NECKLACE").contains(itemBase.getType());
         boolean isTool = "TOOL".equals(itemBase.getType());
 
@@ -554,13 +553,11 @@ public class InventoryServiceImpl implements InventoryService {
             throw new RuntimeException("Vật phẩm này không thể trang bị!");
         }
 
-        // 2. Check Cấp Độ Yêu Cầu (Thiên Đạo Cấm Chế)
         int requiredLv = getRequiredLevel(itemBase.getTier());
         if (character.getLevel() < requiredLv) {
             throw new RuntimeException("Cấp độ không đủ! Cần đạt Level " + requiredLv + " để trang bị.");
         }
 
-        // 3. Tháo đồ cũ cùng slot
         SlotType newSlot = itemBase.getSlotType();
         List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(charId);
 
@@ -571,23 +568,20 @@ public class InventoryServiceImpl implements InventoryService {
             }
         }
 
-        // 4. Mặc đồ mới
         newItem.setIsEquipped(true);
         userItemRepo.save(newItem);
 
-        // 5. Tính lại chỉ số
         characterService.recalculateStats(character);
         charRepo.save(character);
     }
 
-    // [HELPER] CÔNG THỨC TÍNH LEVEL YÊU CẦU
     private int getRequiredLevel(Integer tier) {
         if (tier == null || tier <= 1) return 1;
         switch (tier) {
             case 2: return 10;
             case 3: return 20;
-            case 4: return 30; // Epic
-            case 5: return 50; // Legendary
+            case 4: return 30;
+            case 5: return 50;
             default: return (tier - 1) * 10;
         }
     }
@@ -634,7 +628,10 @@ public class InventoryServiceImpl implements InventoryService {
 
         // [FIX] Xử lý null an toàn để tránh lỗi với item cũ
         if (current == null) current = 0;
-        if (max == null || max <= 0) max = 100;
+        if (max == null || max <= 0) {
+            max = 100;
+            userItem.setMaxDurability(100);
+        }
 
         if (current >= max) {
             throw new RuntimeException("Độ bền đã đầy, không cần sửa!");
@@ -642,18 +639,16 @@ public class InventoryServiceImpl implements InventoryService {
 
         int missing = max - current;
 
-        // --- [NEW LOGIC] BẢNG GIÁ SỬA CHỮA (THEO YÊU CẦU) ---
+        // --- BẢNG GIÁ SỬA CHỮA ---
         long goldCostPerPoint = 10;
         BigDecimal coinCostPerPoint = BigDecimal.ZERO;
 
-        // Lấy phẩm chất
         Rarity rarity = userItem.getRarity();
         if (rarity == null) {
             rarity = userItem.getItem().getRarity();
         }
         if (rarity == null) rarity = Rarity.COMMON;
 
-        // Nếu là Mythic -> Tính giá Tiên Phẩm
         if (Boolean.TRUE.equals(userItem.getIsMythic())) {
             rarity = Rarity.MYTHIC;
         }
@@ -661,23 +656,23 @@ public class InventoryServiceImpl implements InventoryService {
         switch (rarity) {
             case COMMON:
             case UNCOMMON:
-                // Phàm Phẩm: 10 Vàng / 1 điểm (Miễn phí Coin)
+                // Phàm Phẩm: 10 Vàng
                 goldCostPerPoint = 10;
                 coinCostPerPoint = BigDecimal.ZERO;
                 break;
             case RARE:
-                // Lương Phẩm: 50 Vàng / 1 điểm (Miễn phí Coin)
+                // Lương Phẩm: 50 Vàng
                 goldCostPerPoint = 50;
                 coinCostPerPoint = BigDecimal.ZERO;
                 break;
             case EPIC:
-                // Linh Phẩm: 200 Vàng + 0.1 Coin / 1 điểm
+                // Linh Phẩm: 200 Vàng + 0.1 Coin
                 goldCostPerPoint = 200;
                 coinCostPerPoint = BigDecimal.valueOf(0.1);
                 break;
             case LEGENDARY:
             case MYTHIC:
-                // Tiên Phẩm: 1000 Vàng + 1.0 Coin / 1 điểm
+                // Tiên Phẩm: 1000 Vàng + 1.0 Coin
                 goldCostPerPoint = 1000;
                 coinCostPerPoint = BigDecimal.valueOf(1.0);
                 break;
@@ -685,18 +680,18 @@ public class InventoryServiceImpl implements InventoryService {
                 goldCostPerPoint = 10;
         }
 
+        // [FIX QUAN TRỌNG] Chuyển đổi mọi thứ sang BigDecimal để tính toán tiền
         BigDecimal totalGoldCost = BigDecimal.valueOf(missing * goldCostPerPoint);
         BigDecimal totalCoinCost = coinCostPerPoint.multiply(BigDecimal.valueOf(missing));
 
-        // Lấy ví tiền (Sử dụng user.getWallet() thay vì findByUserId để tránh lỗi)
+        // Lấy ví tiền từ User (Tránh lỗi walletRepo)
         Wallet wallet = user.getWallet();
         if (wallet == null) {
-            // Fallback tìm ví nếu chưa load
             wallet = walletRepo.findByUser(user)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy ví tiền!"));
         }
 
-        // Kiểm tra số dư
+        // [FIX QUAN TRỌNG] Dùng compareTo() thay vì <
         if (wallet.getGold().compareTo(totalGoldCost) < 0) {
             throw new RuntimeException("Không đủ Vàng để sửa! Cần: " + totalGoldCost);
         }
@@ -704,7 +699,7 @@ public class InventoryServiceImpl implements InventoryService {
             throw new RuntimeException("Không đủ Echo Coin để sửa! Cần: " + totalCoinCost);
         }
 
-        // Trừ tiền
+        // [FIX QUAN TRỌNG] Dùng subtract() thay vì -
         wallet.setGold(wallet.getGold().subtract(totalGoldCost));
         wallet.setEchoCoin(wallet.getEchoCoin().subtract(totalCoinCost));
         walletRepo.save(wallet);
@@ -722,7 +717,6 @@ public class InventoryServiceImpl implements InventoryService {
 
         int nextSlots = currentSlots + 7;
 
-        // Phí: ((current - 49) / 7) + 1
         int costInt = ((currentSlots - 49) / 7) + 1;
         if (costInt < 1) costInt = 1;
         BigDecimal cost = BigDecimal.valueOf(costInt);
@@ -810,5 +804,3 @@ public class InventoryServiceImpl implements InventoryService {
         }
     }
 }
-
-
