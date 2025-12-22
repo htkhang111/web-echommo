@@ -589,7 +589,7 @@ onMounted(() => {
                 ['rarity-' + (itemObj.data.item.rarity || 'COMMON')]: true 
             }"
             :style="itemObj.style"
-            @click="selectItem(itemObj.data)"
+            @click="scrollToIndex(itemObj.index)"
           >
             <div class="wheel-inner">
                 <div class="icon-box">
@@ -707,9 +707,9 @@ const toast = ref(null);
 const currentTab = ref('ALL');
 const selectedItem = ref(null);
 
-// --- CẤU HÌNH CUỘN (TINH CHỈNH CHO NHỎ GỌN) ---
-const ITEM_HEIGHT = 56; // [CHANGE] Giảm từ 64/90 xuống 56px cho vừa mắt
-const VISIBLE_COUNT = 11; // Số lượng item vẽ ra (lẻ)
+// --- CONFIG ---
+const ITEM_HEIGHT = 50; 
+const VISIBLE_COUNT = 13;
 const scrollY = ref(0);
 const wheelContainer = ref(null);
 
@@ -720,6 +720,7 @@ let lastTouchY = 0;
 let velocity = 0;
 let animationFrameId = null;
 let lastTime = 0;
+let targetScrollY = null; // Dùng cho click-to-scroll
 
 const tabs = [
   { id: 'ALL', label: 'Tất Cả' },
@@ -737,7 +738,27 @@ const filteredItems = computed(() => {
   return items;
 });
 
-// --- CORE LOGIC: RENDER ITEMS (FIX LỖI KEY) ---
+// --- LOGIC AUTO SELECT (Cuộn tới đâu hiện tới đó) ---
+watch(scrollY, (newVal) => {
+    const items = filteredItems.value;
+    if (!items.length) return;
+
+    // Tính index của item đang nằm giữa (Math.round)
+    const centerIndex = Math.round(newVal / ITEM_HEIGHT);
+    const total = items.length;
+    
+    // Modulo để lấy đúng item trong mảng (xử lý số âm)
+    const realIndex = ((centerIndex % total) + total) % total;
+    
+    const targetItem = items[realIndex];
+    
+    // Cập nhật selectedItem nếu khác cái cũ
+    if (selectedItem.value?.userItemId !== targetItem?.userItemId) {
+        selectedItem.value = targetItem;
+    }
+});
+
+// --- RENDER LOGIC ---
 const renderedItems = computed(() => {
     const items = filteredItems.value;
     const total = items.length;
@@ -748,17 +769,13 @@ const renderedItems = computed(() => {
 
     const result = [];
     const baseIndex = Math.floor(scrollY.value / ITEM_HEIGHT);
-    const buffer = Math.ceil(VISIBLE_COUNT / 2) + 2;
+    const buffer = Math.ceil(VISIBLE_COUNT / 2);
 
     for (let i = baseIndex - buffer; i <= baseIndex + buffer; i++) {
-        // Modulo để tạo vòng lặp vô tận
         let dataIndex = ((i % total) + total) % total;
         const itemData = items[dataIndex];
         
-        // Vị trí tương đối so với tâm
         const itemY = i * ITEM_HEIGHT - scrollY.value; 
-        
-        // Hiệu ứng 3D
         const absDist = Math.abs(itemY);
         const maxDist = (VISIBLE_COUNT * ITEM_HEIGHT) / 2;
         
@@ -769,23 +786,19 @@ const renderedItems = computed(() => {
         let zIndex = 10;
 
         if (absDist < maxDist) {
-            const ratio = 1 - (absDist / maxDist); // 1 tại tâm, 0 ở rìa
-            
-            // Tinh chỉnh thông số cho mượt và không quá bự
-            scale = 0.8 + (ratio * 0.2); // Min 0.8, Max 1.0
-            opacity = 0.2 + (ratio * 0.8); // Min 0.2, Max 1.0
+            const ratio = 1 - (absDist / maxDist);
+            scale = 0.85 + (ratio * 0.15); 
+            opacity = 0.2 + (ratio * 0.8);
             brightness = 0.3 + (ratio * 0.7);
-            rotateX = -itemY * 0.1; // Độ cong
+            rotateX = -itemY * 0.1;
             zIndex = Math.floor(ratio * 100);
         } else {
             scale = 0.8;
             opacity = 0;
         }
 
-        // Active khi ở rất gần tâm
         const isActive = absDist < (ITEM_HEIGHT / 2);
 
-        // Style
         const style = {
             transform: `translateY(${centerY + itemY - (ITEM_HEIGHT/2)}px) perspective(500px) rotateX(${rotateX}deg) scale(${scale})`,
             opacity: opacity,
@@ -795,8 +808,8 @@ const renderedItems = computed(() => {
         };
 
         result.push({
-            // [FIX] Key độc nhất kết hợp giữa ID và Index ảo (i)
-            virtualId: `${itemData.userItemId}_${i}`,
+            virtualKey: `${itemData.userItemId}_${i}`, // Key độc nhất
+            index: i, // Index ảo để click-to-scroll
             data: itemData,
             style,
             isActive
@@ -805,30 +818,49 @@ const renderedItems = computed(() => {
     return result;
 });
 
-// --- PHYSICS & SCROLL HANDLING ---
+// --- CLICK TO CENTER ---
+const scrollToIndex = (virtualIndex) => {
+    // Tính toán đích đến
+    targetScrollY = virtualIndex * ITEM_HEIGHT;
+    cancelAnimationFrame(animationFrameId);
+    animateToTarget();
+};
 
+const animateToTarget = () => {
+    if (targetScrollY === null) return;
+    
+    // Hiệu ứng lướt tới đích (Lerp)
+    const diff = targetScrollY - scrollY.value;
+    if (Math.abs(diff) > 0.5) {
+        scrollY.value += diff * 0.1; // Tốc độ lướt
+        animationFrameId = requestAnimationFrame(animateToTarget);
+    } else {
+        scrollY.value = targetScrollY;
+        targetScrollY = null;
+    }
+};
+
+// --- PHYSICS SCROLL ---
 const inertiaLoop = (time) => {
     if (!lastTime) lastTime = time;
     const delta = time - lastTime;
     lastTime = time;
 
-    // Giảm tốc (Friction)
     if (Math.abs(velocity) > 0.1) {
-        scrollY.value -= velocity * 16; // Di chuyển theo vận tốc
-        velocity *= 0.92; // Ma sát (càng nhỏ dừng càng nhanh)
+        scrollY.value -= velocity * 16;
+        velocity *= 0.92; // Ma sát
         animationFrameId = requestAnimationFrame(inertiaLoop);
     } else {
         velocity = 0;
-        snapToGrid(); // Dừng hẳn thì căn chỉnh
+        snapToGrid();
     }
 };
 
 const snapToGrid = () => {
     const targetY = Math.round(scrollY.value / ITEM_HEIGHT) * ITEM_HEIGHT;
     const diff = targetY - scrollY.value;
-    
     if (Math.abs(diff) > 0.5) {
-        scrollY.value += diff * 0.15; // Tốc độ tự căn chỉnh
+        scrollY.value += diff * 0.15;
         animationFrameId = requestAnimationFrame(snapToGrid);
     } else {
         scrollY.value = targetY;
@@ -836,57 +868,53 @@ const snapToGrid = () => {
     }
 };
 
-// Mouse Wheel
+// --- HANDLERS ---
 const onWheel = (e) => {
     cancelAnimationFrame(animationFrameId);
+    targetScrollY = null;
     velocity = 0;
-    scrollY.value += e.deltaY * 0.4; // Hệ số tốc độ chuột
-    snapToGrid(); // Gọi snap ngay để có cảm giác khựng từng nấc
+    scrollY.value += e.deltaY * 0.4;
+    snapToGrid();
 };
 
-// Touch / Drag Logic
 const onMouseDown = (e) => {
     isDragging = true;
     startY = e.clientY;
     lastTouchY = startY;
     velocity = 0;
+    targetScrollY = null;
     cancelAnimationFrame(animationFrameId);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
 };
-
 const onMouseMove = (e) => {
     if (!isDragging) return;
-    const y = e.clientY;
-    const delta = lastTouchY - y;
+    const delta = lastTouchY - e.clientY;
     scrollY.value += delta;
-    lastTouchY = y;
+    lastTouchY = e.clientY;
 };
-
 const onMouseUp = (e) => {
     isDragging = false;
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', onMouseUp);
-    // Tính vận tốc ném
-    velocity = (startY - e.clientY) * 0.05; 
+    velocity = (startY - e.clientY) * 0.05;
     lastTime = 0;
     inertiaLoop(performance.now());
 };
 
-// Touch Mobile
 const onTouchStart = (e) => {
     isDragging = true;
     startY = e.touches[0].clientY;
     lastTouchY = startY;
     velocity = 0;
+    targetScrollY = null;
     cancelAnimationFrame(animationFrameId);
 };
 const onTouchMove = (e) => {
     if (!isDragging) return;
-    const y = e.touches[0].clientY;
-    const delta = lastTouchY - y;
+    const delta = lastTouchY - e.touches[0].clientY;
     scrollY.value += delta;
-    lastTouchY = y;
+    lastTouchY = e.touches[0].clientY;
 };
 const onTouchEnd = (e) => {
     isDragging = false;
@@ -901,8 +929,7 @@ const switchTab = (tabId) => {
     velocity = 0;
 };
 
-// --- LOGIC HELPER ---
-const selectItem = (item) => { selectedItem.value = item; };
+// --- HELPERS (Logic cũ) ---
 const parsedSubStats = computed(() => {
   if (!selectedItem.value || !selectedItem.value.subStats) return [];
   try { return JSON.parse(selectedItem.value.subStats); } catch (e) { return []; }
@@ -987,7 +1014,7 @@ onUnmounted(() => {
   padding: 20px;
   position: relative;
   overflow: hidden;
-  user-select: none; /* Tránh bôi đen text khi kéo */
+  user-select: none;
 }
 .bg-overlay {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -996,7 +1023,7 @@ onUnmounted(() => {
 }
 .inventory-layout {
   position: relative; z-index: 1;
-  display: grid; grid-template-columns: 1.2fr 1fr; /* Điều chỉnh tỉ lệ */
+  display: grid; grid-template-columns: 1.2fr 1fr;
   gap: 30px;
   max-width: 1100px; margin: 0 auto; height: 85vh;
 }
@@ -1051,7 +1078,7 @@ onUnmounted(() => {
 
 /* Center Bar */
 .center-highlight-bar {
-    position: absolute; top: 50%; left: 0; right: 0; height: 56px; /* Khớp ITEM_HEIGHT */
+    position: absolute; top: 50%; left: 0; right: 0; height: 56px; /* 50 + padding */
     transform: translateY(-50%);
     background: linear-gradient(90deg, transparent 0%, rgba(255, 202, 40, 0.08) 20%, rgba(255, 202, 40, 0.08) 80%, transparent 100%);
     border-top: 1px solid rgba(255, 202, 40, 0.3);
@@ -1062,14 +1089,15 @@ onUnmounted(() => {
 
 /* Item */
 .wheel-item {
-    position: absolute; left: 0; right: 0; top: 0; height: 56px;
+    position: absolute; left: 0; right: 0; top: 0; height: 50px;
     display: flex; align-items: center; justify-content: center;
     padding: 0 10px;
     will-change: transform, opacity;
+    cursor: pointer;
 }
 
 .wheel-inner {
-    width: 90%; height: 48px; /* Nhỏ hơn container */
+    width: 90%; height: 44px;
     display: flex; align-items: center;
     background: rgba(46, 30, 25, 0.6);
     border: 1px solid rgba(139, 94, 60, 0.3);
@@ -1082,11 +1110,11 @@ onUnmounted(() => {
 .wheel-item.active .wheel-inner {
     background: linear-gradient(90deg, rgba(62, 39, 35, 0.9) 0%, rgba(93, 64, 55, 1) 50%, rgba(62, 39, 35, 0.9) 100%);
     border-color: #ffca28;
-    transform: scale(1.02);
+    transform: scale(1.05);
 }
 
 .icon-box { position: relative; margin-right: 12px; }
-.item-icon { width: 36px; height: 36px; object-fit: contain; filter: drop-shadow(0 2px 2px black); }
+.item-icon { width: 32px; height: 32px; object-fit: contain; filter: drop-shadow(0 2px 2px black); }
 .qty-badge { position: absolute; bottom: -2px; right: -4px; background: #3e2723; color: #fff; font-size: 0.6rem; padding: 0 3px; border-radius: 2px; border: 1px solid #5d4037; }
 
 .info-box { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }

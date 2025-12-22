@@ -1395,26 +1395,58 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                 placeholder="Đạo hiệu người nhận"
                 required
               />
-              <select v-model.number="grantItemForm.itemId" required>
-                <option :value="0">Chọn vật phẩm...</option>
-                <option
-                  v-for="item in itemOptions"
-                  :key="item.id"
-                  :value="item.id"
-                >
-                  {{ item.name }}
-                </option>
-              </select>
+              
+              <div class="item-selector-container">
+                <div class="filter-row">
+                  <input 
+                    v-model="grantItemSearch" 
+                    placeholder="Tìm tên/mã vật phẩm..."
+                    class="search-input"
+                  />
+                  <select v-model="grantItemTypeFilter" class="type-filter">
+                    <option value="">Tất cả</option>
+                    <option v-for="t in itemTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+                  </select>
+                </div>
+
+                <div class="item-list custom-scroll-panel">
+                  <div 
+                    v-for="item in filteredGrantList" 
+                    :key="item.itemId"
+                    class="select-item-row"
+                    :class="{ active: grantItemForm.itemId === item.itemId }"
+                    @click="grantItemForm.itemId = item.itemId"
+                  >
+                    <span class="item-name">{{ item.name }}</span>
+                    <span :class="['item-rarity-badge', 'rarity-' + item.rarity]">{{ item.rarity }}</span>
+                  </div>
+                  <div v-if="filteredGrantList.length === 0" class="empty-hint">
+                    Không tìm thấy vật phẩm
+                  </div>
+                </div>
+
+                <div v-if="selectedGrantItem" class="selected-preview">
+                  <img :src="resolveItemImage(selectedGrantItem.imageUrl)" class="preview-icon" />
+                  <div class="preview-details">
+                    <div class="preview-name" :class="'rarity-' + selectedGrantItem.rarity">
+                      {{ selectedGrantItem.name }}
+                    </div>
+                    <small>{{ selectedGrantItem.code }}</small>
+                  </div>
+                </div>
+              </div>
+
               <input
                 v-model.number="grantItemForm.quantity"
                 type="number"
                 placeholder="Số lượng"
                 required
+                style="margin-top: 10px;"
               />
               <button
                 type="submit"
                 class="btn-action blue btn-interactive"
-                :disabled="isGrantingItem"
+                :disabled="isGrantingItem || !grantItemForm.itemId"
               >
                 <i v-if="isGrantingItem" class="fas fa-spinner fa-spin"></i>
                 {{ isGrantingItem ? "Đang chế tác..." : "Ban Bảo Vật" }}
@@ -1525,6 +1557,10 @@ const selectedMainStatValue = ref(0);
 
 // Danh sách sub-stat động
 const subStatsList = ref([]);
+
+// [NEW] Grant Item Search & Filter States
+const grantItemSearch = ref("");
+const grantItemTypeFilter = ref("");
 
 // --- ASSET CONFIG ---
 const assetLibrary = {
@@ -1662,6 +1698,31 @@ const itemOptions = computed(() =>
   (adminStore.items || []).map((i) => ({ id: i.itemId, name: i.name })),
 );
 
+// [NEW] Logic filter cho phần Ban Item
+const filteredGrantList = computed(() => {
+  let list = adminStore.items || [];
+  
+  // Filter by Type
+  if (grantItemTypeFilter.value) {
+    list = list.filter(i => i.type === grantItemTypeFilter.value);
+  }
+
+  // Filter by Search Name/Code
+  if (grantItemSearch.value) {
+    const s = grantItemSearch.value.toLowerCase();
+    list = list.filter(i => i.name.toLowerCase().includes(s) || i.code.toLowerCase().includes(s));
+  }
+
+  // Limit display to avoid lag (top 20)
+  return list.slice(0, 20);
+});
+
+// [NEW] Lấy item đã chọn để hiển thị Preview
+const selectedGrantItem = computed(() => {
+  if (!grantItemForm.itemId) return null;
+  return adminStore.items.find(i => i.itemId === grantItemForm.itemId);
+});
+
 const currentRawAssets = computed(() => {
   return assetLibrary[itemForm.type] || assetLibrary["WEAPON"];
 });
@@ -1756,9 +1817,6 @@ const getAllowedSubStats = computed(() => {
 
   // 2. Lọc Main Stat đã chọn (Nguyên tắc: Không trùng loại)
   // Nếu Main là ATK hoặc ATK%, thì Sub ko được hiện ATK và ATK%
-  // Tuy nhiên, theo yêu cầu: "nếu main stat là %, sub chỉ hiện flat". 
-  // => Điều này thực ra là logic chuẩn: Main đã ăn stat nào rồi thì Sub né stat đó ra.
-  
   return allowed.filter(s => s.value !== mainStat);
 });
 
@@ -2282,4 +2340,22 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
 .unit-label { font-size: 1.2rem; color: #888; font-weight: bold; }
 .sub-stats-preview { margin-top: 5px; display: flex; flex-direction: column; gap: 2px; }
 .preview-sub { color: #a5d6a7; font-family: monospace; }
+
+/* Item Selector for Ban Items */
+.item-selector-container { margin-bottom: 10px; background: rgba(0,0,0,0.2); border: 1px solid #444; border-radius: 6px; padding: 10px; }
+.filter-row { display: flex; gap: 10px; margin-bottom: 10px; }
+.search-input { flex: 1; padding: 8px; background: rgba(0,0,0,0.5); border: 1px solid #555; color: #fff; border-radius: 4px; }
+.type-filter { width: 120px; padding: 8px; background: rgba(0,0,0,0.5); border: 1px solid #555; color: #fff; border-radius: 4px; }
+.item-list { max-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 4px; border: 1px solid #333; }
+.select-item-row { display: flex; justify-content: space-between; padding: 8px 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); transition: 0.2s; }
+.select-item-row:hover { background: rgba(255, 215, 0, 0.1); }
+.select-item-row.active { background: rgba(255, 215, 0, 0.2); border-left: 3px solid #ffca28; }
+.item-name { color: #e0e0e0; font-weight: 500; }
+.item-rarity-badge { font-size: 0.75rem; padding: 2px 6px; border-radius: 3px; background: rgba(0,0,0,0.3); }
+.empty-hint { padding: 15px; text-align: center; color: #777; font-style: italic; }
+.selected-preview { display: flex; align-items: center; gap: 15px; margin-top: 15px; padding: 10px; background: rgba(255, 215, 0, 0.05); border: 1px solid #ffca28; border-radius: 6px; animation: fadeIn 0.3s; }
+.preview-icon { width: 40px; height: 40px; object-fit: contain; background: #000; border-radius: 4px; border: 1px solid #555; }
+.preview-details { display: flex; flex-direction: column; }
+.preview-name { font-weight: bold; font-size: 1rem; }
+.preview-details small { color: #888; }
 </style>

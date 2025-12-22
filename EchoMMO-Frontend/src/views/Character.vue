@@ -36,7 +36,11 @@
 
             <div class="divider"></div>
 
-            <div class="base-stat-row" v-for="(cfg, key) in statConfigs" :key="key">
+            <div
+              class="base-stat-row"
+              v-for="(cfg, key) in statConfigs"
+              :key="key"
+            >
               <span class="stat-name" :class="cfg.colorClass">
                 <i :class="['fas', cfg.icon]"></i> {{ cfg.label }}
               </span>
@@ -91,7 +95,8 @@
               :class="{
                 filled: equipment[key],
                 'target-glow': hoveredType === key,
-                'broken-item': equipment[key] && getDurabilityPercent(equipment[key]) <= 0
+                'broken-item':
+                  equipment[key] && getDurabilityPercent(equipment[key]) <= 0,
               }"
               @mousedown.left="unequipSlow(key)"
               :title="SLOT_CONFIG[key].label"
@@ -141,7 +146,8 @@
                     filled: equipment[key],
                     'target-glow': hoveredType === key,
                     broken:
-                      equipment[key] && getDurabilityPercent(equipment[key]) <= 0,
+                      equipment[key] &&
+                      getDurabilityPercent(equipment[key]) <= 0,
                   }"
                   @mousedown.left="unequipSlow(key)"
                   :title="SLOT_CONFIG[key].label"
@@ -174,7 +180,8 @@
               :class="{
                 filled: equipment[key],
                 'target-glow': hoveredType === key,
-                'broken-item': equipment[key] && getDurabilityPercent(equipment[key]) <= 0
+                'broken-item':
+                  equipment[key] && getDurabilityPercent(equipment[key]) <= 0,
               }"
               @mousedown.left="unequipSlow(key)"
               :title="SLOT_CONFIG[key].label"
@@ -337,7 +344,7 @@ const statConfigs = {
   agi: { label: "Thân Pháp", icon: "fa-wind", colorClass: "text-blue" },
   dex: { label: "Khéo Léo", icon: "fa-crosshairs", colorClass: "text-yellow" },
   int: { label: "Trí Tuệ", icon: "fa-brain", colorClass: "text-purple" },
-  luck: { label: "Vận Khí", icon: "fa-star", colorClass: "text-gold" }
+  luck: { label: "Vận Khí", icon: "fa-star", colorClass: "text-gold" },
 };
 
 const updateDayNight = () => {
@@ -345,14 +352,19 @@ const updateDayNight = () => {
   isNight.value = h >= 18 || h < 6;
 };
 
-// --- LOGIC CONG DIEM ---
+// --- LOGIC STATS ---
 const pendingStats = reactive({
-  str: 0, vit: 0, agi: 0, dex: 0, int: 0, luck: 0,
+  str: 0,
+  vit: 0,
+  agi: 0,
+  dex: 0,
+  int: 0,
+  luck: 0,
 });
 
 const getBaseStat = (key) => {
   const char = charStore.character || {};
-  if (key === 'int') return char.intelligence || char.int_stat || 0;
+  if (key === "int") return char.intelligence || char.int_stat || 0;
   return char[key] || 0;
 };
 
@@ -362,15 +374,23 @@ const availablePoints = computed(() => {
   return Math.max(0, currentPoints - used);
 });
 
-const isPendingChanges = computed(() => Object.values(pendingStats).some((v) => v > 0));
+const isPendingChanges = computed(() =>
+  Object.values(pendingStats).some((v) => v > 0)
+);
 
-const increaseStat = (key) => { if (availablePoints.value > 0) pendingStats[key]++; };
-const decreaseStat = (key) => { if (pendingStats[key] > 0) pendingStats[key]--; };
-const resetPending = () => { Object.keys(pendingStats).forEach((k) => (pendingStats[k] = 0)); };
+const increaseStat = (key) => {
+  if (availablePoints.value > 0) pendingStats[key]++;
+};
+const decreaseStat = (key) => {
+  if (pendingStats[key] > 0) pendingStats[key]--;
+};
+const resetPending = () => {
+  Object.keys(pendingStats).forEach((k) => (pendingStats[k] = 0));
+};
 
 const confirmAddStats = async () => {
   const payload = { ...pendingStats };
-  if(payload.int) {
+  if (payload.int) {
     payload.intelligence = payload.int;
     delete payload.int;
   }
@@ -429,11 +449,11 @@ const userSkinImg = computed(() => {
 
 const hoveredType = ref(null);
 
-// --- [CORE FIX] TINH TOAN CHI SO TOTAL (DONG BO BACKEND & FIX FALLBACK) ---
+// --- [CORE FIX] CALCULATE TOTAL STATS (SYNCED WITH BACKEND) ---
 const totalStats = computed(() => {
   const char = charStore.character || {};
-  
-  // 1. Chỉ số thuộc tính tổng (Gốc + Pending)
+
+  // 1. Base Attributes (Base + Pending)
   let totalAttr = {
     str: (char.str || 0) + pendingStats.str,
     vit: (char.vit || 0) + pendingStats.vit,
@@ -443,71 +463,79 @@ const totalStats = computed(() => {
     luck: (char.luck || 0) + pendingStats.luck,
   };
 
-  // 2. Tính chỉ số cơ bản theo công thức Nerf (1 STR = 2 ATK)
+  // 2. Base Combat Stats (Formula: 1 STR = 2 ATK)
   let combat = {
-    atk: 5 + (totalAttr.str * 2),
+    atk: 5 + totalAttr.str * 2,
     def: 2 + Math.floor(totalAttr.vit / 3),
-    hp: 100 + (totalAttr.vit * 15),
+    hp: 100 + totalAttr.vit * 15,
     speed: 10 + totalAttr.agi,
-    crit: 1 + (totalAttr.luck / 10),
+    crit: 1 + totalAttr.luck / 10,
   };
-  let critDmg = 150 + (totalAttr.dex / 5);
+  let critDmg = 150 + totalAttr.dex / 5;
 
-  // 3. Duyệt trang bị
+  // 3. Process Equipment
   Object.values(equipment.value).forEach((ui) => {
     if (!ui || !ui.item) return;
 
-    // QUAN TRỌNG: Check độ bền. 
-    // Nếu undefined thì coi là 100 (đồ cũ không bị lỗi). Chỉ <= 0 mới bỏ qua.
+    // A. Durability Check
+    // Handle undefined/null as 100 (safe fallback for old items). Only broken if <= 0.
     const dur = ui.currentDurability !== undefined ? ui.currentDurability : 100;
     if (dur <= 0) return;
 
-    // A. Main Stat (Ưu tiên lấy từ UserItem)
+    // B. Main Stat (Priority: UserItem > Item Template)
     let hasMainStat = false;
 
+    // Check if UserItem has custom stats (from enhancement or generation)
     if (ui.mainStatType && ui.mainStatValue && Number(ui.mainStatValue) > 0) {
-        hasMainStat = true;
-        const type = ui.mainStatType.toUpperCase();
-        const val = Number(ui.mainStatValue);
-        
-        if (['ATK', 'ATK_FLAT'].includes(type)) combat.atk += val;
-        else if (['DEF', 'DEF_FLAT'].includes(type)) combat.def += val;
-        else if (['HP', 'HP_FLAT'].includes(type)) combat.hp += val;
-        else if (type === 'SPEED') combat.speed += val;
-        else if (type === 'CRIT_RATE') combat.crit += val;
-        else if (type === 'CRIT_DMG') critDmg += val;
-        
-        // Percent logic
-        else if (type === 'ATK_PERCENT') combat.atk += (5 + totalAttr.str * 2) * (val / 100);
-        else if (type === 'HP_PERCENT') combat.hp += (100 + totalAttr.vit * 15) * (val / 100);
+      hasMainStat = true;
+      const type = ui.mainStatType.toUpperCase();
+      const val = Number(ui.mainStatValue);
+
+      if (["ATK", "ATK_FLAT"].includes(type)) combat.atk += val;
+      else if (["DEF", "DEF_FLAT"].includes(type)) combat.def += val;
+      else if (["HP", "HP_FLAT"].includes(type)) combat.hp += val;
+      else if (type === "SPEED") combat.speed += val;
+      else if (type === "CRIT_RATE") combat.crit += val;
+      else if (type === "CRIT_DMG") critDmg += val;
+      // Percent logic
+      else if (type === "ATK_PERCENT")
+        combat.atk += (5 + totalAttr.str * 2) * (val / 100);
+      else if (type === "HP_PERCENT")
+        combat.hp += (100 + totalAttr.vit * 15) * (val / 100);
     }
 
-    // [FIX HERE] B. Fallback: Nếu không có MainStat thì lấy từ Item Gốc (Hỗ trợ đồ cũ)
+    // [FIX HERE] C. Fallback: If UserItem has NO MainStat, use Item Template Base Stats
     if (!hasMainStat) {
-        combat.atk += (ui.item.atkBonus || 0);
-        combat.def += (ui.item.defBonus || 0);
-        combat.hp += (ui.item.hpBonus || 0);
-        combat.speed += (ui.item.speedBonus || 0);
+      combat.atk += ui.item.atkBonus || 0;
+      combat.def += ui.item.defBonus || 0;
+      combat.hp += ui.item.hpBonus || 0;
+      combat.speed += ui.item.speedBonus || 0;
     }
 
-    // C. Sub Stats
+    // D. Sub Stats
     if (ui.subStats) {
-        let subs = [];
-        try { subs = typeof ui.subStats === 'string' ? JSON.parse(ui.subStats) : ui.subStats; } catch (e) {}
+      let subs = [];
+      try {
+        subs =
+          typeof ui.subStats === "string"
+            ? JSON.parse(ui.subStats)
+            : ui.subStats;
+      } catch (e) {}
 
-        if (Array.isArray(subs)) {
-            subs.forEach(stat => {
-                const type = (stat.code || stat.type || '').toUpperCase();
-                const val = Number(stat.value || 0);
-                
-                if (['ATK', 'ATK_FLAT'].includes(type)) combat.atk += val;
-                else if (['DEF', 'DEF_FLAT'].includes(type)) combat.def += val;
-                else if (['HP', 'HP_FLAT'].includes(type)) combat.hp += val;
-                else if (type === 'SPEED') combat.speed += val;
-                else if (type === 'CRIT_RATE') combat.crit += val;
-                else if (type === 'ATK_PERCENT') combat.atk += (5 + totalAttr.str * 2) * (val / 100);
-            });
-        }
+      if (Array.isArray(subs)) {
+        subs.forEach((stat) => {
+          const type = (stat.code || stat.type || "").toUpperCase();
+          const val = Number(stat.value || 0);
+
+          if (["ATK", "ATK_FLAT"].includes(type)) combat.atk += val;
+          else if (["DEF", "DEF_FLAT"].includes(type)) combat.def += val;
+          else if (["HP", "HP_FLAT"].includes(type)) combat.hp += val;
+          else if (type === "SPEED") combat.speed += val;
+          else if (type === "CRIT_RATE") combat.crit += val;
+          else if (type === "ATK_PERCENT")
+            combat.atk += (5 + totalAttr.str * 2) * (val / 100);
+        });
+      }
     }
   });
 
@@ -517,11 +545,11 @@ const totalStats = computed(() => {
     speed: Math.floor(combat.speed),
     crit: parseFloat(combat.crit.toFixed(2)),
     hp: Math.floor(combat.hp),
-    attributes: totalAttr 
+    attributes: totalAttr,
   };
 });
 
-// Helper class màu sắc Level
+// Helper: Color class for Enhance Level
 const getLevelClass = (lv) => {
   if (!lv) return "";
   if (lv >= 15) return "lvl-red";
@@ -530,11 +558,23 @@ const getLevelClass = (lv) => {
   return "lvl-white";
 };
 
-// Helper Độ Bền
+// Helper: Durability
 const getDurabilityPercent = (item) => {
-  if (!item.maxDurability && !item.max_durability) return 100;
-  const max = item.maxDurability || item.max_durability;
-  const cur = item.currentDurability !== undefined ? item.currentDurability : item.current_durability;
+  // If undefined, treat as 100% (safe for old items)
+  if (
+    item.maxDurability === undefined &&
+    item.max_durability === undefined
+  )
+    return 100;
+
+  const max = item.maxDurability || item.max_durability || 100;
+  const cur =
+    item.currentDurability !== undefined
+      ? item.currentDurability
+      : item.current_durability !== undefined
+      ? item.current_durability
+      : max;
+
   return Math.max(0, (cur / max) * 100);
 };
 
