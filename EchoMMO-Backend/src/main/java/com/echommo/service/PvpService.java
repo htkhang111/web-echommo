@@ -25,7 +25,7 @@ public class PvpService {
     @Autowired private CharacterRepository charRepo;
     @Autowired private PvpQueueRepository queueRepo;
     @Autowired private PvpChatRepository chatRepo;
-    @Autowired private CharacterService charService; // Tiêm vào để cập nhật chỉ số từ trang bị
+    @Autowired private CharacterService charService; // [QUAN TRỌNG] Để tính lại stats từ đồ
 
     private final Random random = new Random();
 
@@ -39,6 +39,7 @@ public class PvpService {
         Optional<PvpQueue> myQueue = queueRepo.findByCharId(charId);
         if (myQueue.isPresent()) return null;
 
+        // Tìm đối thủ trong khoảng level +/- 5
         Optional<PvpQueue> opponentQueue = queueRepo.findMatchCandidate(charId, myChar.getLevel() - 5, myChar.getLevel() + 5)
                 .filter(q -> !q.getCharId().equals(charId));
 
@@ -47,11 +48,11 @@ public class PvpService {
             Character enemyChar = charRepo.findById(opponent.getCharId()).orElseThrow();
             queueRepo.delete(opponent);
 
-            // [FIX] Tính toán lại chỉ số cho cả 2 NGAY LẬP TỨC để lấy MaxHP chuẩn từ đồ
+            // [FIX 1] Tính toán lại chỉ số cho cả 2 NGAY LẬP TỨC để lấy MaxHP chuẩn từ đồ
             charService.recalculateStats(myChar);
             charService.recalculateStats(enemyChar);
 
-            // Reload lại từ DB để đảm bảo object myChar/enemyChar có chỉ số mới nhất
+            // [FIX 2] Reload lại từ DB để object myChar/enemyChar có chỉ số mới nhất (Atk, Def, MaxHp...)
             myChar = charRepo.findById(myChar.getCharId()).orElse(myChar);
             enemyChar = charRepo.findById(enemyChar.getCharId()).orElse(enemyChar);
 
@@ -72,6 +73,7 @@ public class PvpService {
             newMatch.setLastLog("Đang chờ xác nhận từ hai phía...");
             return matchRepo.save(newMatch);
         } else {
+            // Vào hàng đợi
             PvpQueue newQueue = new PvpQueue();
             newQueue.setCharId(charId);
             newQueue.setLevel(myChar.getLevel());
@@ -109,6 +111,7 @@ public class PvpService {
 
         matchRepo.save(match);
 
+        // Nếu cả 2 đã ra chiêu -> Xử lý Turn
         if (match.getP1Move() != null && match.getP2Move() != null) {
             resolveTurn(match);
         }
@@ -134,11 +137,10 @@ public class PvpService {
         p1 = charRepo.findById(p1.getCharId()).orElse(p1);
         p2 = charRepo.findById(p2.getCharId()).orElse(p2);
 
-        // Update lại reference vào match để dùng cho các logic sau
+        // Update lại reference vào match
         match.setPlayer1(p1);
         match.setPlayer2(p2);
 
-        // Log ra console để kiểm tra (Debug)
         System.out.println("PVP TURN: " + p1.getName() + " [Atk:" + p1.getBaseAtk() + "] vs " + p2.getName() + " [Atk:" + p2.getBaseAtk() + "]");
 
         int hp1 = match.getP1CurrentHp();
@@ -146,7 +148,8 @@ public class PvpService {
         StringBuilder log = new StringBuilder();
 
         if (m1.equals(m2)) {
-            int drawDamage = 20;
+            // Hòa: Cả 2 nhận sát thương nhỏ
+            int drawDamage = Math.max(10, (p1.getBaseAtk() + p2.getBaseAtk()) / 10);
             hp1 = Math.max(0, hp1 - drawDamage);
             hp2 = Math.max(0, hp2 - drawDamage);
             log.append("⚔️ HÒA! Cùng ra ").append(translateMove(m1)).append(". Nội lực xung khắc! Mất ").append(drawDamage).append(" HP.");
@@ -159,17 +162,26 @@ public class PvpService {
             Character defender = p1Wins ? p2 : p1;
             String winningMove = p1Wins ? m1 : m2;
 
-            // Né tránh (Dựa trên Speed đã cộng đồ)
+            // --- TÍNH NÉ TRÁNH ---
             int dodgeChance = Math.min(60, Math.max(0, 5 + (defender.getBaseSpeed() - attacker.getBaseSpeed())));
-            if (random.nextInt(100) < dodgeChance) {
-                log.append("💨 ").append(defender.getName()).append(" đã NÉ ĐƯỢC đòn tấn công của ").append(attacker.getName()).append("!");
-            } else {
-                // Sát thương (Atk - Def) - Tối thiểu 10% Atk
-                // Lúc này getBaseAtk() và getBaseDef() đã bao gồm chỉ số từ trang bị
-                int dmg = Math.max((int)(attacker.getBaseAtk() * 0.1), attacker.getBaseAtk() - defender.getBaseDef());
 
-                // Chí mạng
-                if (random.nextInt(100) < attacker.getBaseCritRate()) {
+            if (random.nextInt(100) < dodgeChance) {
+                log.append("💨 ").append(defender.getName()).append(" đã NÉ ĐƯỢC đòn tấn công!");
+            } else {
+                // --- TÍNH SÁT THƯƠNG [FIX LỖI 11 MÁU] ---
+                // Công thức: Atk - Def.
+                // Nếu Def > Atk (Giáp trâu) -> Damage = 1 (Xước nhẹ)
+                int rawDmg = attacker.getBaseAtk() - defender.getBaseDef();
+                int dmg = Math.max(1, rawDmg);
+
+                // Nếu chênh lệch quá lớn (Giáp gấp đôi công) -> Có thể đánh Miss hoàn toàn (0 damage)
+                if (defender.getBaseDef() > attacker.getBaseAtk() * 2) {
+                    dmg = 0;
+                    log.append("🛡️ Giáp quá cứng! ");
+                }
+
+                // --- TÍNH CHÍ MẠNG ---
+                if (dmg > 0 && random.nextInt(100) < attacker.getBaseCritRate()) {
                     dmg = (int) (dmg * (attacker.getBaseCritDmg() / 100.0));
                     log.append("🔥 CHÍ MẠNG! ");
                 }
@@ -214,8 +226,8 @@ public class PvpService {
         int hp1 = match.getP1CurrentHp();
         int hp2 = match.getP2CurrentHp();
 
+        // Xử lý phạt người không đánh (AFK)
         if (match.getP1Move() == null && match.getP2Move() == null) {
-            // Cả hai cùng treo -> Nhận dame phạt từ chỉ số Atk đối thủ (đã tính đồ)
             int d1 = Math.max(25, p2.getBaseAtk() - p1.getBaseDef());
             int d2 = Math.max(25, p1.getBaseAtk() - p2.getBaseDef());
             hp1 = Math.max(0, hp1 - d1);
@@ -250,6 +262,7 @@ public class PvpService {
                 updatePvpStats(winnerId, loserId);
             }
         } else {
+            // Reset move cho turn sau
             match.setP1Move(null);
             match.setP2Move(null);
             match.setTurnCount(match.getTurnCount() + 1);

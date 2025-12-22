@@ -9,6 +9,7 @@ import com.echommo.repository.CharacterRepository;
 import com.echommo.repository.PvpMatchRepository;
 import com.echommo.repository.PvpQueueRepository;
 import com.echommo.repository.UserRepository;
+import com.echommo.service.CharacterService; // [THÊM]
 import com.echommo.service.PvpService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 public class PvpController {
 
     @Autowired private PvpService pvpService;
+    @Autowired private CharacterService charService; // [THÊM] Inject service này
     @Autowired private UserRepository userRepo;
     @Autowired private CharacterRepository charRepo;
     @Autowired private PvpMatchRepository matchRepo;
@@ -41,16 +43,15 @@ public class PvpController {
         MatchResponse response = new MatchResponse();
         response.setMyId(myChar.getCharId());
 
-        // [FIX] Dùng helper từ Service để lấy trận mới nhất (Active hoặc Finished gần nhất)
+        // Lấy trận đấu mới nhất
         PvpMatch match = pvpService.getLatestMatchForUser(myChar.getCharId());
 
         if (match != null) {
-            // Map dữ liệu trận đấu (kể cả đã FINISHED) ra response để Frontend xử lý
             mapMatchToResponse(match, myChar.getCharId(), response);
             return ResponseEntity.ok(response);
         }
 
-        // Nếu không có trận nào, kiểm tra xem có đang trong hàng đợi tìm trận không
+        // Kiểm tra hàng đợi
         Optional<PvpQueue> queueOpt = queueRepo.findByCharId(myChar.getCharId());
         if (queueOpt.isPresent()) {
             response.setStatus("SEARCHING");
@@ -151,11 +152,9 @@ public class PvpController {
             PvpMatch match = matchRepo.findById(matchId).orElse(null);
 
             if (match != null) {
-                // Nếu chưa finish thì gọi service để xử lý surrender và kết thúc trận đấu
                 if (!"FINISHED".equals(match.getStatus())) {
                     pvpService.surrenderMatch(matchId, myChar.getCharId());
                 }
-                // Trả về thành công để Frontend tiếp tục polling và nhận status FINISHED
                 return ResponseEntity.ok(Map.of("message", "Surrender accepted"));
             } else {
                 return ResponseEntity.ok(Map.of("message", "Match not found"));
@@ -197,11 +196,25 @@ public class PvpController {
     }
 
     // ================= HELPER METHODS =================
+
+    /**
+     * [FIX QUAN TRỌNG]
+     * Hàm này lấy nhân vật từ User, đồng thời TÍNH LẠI CHỈ SỐ (recalculateStats).
+     * Điều này đảm bảo HP, ATK, DEF trong PvP luôn chính xác với đồ đang mặc.
+     */
     private Character getCharacterFromUser(UserDetails userDetails) {
         if (userDetails == null) return null;
         User user = userRepo.findByUsername(userDetails.getUsername()).orElse(null);
         if (user == null) return null;
-        return charRepo.findByUser_UserId(user.getUserId()).orElse(null);
+
+        Character c = charRepo.findByUser_UserId(user.getUserId()).orElse(null);
+
+        if (c != null) {
+            // Tính toán lại chỉ số từ trang bị ngay khi lấy nhân vật
+            charService.recalculateStats(c);
+        }
+
+        return c;
     }
 
     private void mapMatchToResponse(PvpMatch match, Integer myCharId, MatchResponse res) {
@@ -291,7 +304,7 @@ public class PvpController {
 
         private List<ChatMessageDTO> messages;
 
-        // Getters and Setters
+        // Getters and Setters (Giữ nguyên)
         public String getStatus() { return status; } public void setStatus(String status) { this.status = status; }
         public Long getMatchId() { return matchId; } public void setMatchId(Long matchId) { this.matchId = matchId; }
         public Integer getMyId() { return myId; } public void setMyId(Integer myId) { this.myId = myId; }

@@ -362,8 +362,7 @@ const updateDayNight = () => {
   isNight.value = h >= 18 || h < 6;
 };
 
-// --- HELPER: LẤY GIÁ TRỊ AN TOÀN (FIX LỖI KHÔNG NHẬN CHỈ SỐ) ---
-// Hàm này sẽ tìm mọi biến thể tên (camelCase hoặc snake_case) để đảm bảo lấy được số
+// --- HELPER: LẤY GIÁ TRỊ AN TOÀN ---
 const safeVal = (obj, ...keys) => {
   if (!obj) return 0;
   for (const k of keys) {
@@ -372,7 +371,7 @@ const safeVal = (obj, ...keys) => {
   return 0;
 };
 
-// --- LOGIC STATS ---
+// --- LOGIC STATS (CỘNG ĐIỂM) ---
 const pendingStats = reactive({
   str: 0, vit: 0, agi: 0, dex: 0, int: 0, luck: 0,
 });
@@ -427,7 +426,6 @@ const SLOT_CONFIG = {
 
 const determineSlot = (item) => {
   if (!item) return null;
-  // Fix: Tìm cả slotType và slot_type, uppercase để so sánh chuẩn
   const typeStr = item.slotType || item.slot_type || "";
   const dbSlot = typeStr.toUpperCase();
   if (SLOT_CONFIG[dbSlot]) return dbSlot;
@@ -472,7 +470,6 @@ const getItemTooltip = (ui) => {
   const maxDur = safeVal(ui, 'maxDurability', 'max_durability') || 100;
   text += `Độ bền: ${curDur}/${maxDur}\n`;
 
-  // Stats
   const type = (ui.mainStatType || "").toUpperCase();
   const val = safeVal(ui, 'mainStatValue', 'main_stat_value');
 
@@ -486,7 +483,6 @@ const getItemTooltip = (ui) => {
      else stats.push(`${type}: +${val}`);
   }
   
-  // Base fallback display (Fix: Dùng safeVal để lấy đúng chỉ số gốc)
   const baseAtk = safeVal(ui.item, 'atkBonus', 'atk_bonus');
   const baseDef = safeVal(ui.item, 'defBonus', 'def_bonus');
   const baseHp = safeVal(ui.item, 'hpBonus', 'hp_bonus');
@@ -500,12 +496,11 @@ const getItemTooltip = (ui) => {
   return text + stats.join("\n");
 };
 
-// --- [CORE FIX] TÍNH TỔNG CHỈ SỐ ---
+// --- [CORE FIX] TÍNH TỔNG CHỈ SỐ (BAO GỒM CẢ ĐIỂM PENDING) ---
 const totalStats = computed(() => {
   const char = charStore.character || {};
 
-  // 1. Chỉ số cơ bản (Attribute)
-  // Fix: Dùng safeVal để đảm bảo không bị NaN nếu dữ liệu thiếu
+  // 1. Chỉ số cơ bản (Attribute) = Gốc + Điểm cộng thêm (Pending)
   let totalAttr = {
     str: safeVal(char, 'str') + pendingStats.str,
     vit: safeVal(char, 'vit') + pendingStats.vit,
@@ -515,7 +510,8 @@ const totalStats = computed(() => {
     luck: safeVal(char, 'luck') + pendingStats.luck,
   };
 
-  // 2. Chỉ số chiến đấu nền (Combat Base)
+  // 2. Chỉ số chiến đấu nền (Tính từ Attribute tổng)
+  // Công thức này sẽ tự động cập nhật khi bạn bấm nút (+)
   let combat = {
     atk: 5 + totalAttr.str * 2,
     def: 2 + Math.floor(totalAttr.vit / 3),
@@ -528,52 +524,42 @@ const totalStats = computed(() => {
   Object.values(equipment.value).forEach((ui) => {
     if (!ui || !ui.item) return;
 
-    // Check độ bền
     const curDur = safeVal(ui, 'currentDurability', 'current_durability');
-    if (curDur <= 0 && (ui.maxDurability || ui.max_durability)) return; // Hỏng thì bỏ qua
+    if (curDur <= 0 && (ui.maxDurability || ui.max_durability)) return;
 
     const type = (ui.mainStatType || "").toUpperCase();
     const val = safeVal(ui, 'mainStatValue', 'main_stat_value');
 
-    // A. Cộng Main Stat (Chỉ số dòng chính)
+    // A. Main Stat
     if (val > 0) {
       if (type.includes("ATK")) combat.atk += val;
       else if (type.includes("DEF")) combat.def += val;
       else if (type.includes("HP")) combat.hp += val;
       else if (type.includes("SPEED")) combat.speed += val;
       else if (type.includes("CRIT")) combat.crit += val;
-      
-      // Percentages
       else if (type === "ATK_PERCENT") combat.atk += (5 + totalAttr.str * 2) * (val / 100);
       else if (type === "HP_PERCENT") combat.hp += (100 + totalAttr.vit * 15) * (val / 100);
     }
 
-    // B. Smart Fallback: Cộng chỉ số gốc (Base Stats) từ Item Template
-    // FIX QUAN TRỌNG: Dùng safeVal để lấy atkBonus/defBonus bất kể BE trả về key gì
+    // B. Base Stat Fallback
     const baseAtk = safeVal(ui.item, 'atkBonus', 'atk_bonus');
     const baseDef = safeVal(ui.item, 'defBonus', 'def_bonus');
     const baseHp = safeVal(ui.item, 'hpBonus', 'hp_bonus');
     const baseSpeed = safeVal(ui.item, 'speedBonus', 'speed_bonus');
 
-    // Logic: Nếu dòng chính KHÔNG PHẢI là Atk thì mới cộng Base Atk (tránh cộng trùng)
-    // Hoặc nếu dòng chính là Atk nhưng giá trị = 0 (trường hợp lỗi) thì vẫn cộng base
     if (!type.includes("ATK")) combat.atk += baseAtk;
     if (!type.includes("DEF")) combat.def += baseDef;
     if (!type.includes("HP")) combat.hp += baseHp;
     if (!type.includes("SPEED")) combat.speed += baseSpeed;
 
-    // C. Substats (Dòng phụ)
+    // C. Substats
     if (ui.subStats) {
       let subs = [];
-      try { 
-        subs = typeof ui.subStats === "string" ? JSON.parse(ui.subStats) : ui.subStats; 
-      } catch (e) {}
-      
+      try { subs = typeof ui.subStats === "string" ? JSON.parse(ui.subStats) : ui.subStats; } catch (e) {}
       if (Array.isArray(subs)) {
         subs.forEach((stat) => {
           const sType = (stat.code || stat.type || "").toUpperCase();
           const sVal = Number(stat.value || 0);
-          
           if (sType.includes("ATK")) combat.atk += sVal;
           else if (sType.includes("DEF")) combat.def += sVal;
           else if (sType.includes("HP")) combat.hp += sVal;
@@ -594,7 +580,6 @@ const totalStats = computed(() => {
   };
 });
 
-// Helper: Color class
 const getLevelClass = (lv) => {
   if (!lv) return "";
   if (lv >= 15) return "lvl-red";
@@ -603,12 +588,9 @@ const getLevelClass = (lv) => {
   return "lvl-white";
 };
 
-// Helper: Durability
 const getDurabilityPercent = (item) => {
   const max = safeVal(item, 'maxDurability', 'max_durability') || 100;
   const cur = safeVal(item, 'currentDurability', 'current_durability');
-  // Nếu cur = 0 mà max > 0, tức là hỏng hoặc chưa init, check kỹ:
-  // Nếu trong DB field là null, safeVal trả về 0. Nên cần logic fallback:
   if (item.currentDurability === undefined && item.current_durability === undefined) return 100; 
   return Math.max(0, (cur / max) * 100);
 };
@@ -627,7 +609,6 @@ const equip = async (userItem) => {
   if (slot) {
     try {
       await inventoryStore.equipItem(userItem.userItemId);
-      // Gọi cả 2 để update UI ngay lập tức
       await Promise.all([
           inventoryStore.fetchInventory(), 
           charStore.fetchCharacter()
@@ -636,7 +617,7 @@ const equip = async (userItem) => {
       console.error("Lỗi Equip:", e);
     }
   } else {
-    alert(`Vật phẩm lỗi loại (Slot Type): ${userItem.item.slotType}`);
+    alert(`Vật phẩm lỗi loại: ${userItem.item.slotType}`);
   }
 };
 

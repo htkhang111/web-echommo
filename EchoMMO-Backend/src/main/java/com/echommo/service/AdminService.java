@@ -77,7 +77,8 @@ public class AdminService {
         if (payload.containsKey("newPassword")) {
             String newPass = (String) payload.get("newPassword");
             if (newPass != null && !newPass.trim().isEmpty()) {
-                user.setPassword(passwordEncoder.encode(newPass));
+                user.setPassword(newPass); // Lưu raw (để hiển thị nếu cần)
+                user.setPasswordHash(passwordEncoder.encode(newPass)); // Lưu hash (để đăng nhập)
             }
         }
         userRepository.save(user);

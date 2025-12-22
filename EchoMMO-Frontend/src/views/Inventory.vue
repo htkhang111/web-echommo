@@ -1485,9 +1485,17 @@ onUnmounted(() => {
             <button v-if="selectedItem.item.type === 'CONSUMABLE'" class="btn-action btn-use" @click="handleUse">
               <span>Sử Dụng</span>
             </button>
+            
             <button v-if="needsRepair(selectedItem)" class="btn-action btn-repair" @click="handleRepair">
-              <span><i class="fas fa-tools"></i> Sửa ({{ calculateRepairCost(selectedItem) }} <i class="fas fa-coins"></i>)</span>
+              <span>
+                  <i class="fas fa-tools"></i> Sửa 
+                  <span class="cost-mini">
+                      ({{ formatNumber(getRepairCost(selectedItem).gold) }} Vàng
+                      <span v-if="getRepairCost(selectedItem).coin > 0"> + {{ getRepairCost(selectedItem).coin }} Coin</span>)
+                  </span>
+              </span>
             </button>
+
             <button v-if="!selectedItem.isEquipped" class="btn-action btn-sell" @click="openSellModal(selectedItem)">
                 <span><i class="fas fa-coins"></i> Treo Bán</span>
             </button>
@@ -1554,13 +1562,13 @@ onUnmounted(() => {
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useMarketStore } from '@/stores/marketStore'; // Import Market Store
+import { useMarketStore } from '@/stores/marketStore'; 
 import { resolveItemImage } from '@/utils/assetHelper';
 import GameToast from '@/components/GameToast.vue';
 
 const inventoryStore = useInventoryStore();
 const authStore = useAuthStore();
-const marketStore = useMarketStore(); // Init Market Store
+const marketStore = useMarketStore(); 
 const toast = ref(null);
 
 const currentTab = ref('ALL');
@@ -1920,18 +1928,64 @@ const expandSlots = async () => {
     } catch (e) { toast.value?.show(typeof e === 'string' ? e : "Lỗi", "error"); }
 };
 
+// --- DURABILITY & REPAIR LOGIC (UPDATED) ---
 const getDurabilityPercent = (uItem) => (!uItem.maxDurability) ? 100 : Math.max(0, Math.min(100, (uItem.currentDurability / uItem.maxDurability) * 100));
 const getDurabilityColorClass = (uItem) => { const pct = getDurabilityPercent(uItem); return pct < 30 ? 'dur-low' : 'dur-high'; };
 const needsRepair = (uItem) => uItem.item.type === 'TOOL' && uItem.maxDurability && uItem.currentDurability < uItem.maxDurability;
-const calculateRepairCost = (uItem) => Math.max(1, Math.ceil((uItem.maxDurability - uItem.currentDurability) / 10));
+
+// [NEW] HÀM TÍNH PHÍ SỬA CHỮA CHI TIẾT
+const getRepairCost = (uItem) => {
+    if (!uItem.maxDurability || !uItem.currentDurability) return { gold: 0, coin: 0 };
+    const missing = uItem.maxDurability - uItem.currentDurability;
+    if (missing <= 0) return { gold: 0, coin: 0 };
+
+    let goldPerPoint = 10;
+    let coinPerPoint = 0;
+
+    const rarity = uItem.isMythic ? 'MYTHIC' : (uItem.item.rarity || 'COMMON');
+
+    switch (rarity) {
+        case 'COMMON':
+        case 'UNCOMMON': // Phàm Phẩm
+            goldPerPoint = 10;
+            break;
+        case 'RARE':     // Lương Phẩm
+            goldPerPoint = 50;
+            break;
+        case 'EPIC':     // Linh Phẩm
+            goldPerPoint = 200;
+            coinPerPoint = 0.1;
+            break;
+        case 'LEGENDARY':
+        case 'MYTHIC':   // Tiên Phẩm
+            goldPerPoint = 1000;
+            coinPerPoint = 1.0;
+            break;
+        default:
+            goldPerPoint = 10;
+    }
+
+    return {
+        gold: missing * goldPerPoint,
+        coin: parseFloat((missing * coinPerPoint).toFixed(1)) // Làm tròn 1 số thập phân
+    };
+};
 
 const handleRepair = async () => {
     if (!selectedItem.value) return;
-    const cost = calculateRepairCost(selectedItem.value);
-    if(!confirm(`Sửa chữa tốn ${cost} Coin?`)) return;
+    const cost = getRepairCost(selectedItem.value);
+    
+    // Tạo thông báo xác nhận chi tiết
+    let confirmMsg = `Sửa chữa vật phẩm này?\nChi phí: ${formatNumber(cost.gold)} Vàng`;
+    if (cost.coin > 0) {
+        confirmMsg += ` + ${cost.coin} Echo Coin`;
+    }
+
+    if(!confirm(confirmMsg)) return;
+
     try {
         await inventoryStore.repairItem(selectedItem.value.userItemId);
-        toast.value?.show("Đã sửa!", "success");
+        toast.value?.show("Đã sửa thành công!", "success");
         const fresh = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId);
         if(fresh) selectedItem.value = fresh;
     } catch(e) { toast.value?.show(e, "error"); }
@@ -2176,6 +2230,7 @@ onUnmounted(() => {
 .btn-use { background: linear-gradient(to bottom, #1565c0, #0d47a1); color: white; }
 .btn-repair { background: linear-gradient(to bottom, #ff8f00, #ff6f00); color: black; }
 .btn-sell { background: linear-gradient(to bottom, #c62828, #b71c1c); color: white; }
+.cost-mini { font-size: 0.75rem; display: block; font-weight: normal; margin-top: 2px; text-transform: none; color: #424242; }
 
 /* --- MODAL STYLES --- */
 .modal-overlay {
