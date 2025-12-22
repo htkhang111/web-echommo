@@ -24,28 +24,37 @@
         <h2 class="node-name" :class="'text-' + currentEvent.rarityClass">
           {{ currentEvent.name }}
         </h2>
-
-        <div v-if="currentTool" class="current-tool-info">
-          <div class="tool-icon-box" :class="{ 'broken': currentTool.currentDurability <= 0 }">
-            <img :src="resolveItemImage(currentTool.item.imageUrl)" />
-          </div>
-          <div class="tool-stat">
-            <span class="t-name" :class="'text-' + (currentTool.item.rarity || 'COMMON')">
-              {{ currentTool.item.name }}
-            </span>
-            <div class="big-durability-bar">
-              <div class="bar-fill" :style="{ width: getDurabilityPercent(currentTool) + '%' }"
-                :class="getDurabilityColor(currentTool)"></div>
-              <span class="bar-text">{{ currentTool.currentDurability }} / {{ currentTool.maxDurability }}</span>
-            </div>
-          </div>
-        </div>
-        <div v-else class="no-tool-warning">
-          <i class="fas fa-exclamation-triangle"></i> Yêu cầu: <span class="highlight">{{ currentEvent.reqTool }}</span>
-        </div>
       </div>
 
       <div class="info-scroll-area">
+
+        <div class="status-row" v-if="currentTool">
+          <div class="icon-wrap tool-img-wrap" :class="{ 'broken': currentTool.currentDurability <= 0 }">
+            <img :src="resolveItemImage(currentTool.item.imageUrl)" />
+          </div>
+
+          <div class="stat-detail tool-layout">
+            <span class="t-name" :class="'text-' + (currentTool.item.rarity || 'COMMON')">
+              {{ currentTool.item.name }}
+            </span>
+
+            <div class="durability-compact">
+              <div class="bar-track-mini">
+                <div class="bar-fill" :style="{ width: getDurabilityPercent(currentTool) + '%' }"
+                  :class="getDurabilityColor(currentTool)"></div>
+              </div>
+              <span class="dura-text">{{ currentTool.currentDurability }}/{{ currentTool.maxDurability }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="status-row" v-else>
+          <div class="icon-wrap"><i class="fas fa-exclamation-triangle text-error"></i></div>
+          <div class="stat-detail">
+            <span class="label text-error">Cần công cụ: {{ currentEvent.reqTool }}</span>
+          </div>
+        </div>
+
         <div class="status-row">
           <div class="icon-wrap"><i class="fas fa-graduation-cap"></i></div>
           <div class="stat-detail">
@@ -55,6 +64,7 @@
             </span>
           </div>
         </div>
+
         <div class="status-row">
           <div class="icon-wrap"><i class="fas fa-cubes"></i></div>
           <div class="stat-detail">
@@ -112,7 +122,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useCharacterStore } from "@/stores/characterStore";
-import { useAuthStore } from "@/stores/authStore";
 import { useInventoryStore } from "@/stores/inventoryStore";
 import { useRouter } from "vue-router";
 import axiosClient from "@/api/axiosClient";
@@ -140,7 +149,6 @@ const playerLevel = computed(() => {
   return charStore.character?.level || 1;
 });
 
-// [FIX] Sửa đường dẫn ảnh w_wood.png (xóa prefix thừa)
 const EVENT_TYPES = [
   { id: "wood", codePrefix: "w_", rewardItemId: 1, name: "Cây Gỗ Sồi", image: resolveItemImage("w_wood.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Sồi" },
   { id: "dried_wood", codePrefix: "w_", rewardItemId: 2, name: "Cây Gỗ Khô", image: resolveItemImage("w_wood-red.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Khô" },
@@ -219,9 +227,7 @@ const initEvent = () => {
 
   currentEvent.value = evt;
   remainingNode.value = dbAmount !== undefined ? dbAmount : 10;
-  // [FIX] Cập nhật maxNode dựa trên trữ lượng thực tế (tránh lỗi hiển thị 12/10)
   maxNode.value = Math.max(10, remainingNode.value);
-
   startTimer();
 };
 
@@ -249,7 +255,6 @@ const handleGather = async (times = 1) => {
   try {
     await new Promise(r => setTimeout(r, 600));
 
-    // Payload JSON Body
     const payload = {
       itemId: currentEvent.value.rewardItemId,
       amount: times
@@ -285,7 +290,6 @@ const handleGather = async (times = 1) => {
 };
 
 const handleGatherAll = () => {
-  // [FIX] Giới hạn tối đa 10 lần mỗi click để khớp với logic Energy của Server
   const possible = Math.min(remainingNode.value, 10);
   if (possible > 0) handleGather(possible);
 };
@@ -462,57 +466,94 @@ onUnmounted(() => {
   color: #ffa726;
 }
 
-.current-tool-info {
-  background: rgba(0, 0, 0, 0.6);
-  padding: 8px;
+/* --- [UPDATED] STYLES CHO TOOL & INFO --- */
+
+.info-scroll-area {
+  width: 100%;
+  max-width: 400px;
+  background: rgba(0, 0, 0, 0.5);
+  /* Đậm hơn chút cho dễ nhìn */
+  border: 1px solid #444;
   border-radius: 8px;
-  border: 1px solid #5d4037;
-  margin: 5px auto;
+  padding: 15px;
+  margin-bottom: 15px;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  width: fit-content;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.tool-icon-box {
-  width: 36px;
-  height: 36px;
-  border: 1px solid #8d6e63;
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Icon Wrap chung: Size chuẩn 30px */
+.icon-wrap {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8d6e63;
+  font-size: 1.2rem;
+}
+
+/* Tool Img Wrap: Tinh chỉnh riêng cho ảnh tool */
+.tool-img-wrap {
+  border: 1px solid #5d4037;
   background: #222;
   border-radius: 4px;
   padding: 2px;
+  box-sizing: border-box;
 }
 
-.tool-icon-box img {
+.tool-img-wrap img {
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 
-.tool-icon-box.broken {
+.tool-img-wrap.broken {
   border-color: red;
   opacity: 0.5;
 }
 
-.tool-stat {
+.stat-detail {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  text-align: left;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+/* Layout riêng cho dòng Tool: Flex row */
+.tool-layout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
 .t-name {
   font-weight: bold;
-  font-size: 0.8rem;
   color: #d7ccc8;
+  font-size: 0.95rem;
 }
 
-.big-durability-bar {
-  width: 100px;
-  height: 10px;
+/* Thanh độ bền gọn gàng bên phải */
+.durability-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bar-track-mini {
+  width: 60px;
+  /* Ngắn gọn */
+  height: 6px;
   background: #333;
-  border-radius: 4px;
-  position: relative;
+  border-radius: 3px;
   overflow: hidden;
   border: 1px solid #555;
 }
@@ -522,16 +563,30 @@ onUnmounted(() => {
   transition: width 0.3s ease;
 }
 
-.bar-text {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8px;
-  color: white;
-  text-shadow: 1px 1px 1px black;
+.dura-text {
+  font-size: 0.75rem;
+  color: #aaa;
+  min-width: 40px;
+  /* Cố định width để số ko nhảy */
+  text-align: right;
+}
+
+/* --- COLORS --- */
+.gold-text {
+  color: #ffd700;
+}
+
+.text-red {
+  color: #ef5350;
+}
+
+.text-error {
+  color: #ff5252;
   font-weight: bold;
+}
+
+.text-success {
+  color: #69f0ae;
 }
 
 .bg-red-600 {
@@ -546,66 +601,7 @@ onUnmounted(() => {
   background: #388e3c;
 }
 
-.no-tool-warning {
-  color: #ff5252;
-  font-size: 0.9rem;
-  margin-top: 5px;
-  font-style: italic;
-}
-
-.tool-broken-msg {
-  color: #ff5252;
-  font-weight: bold;
-  text-transform: uppercase;
-  animation: blink 1s infinite;
-}
-
-.highlight {
-  color: #fbc02d;
-  font-weight: bold;
-}
-
-.info-scroll-area {
-  width: 100%;
-  max-width: 400px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid #444;
-  border-radius: 8px;
-  padding: 10px;
-  margin-bottom: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.status-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.icon-wrap {
-  width: 25px;
-  text-align: center;
-  color: #8d6e63;
-  font-size: 1rem;
-}
-
-.stat-detail {
-  flex: 1;
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.9rem;
-}
-
-.gold-text {
-  color: #ffd700;
-}
-
-.text-red {
-  color: #ef5350;
-}
-
+/* --- OTHER STYLES (Keep Original) --- */
 .progress-container {
   width: 100%;
   max-width: 400px;
@@ -716,12 +712,18 @@ onUnmounted(() => {
   font-size: 0.9rem;
 }
 
-.text-success {
-  color: #69f0ae;
+.lock-hint {
+  color: #ef5350;
+  font-size: 0.85rem;
+  font-style: italic;
+  margin-bottom: 5px;
 }
 
-.text-error {
+.tool-broken-msg {
   color: #ff5252;
+  font-weight: bold;
+  text-transform: uppercase;
+  animation: blink 1s infinite;
 }
 
 .shake-anim {
@@ -750,12 +752,5 @@ onUnmounted(() => {
   50% {
     opacity: 0.5;
   }
-}
-
-.lock-hint {
-  color: #ef5350;
-  font-size: 0.85rem;
-  font-style: italic;
-  margin-bottom: 5px;
 }
 </style>

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Service
@@ -28,11 +29,19 @@ public class SpaService {
         Wallet wallet = walletRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
-        // [LOGIC MỚI] Kiểm tra thời hạn
+        // 1. Kiểm tra Reset Daily (Reset số lần dùng nếu sang ngày mới)
+        LocalDate today = LocalDate.now();
+        if (character.getLastFreeSpaUse() == null ||
+                !character.getLastFreeSpaUse().toLocalDate().equals(today)) {
+            character.setDailySpaUsage(0);
+        }
+
+        // 2. Kiểm tra đang Spa không
         if (character.getSpaEndTime() != null && character.getSpaEndTime().isAfter(LocalDateTime.now())) {
-            // Đang spa thì ko trừ tiền nữa, trả về info luôn
+            long secondsRemaining = java.time.Duration.between(LocalDateTime.now(), character.getSpaEndTime()).getSeconds();
+            // Trả về response kèm secondsRemaining (cần update DTO nếu muốn chính xác, ở đây dùng tạm logic cũ)
             return new SpaStatusResponse(
-                    "Đang thư giãn...",
+                    "Đang thư giãn... còn " + secondsRemaining + "s",
                     character.getCurrentHp(),
                     character.getCurrentEnergy(),
                     wallet.getGold(),
@@ -47,53 +56,75 @@ public class SpaService {
             throw new RuntimeException("Gói Spa không hợp lệ!");
         }
 
-        BigDecimal cost = pack.getCost();
+        BigDecimal cost = BigDecimal.ZERO;
         boolean isFree = false;
+        int duration = pack.getDurationSeconds(); // BASIC=120, VIP=10
 
-        // 1. Logic Free Daily (Chỉ gói BASIC - Vàng)
+        // 3. Logic Tính Tiền & Hồi Phục
         if (pack == SpaPackage.BASIC) {
-            LocalDateTime lastFree = character.getLastFreeSpaUse();
-            if (lastFree == null || lastFree.toLocalDate().isBefore(LocalDateTime.now().toLocalDate())) {
+            // --- GÓI THƯỜNG (BASIC) ---
+            // Hồi 50% Max HP/Energy
+            int hpRecover = character.getMaxHp() / 2;
+            int energyRecover = character.getMaxEnergy() / 2;
+
+            // Logic Free 2 lần/ngày
+            if (character.getDailySpaUsage() < 2) {
                 cost = BigDecimal.ZERO;
                 isFree = true;
+            } else {
+                // Hết free -> Tính tiền: Level * 100 Gold
+                cost = new BigDecimal(character.getLevel() * 100);
             }
-        }
 
-        // 2. Logic Discount Tân Thủ (Chỉ gói VIP - Coin)
-        // Dưới Lv 10: Tốn 0.5 Coin thay vì 5 Coin
-        if (pack == SpaPackage.VIP && character.getLevel() < 10) {
-            cost = new BigDecimal("0.5");
-        }
+            // Thanh toán Gold (nếu không free)
+            if (!isFree) {
+                if (wallet.getGold().compareTo(cost) < 0) {
+                    throw new RuntimeException("Không đủ Vàng! Cần: " + cost);
+                }
+                wallet.setGold(wallet.getGold().subtract(cost));
+            }
 
-        // Thanh toán
-        if (pack == SpaPackage.VIP) {
+            // Thực hiện hồi (cộng thêm vào hiện tại, max là MaxHp)
+            character.setCurrentHp(Math.min(character.getCurrentHp() + hpRecover, character.getMaxHp()));
+            character.setCurrentEnergy(Math.min(character.getCurrentEnergy() + energyRecover, character.getMaxEnergy()));
+
+            // Tăng biến đếm sử dụng
+            character.setDailySpaUsage(character.getDailySpaUsage() + 1);
+            character.setLastFreeSpaUse(LocalDateTime.now()); // Update timestamp để check reset ngày
+
+        } else if (pack == SpaPackage.VIP) {
+            // --- GÓI THƯỢNG HẠNG (VIP) ---
+            // Hồi 100% Full
+            character.setCurrentHp(character.getMaxHp());
+            character.setCurrentEnergy(character.getMaxEnergy());
+
+            // Logic giá: 0.5 + (Level * 0.05) EchoCoin
+            // Ví dụ: Lv1 = 0.55, Lv10 = 1.0, Lv20 = 1.5
+            double coinCostDouble = 0.5 + (character.getLevel() * 0.05);
+            cost = BigDecimal.valueOf(coinCostDouble);
+
+            // Thanh toán Coin
             if (wallet.getEchoCoin().compareTo(cost) < 0) {
                 throw new RuntimeException("Không đủ Echo Coin! Cần: " + cost);
             }
             wallet.setEchoCoin(wallet.getEchoCoin().subtract(cost));
-        } else {
-            // Basic
-            if (wallet.getGold().compareTo(cost) < 0) {
-                throw new RuntimeException("Không đủ Vàng! Cần: " + cost);
-            }
-            wallet.setGold(wallet.getGold().subtract(cost));
         }
 
-        // Hồi phục & Cập nhật Time
-        character.setCurrentHp(character.getMaxHp());
-        character.setCurrentEnergy(character.getMaxEnergy());
+        // 4. Set thời gian Spa
         character.setSpaStartTime(LocalDateTime.now());
-        character.setSpaEndTime(LocalDateTime.now().plusMinutes(pack == SpaPackage.VIP ? 60 : 30));
+        character.setSpaEndTime(LocalDateTime.now().plusSeconds(duration));
+        character.setSpaPackageType(pack.name());
 
-        if (isFree) {
-            character.setLastFreeSpaUse(LocalDateTime.now());
-        }
-
+        // Lưu DB
         characterRepository.save(character);
         walletRepository.save(wallet);
 
-        String msg = isFree ? "Thư giãn miễn phí mỗi ngày!" : "Thanh toán thành công (-" + cost + ")";
+        String msg = isFree
+                ? "Thư giãn miễn phí (" + character.getDailySpaUsage() + "/2)!"
+                : "Thanh toán thành công (-" + cost + (pack == SpaPackage.VIP ? " Coin)" : " Vàng)");
 
+        // Trick: Set secondsRemaining vào message hoặc custom field để Frontend bắt được thời gian chính xác
+        // Tuy nhiên frontend đang hardcode 120s/10s fallback nên ở đây trả về OK là được.
         return new SpaStatusResponse(
                 msg,
                 character.getCurrentHp(),

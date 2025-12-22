@@ -551,3 +551,9 @@ ALTER TABLE items
 SET SQL_SAFE_UPDATES = 1;
 
 ALTER TABLE items ADD COLUMN is_limited BOOLEAN DEFAULT FALSE;
+
+-- Thêm cột theo dõi số lần dùng Spa thường trong ngày
+ALTER TABLE characters ADD COLUMN daily_spa_usage INT DEFAULT 0;
+
+-- Thêm cột lưu ngày cuối cùng sử dụng Spa (để reset daily)
+ALTER TABLE characters ADD COLUMN last_spa_date DATE DEFAULT NULL;

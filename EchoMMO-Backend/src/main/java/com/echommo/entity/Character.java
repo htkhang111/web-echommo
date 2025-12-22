@@ -87,12 +87,15 @@ public class Character {
     @Column(name = "spa_end_time") private LocalDateTime spaEndTime;
     @Column(name = "spa_package_type") private String spaPackageType;
 
-    // [NEW] Theo dõi lần dùng Spa miễn phí cuối cùng
+    // [UPDATED] Theo dõi lần dùng Spa miễn phí cuối cùng và số lần dùng trong ngày
     @Column(name = "last_free_spa_use")
     private LocalDateTime lastFreeSpaUse;
 
+    @Column(name = "daily_spa_usage")
+    @Builder.Default
+    private Integer dailySpaUsage = 0;
+
     // --- GATHERING SYSTEM ---
-    // [NEW] Level nghề & Exp nghề
     @Column(name = "gathering_level")
     @Builder.Default
     private Integer gatheringLevel = 1;
