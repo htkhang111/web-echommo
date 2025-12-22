@@ -295,39 +295,38 @@
 // };
 import { reactive } from "vue";
 
-// 1. Cấu hình Base URL trỏ thẳng về GitHub Pages
-const BASE_URL = "https://htkhang111.github.io";
+// [QUAN TRỌNG] Dùng link raw để lấy ảnh trực tiếp, không qua cache của GitHub Pages
+// Nếu nhánh chính của đại hiệp là 'master', hãy đổi chữ 'main' ở cuối thành 'master'
+const BASE_URL = "https://raw.githubusercontent.com/htkhang111/htkhang111.github.io/main";
 
-// 2. Map tiền tố (Prefix) -> Thư mục assets tương ứng
+// Map tiền tố (Prefix) -> Thư mục assets tương ứng
 const PREFIX_MAP = {
-  // --- EQUIPMENT (Trang bị) ---
   s_: "/resources/equipment/sword",
   a_: "/resources/equipment/armor",
   h_: "/resources/equipment/helmet",
   ri_: "/resources/equipment/ring",
   n_: "/resources/equipment/necklace",
   b_: "/resources/equipment/boots",
-
-  // --- TOOLS (Dành cho trường hợp chỉ lưu tên file: "a-0-strongaxe.png") ---
+  
+  // Công cụ (Tools)
   "fr-": "/resources/tool/fishing-rod",
   "p-": "/resources/tool/pickaxe",
-  "a-": "/resources/tool/axe",
+  "a-": "/resources/tool/axe", // Rìu (khác a_ là giáp)
   "s-": "/resources/tool/shovel",
 };
 
-// 3. Xử lý các file ngoại lệ (không phải .png)
+// Xử lý các file ngoại lệ (không phải .png)
 const EXCEPTIONS = {
   "a-4-heartoftheforest": ".webp",
 };
 
-// Helper: Ghép Base URL với path + Xử lý khoảng trắng (encodeURI)
+// Helper: Ghép Base URL với path + Xử lý khoảng trắng
 const getUrl = (path) => {
   if (!path) return "";
   if (path.startsWith("http") || path.startsWith("data:")) return path;
 
-  // Đảm bảo path bắt đầu bằng /
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  // encodeURI để xử lý các file có khoảng trắng như "best axeinthegame.png"
+  // encodeURI để xử lý tên file có khoảng trắng
   return `${BASE_URL}${encodeURI(cleanPath)}`;
 };
 
@@ -335,24 +334,24 @@ export const resolveItemImage = (itemCode) => {
   // 1. Fallback mặc định
   if (!itemCode) return getUrl("/resources/material/o_coal.png");
 
-  // 2. Nếu là link full (http) hoặc data base64 thì giữ nguyên
+  // 2. Nếu là link full hoặc base64 thì giữ nguyên
   if (itemCode.includes("http") || itemCode.includes("data:")) return itemCode;
 
   const code = itemCode.trim();
   const lowerCode = code.toLowerCase();
 
-  // --- [FIX QUAN TRỌNG] XỬ LÝ ĐƯỜNG DẪN CÓ SẴN TRONG DB ---
-  // Nếu trong DB lưu dạng "tool/axe/a-0-strongaxe.png" hoặc "resources/..."
+  // --- XỬ LÝ ĐƯỜNG DẪN CÓ SẴN TRONG DB (QUAN TRỌNG) ---
+  // Nếu DB lỡ lưu dạng "tool/axe/..." hoặc "resources/..." thì map lại cho đúng
   if (lowerCode.startsWith("tool/") || lowerCode.startsWith("equipment/")) {
-    return getUrl(`/resources/${code}`); // Thêm /resources/ vào trước
+    return getUrl(`/resources/${code}`);
   }
-  if (lowerCode.startsWith("resources/")) {
-    return getUrl(`/${code}`); // Giữ nguyên, chỉ thêm / đầu
+  if (lowerCode.startsWith("resources/") || lowerCode.startsWith("background/") || lowerCode.startsWith("logo/")) {
+    return getUrl(`/${code}`);
   }
 
   // --- SPECIAL CASES ---
   if (lowerCode === "logo") return getUrl("/logo/Logo.png");
-
+  
   // Potion
   if (lowerCode === "r_potion" || lowerCode === "r_potion.png") {
     return getUrl("/resources/r_potion.png");
@@ -360,52 +359,39 @@ export const resolveItemImage = (itemCode) => {
 
   // --- COIN ---
   if (lowerCode.includes("coin")) {
-    const fileName = lowerCode.includes("echo")
-      ? "r_coin-echo.png"
-      : "r_coin.png";
+    const fileName = lowerCode.includes("echo") ? "r_coin-echo.png" : "r_coin.png";
     return getUrl(`/resources/coin/${fileName}`);
   }
 
-  // --- XỬ LÝ EXTENSION (Nếu code chưa có đuôi file) ---
+  // --- XỬ LÝ ĐUÔI FILE ---
   let ext = ".png";
-  let cleanName = code; // Dùng code gốc để giữ hoa thường nếu cần (dù file server thường case-insensitive)
-
-  if (
-    lowerCode.endsWith(".png") ||
-    lowerCode.endsWith(".jpg") ||
-    lowerCode.endsWith(".webp")
-  ) {
+  // Nếu code đã có đuôi file thì không cộng thêm
+  if (lowerCode.endsWith(".png") || lowerCode.endsWith(".jpg") || lowerCode.endsWith(".webp")) {
     ext = "";
-  } else {
-    // Check ngoại lệ đuôi file
-    if (EXCEPTIONS[lowerCode]) {
-      ext = EXCEPTIONS[lowerCode];
-    }
+  } else if (EXCEPTIONS[lowerCode]) {
+    // Check ngoại lệ đuôi file (ví dụ .webp)
+    ext = EXCEPTIONS[lowerCode];
   }
 
-  // --- CHECK PREFIX MAP (Equipment & Tools - Chỉ chạy khi DB lưu tên file trần) ---
+  // --- CHECK PREFIX MAP (Trang bị & Công cụ) ---
   for (const [prefix, folder] of Object.entries(PREFIX_MAP)) {
     if (lowerCode.startsWith(prefix)) {
       // Trường hợp đặc biệt: b_ vừa là boots vừa là background
       if (prefix === "b_" && !lowerCode.includes("boot")) {
-        continue; // Bỏ qua, để logic background bên dưới xử lý
+         continue; 
       }
-      return getUrl(`${folder}/${cleanName}${ext}`);
+      return getUrl(`${folder}/${code}${ext}`);
     }
   }
 
   // --- BACKGROUNDS (b_ nhưng không phải boots) ---
   if (lowerCode.startsWith("b_")) {
-    if (lowerCode.endsWith(".png") || lowerCode.endsWith(".jpg")) {
-      return getUrl(`/background/${code}`);
-    }
-    const bgExt = lowerCode.includes("doanhtrai") ? ".png" : ".jpg";
-    return getUrl(`/background/${code}${bgExt}`);
+      const bgExt = (ext === "") ? "" : (lowerCode.includes("doanhtrai") ? ".png" : ".jpg");
+      return getUrl(`/background/${code}${bgExt}`);
   }
 
-  // --- MATERIALS (Mặc định cho f_, o_, w_...) ---
-  // Nếu không khớp logic nào ở trên -> coi là nguyên liệu
-  return getUrl(`/resources/material/${cleanName}${ext}`);
+  // --- MATERIALS (Mặc định cho tất cả cái còn lại) ---
+  return getUrl(`/resources/material/${code}${ext}`);
 };
 
 // --- EXPORTS ALIAS ---
@@ -460,25 +446,13 @@ export const getEnemyImage = (name, state = "idle") => {
   let fileName = "goblin";
   if (normalizedName.includes("xuong") || normalizedName.includes("skeleton"))
     fileName = "skeleton";
-  else if (
-    normalizedName.includes("nam") ||
-    normalizedName.includes("mushroom")
-  )
+  else if (normalizedName.includes("nam") || normalizedName.includes("mushroom"))
     fileName = "mushroom";
-  else if (
-    normalizedName.includes("ac quy") ||
-    normalizedName.includes("demon")
-  )
+  else if (normalizedName.includes("ac quy") || normalizedName.includes("demon"))
     fileName = "demon1";
-  else if (
-    normalizedName.includes("lang khach") ||
-    normalizedName.includes("langkhach")
-  )
+  else if (normalizedName.includes("lang khach") || normalizedName.includes("langkhach"))
     fileName = "langkhach1";
-  else if (
-    normalizedName.includes("kiem si") ||
-    normalizedName.includes("yasou")
-  )
+  else if (normalizedName.includes("kiem si") || normalizedName.includes("yasou"))
     fileName = "yasou";
 
   return getEnemyImg(`${prefix}${fileName}.png`);

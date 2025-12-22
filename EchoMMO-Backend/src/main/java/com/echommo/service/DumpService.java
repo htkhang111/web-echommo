@@ -62,24 +62,22 @@ public class DumpService {
         if (userItem.getQuantity() <= 0) userItemRepository.delete(userItem);
         else userItemRepository.save(userItem);
 
-        // 4. PRE-FETCH DATA (Lấy trước item mẫu để không query trong vòng lặp)
+        // 4. Pre-fetch
         Item megalodonItem = itemRepository.findByCode("f_megalodon").orElse(null);
         List<Item> commonItems = getCachedItemsByRarity(Rarity.COMMON);
         List<Item> rareItems = getCachedItemsByRarity(Rarity.RARE);
         List<Item> epicItems = getCachedItemsByRarity(Rarity.EPIC);
 
-        // 5. TÍNH TOÁN TRÊN RAM (Siêu nhanh)
+        // 5. Logic random (giữ nguyên)
         BigDecimal totalGold = BigDecimal.ZERO;
         BigDecimal totalEcho = BigDecimal.ZERO;
-        Map<String, Integer> rewardMap = new HashMap<>(); // Map gom số lượng: "code" -> qty
+        Map<String, Integer> rewardMap = new HashMap<>();
 
         for (int i = 0; i < amount; i++) {
-            // Check Megalodon
             if (megalodonItem != null && (random.nextDouble() * 100) < megalodonRate) {
                 rewardMap.merge(megalodonItem.getCode(), 1, Integer::sum);
                 continue;
             }
-            // Check bảng thường
             int roll = random.nextInt(100);
             if (roll < 70) {
                 totalGold = totalGold.add(BigDecimal.valueOf(random.nextInt(11) + 10));
@@ -96,7 +94,7 @@ public class DumpService {
             }
         }
 
-        // 6. GHI DB 1 LẦN (Batch Update)
+        // 6. GHI DB & BUILD RESPONSE
         List<DumpResponse.RewardItem> responseItems = new ArrayList<>();
 
         for (Map.Entry<String, Integer> entry : rewardMap.entrySet()) {
@@ -120,15 +118,17 @@ public class DumpService {
                 userItemRepository.save(newItem);
             }
 
+            // [UPDATED] Thêm trường image lấy từ item.getImageUrl()
             responseItems.add(DumpResponse.RewardItem.builder()
                     .code(item.getCode())
                     .name(item.getName())
+                    .image(item.getImageUrl()) // Quan trọng: Lấy link ảnh gốc từ DB
                     .rarity(item.getRarity())
                     .quantity(qty)
                     .build());
         }
 
-        // 7. Update Wallet
+        // 7. Update Wallet (giữ nguyên)
         if (totalGold.compareTo(BigDecimal.ZERO) > 0 || totalEcho.compareTo(BigDecimal.ZERO) > 0) {
             Wallet wallet = walletRepository.findByUser(user).orElseThrow();
             if (totalGold.compareTo(BigDecimal.ZERO) > 0) wallet.setGold(wallet.getGold().add(totalGold));
@@ -147,7 +147,6 @@ public class DumpService {
                 .build();
     }
 
-    // Helper: Lấy item và lọc bỏ cá để tránh trả lại cá
     private List<Item> getCachedItemsByRarity(Rarity rarity) {
         List<Item> items = itemRepository.findByRarity(rarity);
         if (items == null) return new ArrayList<>();

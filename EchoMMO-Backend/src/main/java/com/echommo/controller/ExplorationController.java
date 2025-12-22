@@ -1,8 +1,6 @@
-//
-
-
 package com.echommo.controller;
 
+import com.echommo.dto.GatherRequest;
 import com.echommo.entity.User;
 import com.echommo.repository.UserRepository;
 import com.echommo.service.ExplorationService;
@@ -30,7 +28,7 @@ public class ExplorationController {
     @PostMapping("/explore")
     public ResponseEntity<?> explore(@RequestBody Map<String, String> req) {
         try {
-            // [FIX] Nhận trực tiếp chuỗi mã map (Ví dụ: "MAP_01")
+            // Nhận trực tiếp chuỗi mã map (Ví dụ: "MAP_01")
             String mapCode = req.get("mapId");
 
             // Fallback nếu không có mã map thì mặc định MAP_01
@@ -46,21 +44,18 @@ public class ExplorationController {
         }
     }
 
-    // 2. Gather
+    // 2. Gather - [FIX] Sử dụng DTO để tránh lỗi ép kiểu JSON (400 Bad Request)
     @PostMapping("/gather")
-    public ResponseEntity<?> gather(@RequestBody Map<String, Object> req) {
+    public ResponseEntity<?> gather(@RequestBody GatherRequest req) {
         try {
-            if (req.get("itemId") == null) throw new RuntimeException("Thiếu Item ID");
-
-            // Xử lý an toàn cho itemId (có thể là Integer hoặc String)
-            int itemId = Integer.parseInt(req.get("itemId").toString());
-
-            int amount = 1;
-            if (req.get("amount") != null) {
-                amount = Integer.parseInt(req.get("amount").toString());
+            if (req.getItemId() == null) {
+                throw new RuntimeException("Thiếu Item ID");
             }
 
-            return ResponseEntity.ok(explorationService.gatherResource(getCurrentUser(), itemId, amount));
+            // Mặc định amount là 1 nếu null hoặc <= 0
+            int amount = (req.getAmount() != null && req.getAmount() > 0) ? req.getAmount() : 1;
+
+            return ResponseEntity.ok(explorationService.gatherResource(getCurrentUser(), req.getItemId(), amount));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }

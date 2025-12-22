@@ -395,7 +395,7 @@ onMounted(() => {
             @click="selectedType = 'NORMAL'"
           >
             <div class="img-wrapper">
-              <img :src="getAssetUrl('f_fish')" class="fish-img" />
+              <img :src="getAssetUrl('f_fish')" class="fish-img" @error="handleImgError" />
             </div>
             <span class="name">Cá Thường</span>
             <span class="count">Có: {{ normalFishCount }}</span>
@@ -410,7 +410,7 @@ onMounted(() => {
             @click="selectedType = 'SHARK'"
           >
             <div class="img-wrapper">
-              <img :src="getAssetUrl('f_shark')" class="fish-img" />
+              <img :src="getAssetUrl('f_shark')" class="fish-img" @error="handleImgError" />
             </div>
             <span class="name">Cá Mập</span>
             <span class="count">Có: {{ sharkCount }}</span>
@@ -425,7 +425,7 @@ onMounted(() => {
             @click="selectedType = 'WHITE_SHARK'"
           >
             <div class="img-wrapper">
-              <img :src="getAssetUrl('f_whiteshark')" class="fish-img" />
+              <img :src="getAssetUrl('f_whiteshark')" class="fish-img" @error="handleImgError" />
             </div>
             <span class="name">Mập Trắng</span>
             <span class="count">Có: {{ whiteSharkCount }}</span>
@@ -492,7 +492,11 @@ onMounted(() => {
           <div class="rewards-grid">
             <div class="reward-item gold" v-if="lastResult.totalGold > 0">
               <div class="item-icon-wrapper">
-                <img :src="getAssetUrl('r_coin.png')" class="reward-icon" />
+                <img 
+      :src="getAssetUrl(item.image || item.code)" 
+      class="reward-icon" 
+      @error="handleImgError"
+    />
               </div>
               <span class="val"
                 >+{{ formatNumber(lastResult.totalGold) }} Vàng</span
@@ -544,7 +548,8 @@ const charStore = useCharacterStore();
 const inventoryStore = useInventoryStore();
 
 // --- BACKGROUND LOGIC ---
-const bgImage = "https://htkhang111.github.io/background/b_doanhtrai.png";
+// Sử dụng getAssetUrl thay vì link cứng
+const bgImage = computed(() => getAssetUrl("b_doanhtrai"));
 const isNight = ref(false);
 
 const updateDayNight = () => {
@@ -554,8 +559,10 @@ const updateDayNight = () => {
 
 // --- HÀM XỬ LÝ ẢNH LỖI ---
 const handleImgError = (e) => {
-  // Nếu ảnh lỗi, load ảnh than đá mặc định để không bị vỡ khung
-  e.target.src = getAssetUrl("o_coal");
+  // Nếu ảnh lỗi và chưa phải ảnh than đá thì mới đổi để tránh loop
+  if (!e.target.src.includes("o_coal")) {
+    e.target.src = getAssetUrl("o_coal");
+  }
 };
 
 // --- LOGIC HỒ BÍ ẨN ---
@@ -618,7 +625,6 @@ const handleDump = async () => {
   lastResult.value = null;
 
   try {
-    // API backend sẽ nhận: NORMAL, SHARK, hoặc WHITE_SHARK
     const res = await dumpApi.dumpFish(selectedType.value, amount.value);
     lastResult.value = res.data;
 
@@ -627,7 +633,6 @@ const handleDump = async () => {
       inventoryStore.fetchInventory(),
     ]);
 
-    // Reset amount về 1 sau khi thả
     if (maxAmount.value > 0) amount.value = 1;
   } catch (error) {
     alert(error.response?.data || "Có lỗi xảy ra khi thả cá!");
@@ -644,7 +649,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* GIỮ NGUYÊN CSS CŨ */
+/* BACKGROUND & LAYOUT */
 .bg-layer {
   position: absolute;
   inset: 0;
@@ -658,6 +663,7 @@ onMounted(() => {
   background-position: center bottom;
   opacity: 0.6;
   filter: sepia(10%) contrast(1.1);
+  transition: background-image 0.5s ease;
 }
 .wood-overlay {
   position: absolute;
@@ -747,7 +753,7 @@ onMounted(() => {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
 
-/* --- FISH SELECTOR --- */
+/* FISH SELECTOR */
 .fish-selector {
   display: flex;
   gap: 8px;
@@ -768,8 +774,6 @@ onMounted(() => {
 .fish-option:hover {
   background: rgba(255, 255, 255, 0.05);
 }
-
-/* Active States */
 .fish-option.active {
   border-color: #66bb6a;
   background: rgba(74, 222, 128, 0.1);
@@ -813,7 +817,7 @@ onMounted(() => {
   margin-bottom: 5px;
 }
 
-/* Luck Info Badge */
+/* LUCK INFO BADGE */
 .luck-info {
   font-size: 0.7rem;
   padding: 2px 6px;
@@ -838,7 +842,7 @@ onMounted(() => {
   box-shadow: 0 0 5px rgba(239, 83, 80, 0.3);
 }
 
-/* Amount Control */
+/* AMOUNT CONTROL */
 .amount-control {
   margin-bottom: 20px;
 }
@@ -913,7 +917,7 @@ onMounted(() => {
   background: rgba(255, 215, 0, 0.1);
 }
 
-/* Dump Button Variants */
+/* DUMP BUTTON */
 .btn-dump {
   width: 100%;
   padding: 15px;
@@ -939,7 +943,6 @@ onMounted(() => {
   border: 1px solid #ef5350;
   box-shadow: 0 0 15px rgba(211, 47, 47, 0.4);
 }
-
 .btn-dump:hover:not(:disabled) {
   filter: brightness(1.1);
   box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
@@ -955,7 +958,7 @@ onMounted(() => {
   box-shadow: none;
 }
 
-/* Result Modal */
+/* RESULT MODAL */
 .result-modal {
   position: fixed;
   top: 0;
@@ -1069,11 +1072,7 @@ onMounted(() => {
   border-color: #ffd700;
 }
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>

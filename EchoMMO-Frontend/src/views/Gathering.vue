@@ -140,8 +140,9 @@ const playerLevel = computed(() => {
   return charStore.character?.level || 1;
 });
 
+// [FIX] Sửa đường dẫn ảnh w_wood.png (xóa prefix thừa)
 const EVENT_TYPES = [
-  { id: "wood", codePrefix: "w_", rewardItemId: 1, name: "Cây Gỗ Sồi", image: resolveItemImage("tool/axe/w_wood.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Sồi" },
+  { id: "wood", codePrefix: "w_", rewardItemId: 1, name: "Cây Gỗ Sồi", image: resolveItemImage("w_wood.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Sồi" },
   { id: "dried_wood", codePrefix: "w_", rewardItemId: 2, name: "Cây Gỗ Khô", image: resolveItemImage("w_wood-red.png"), rarityClass: "common", rarityText: "Phổ Thông", reqLevel: 1, reqTool: "Rìu", lootName: "Gỗ Khô" },
   { id: "cold_wood", codePrefix: "w_", rewardItemId: 3, name: "Cây Gỗ Lạnh", image: resolveItemImage("w_wood-white.png"), rarityClass: "uncommon", rarityText: "Ít Gặp", reqLevel: 10, reqTool: "Rìu", lootName: "Gỗ Lạnh" },
   { id: "strange_wood", codePrefix: "w_", rewardItemId: 4, name: "Cây Gỗ Lạ", image: resolveItemImage("w_wood-black.png"), rarityClass: "rare", rarityText: "Hiếm", reqLevel: 20, reqTool: "Rìu", lootName: "Gỗ Lạ" },
@@ -218,7 +219,8 @@ const initEvent = () => {
 
   currentEvent.value = evt;
   remainingNode.value = dbAmount !== undefined ? dbAmount : 10;
-  maxNode.value = 10;
+  // [FIX] Cập nhật maxNode dựa trên trữ lượng thực tế (tránh lỗi hiển thị 12/10)
+  maxNode.value = Math.max(10, remainingNode.value);
 
   startTimer();
 };
@@ -283,7 +285,8 @@ const handleGather = async (times = 1) => {
 };
 
 const handleGatherAll = () => {
-  const possible = remainingNode.value;
+  // [FIX] Giới hạn tối đa 10 lần mỗi click để khớp với logic Energy của Server
+  const possible = Math.min(remainingNode.value, 10);
   if (possible > 0) handleGather(possible);
 };
 

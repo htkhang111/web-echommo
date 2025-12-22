@@ -17,7 +17,6 @@ public class DumpResponse {
     private BigDecimal totalGold;
     private BigDecimal totalEcho;
 
-    // [UPDATED] Thay đổi từ Map<String, Integer> sang List các object chi tiết
     private List<RewardItem> receivedItems;
 
     @Data
@@ -25,9 +24,10 @@ public class DumpResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class RewardItem {
-        private String code;     // Để frontend lấy ảnh: getAssetUrl(code)
-        private String name;     // Tên hiển thị
-        private Rarity rarity;   // Để hiển thị màu sắc: COMMON, RARE, EPIC...
+        private String code;     // Mã vật phẩm
+        private String name;     // Tên vật phẩm
+        private String image;    // [NEW] Đường dẫn ảnh chính xác từ Database
+        private Rarity rarity;   // Độ hiếm
         private int quantity;    // Số lượng
     }
 }
