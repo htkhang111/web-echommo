@@ -29,6 +29,11 @@ public class SpaService {
         Wallet wallet = walletRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Wallet not found"));
 
+        // [FIX] Check null ngay lập tức để tránh NullPointerException khi unboxing
+        if (character.getDailySpaUsage() == null) {
+            character.setDailySpaUsage(0);
+        }
+
         // 1. Kiểm tra Reset Daily (Reset số lần dùng nếu sang ngày mới)
         LocalDate today = LocalDate.now();
         if (character.getLastFreeSpaUse() == null ||
@@ -39,7 +44,6 @@ public class SpaService {
         // 2. Kiểm tra đang Spa không
         if (character.getSpaEndTime() != null && character.getSpaEndTime().isAfter(LocalDateTime.now())) {
             long secondsRemaining = java.time.Duration.between(LocalDateTime.now(), character.getSpaEndTime()).getSeconds();
-            // Trả về response kèm secondsRemaining (cần update DTO nếu muốn chính xác, ở đây dùng tạm logic cũ)
             return new SpaStatusResponse(
                     "Đang thư giãn... còn " + secondsRemaining + "s",
                     character.getCurrentHp(),
@@ -68,6 +72,7 @@ public class SpaService {
             int energyRecover = character.getMaxEnergy() / 2;
 
             // Logic Free 2 lần/ngày
+            // Vì đã check null ở trên nên dòng này an toàn tuyệt đối
             if (character.getDailySpaUsage() < 2) {
                 cost = BigDecimal.ZERO;
                 isFree = true;
@@ -99,7 +104,6 @@ public class SpaService {
             character.setCurrentEnergy(character.getMaxEnergy());
 
             // Logic giá: 0.5 + (Level * 0.05) EchoCoin
-            // Ví dụ: Lv1 = 0.55, Lv10 = 1.0, Lv20 = 1.5
             double coinCostDouble = 0.5 + (character.getLevel() * 0.05);
             cost = BigDecimal.valueOf(coinCostDouble);
 
@@ -123,8 +127,6 @@ public class SpaService {
                 ? "Thư giãn miễn phí (" + character.getDailySpaUsage() + "/2)!"
                 : "Thanh toán thành công (-" + cost + (pack == SpaPackage.VIP ? " Coin)" : " Vàng)");
 
-        // Trick: Set secondsRemaining vào message hoặc custom field để Frontend bắt được thời gian chính xác
-        // Tuy nhiên frontend đang hardcode 120s/10s fallback nên ở đây trả về OK là được.
         return new SpaStatusResponse(
                 msg,
                 character.getCurrentHp(),

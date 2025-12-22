@@ -1,46 +1,43 @@
 <template>
   <transition name="toast-fade">
-    <div v-if="visible" class="game-toast" :class="type">
+    <div
+      v-if="notificationStore.toast.visible"
+      class="game-toast"
+      :class="notificationStore.toast.type"
+      @click="notificationStore.hideToast"
+    >
       <div class="toast-content">
-        <i v-if="type === 'success'" class="fas fa-check-circle"></i>
-        <i v-else-if="type === 'error'" class="fas fa-exclamation-circle"></i>
+        <i
+          v-if="notificationStore.toast.type === 'success'"
+          class="fas fa-check-circle"
+        ></i>
+        <i
+          v-else-if="notificationStore.toast.type === 'error'"
+          class="fas fa-exclamation-circle"
+        ></i>
+        <i
+          v-else-if="notificationStore.toast.type === 'warning'"
+          class="fas fa-exclamation-triangle"
+        ></i>
         <i v-else class="fas fa-info-circle"></i>
-        <span>{{ message }}</span>
+        
+        <span>{{ notificationStore.toast.message }}</span>
       </div>
     </div>
   </transition>
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { useNotificationStore } from "../stores/notificationStore";
 
-const visible = ref(false);
-const message = ref("");
-const type = ref("info"); 
-
-let timeout = null;
-
-const show = (msg, msgType = "info") => {
-  message.value = msg;
-  type.value = msgType;
-  visible.value = true;
-
-  if (timeout) clearTimeout(timeout);
-  timeout = setTimeout(() => {
-    visible.value = false;
-  }, 3000);
-};
-
-// [FIX] Expose show ra ngoài
-defineExpose({
-  show,
-});
+// [FIX] Kết nối với Store
+const notificationStore = useNotificationStore();
 </script>
 
 <style scoped>
 .game-toast {
   position: fixed;
-  top: 80px; 
+  top: 80px; /* Né cái Header ra xíu */
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
@@ -52,18 +49,29 @@ defineExpose({
   border: 1px solid rgba(255, 255, 255, 0.1);
   min-width: 300px;
   text-align: center;
+  cursor: pointer;
+  backdrop-filter: blur(5px);
 }
 
 .success {
   background: rgba(27, 94, 32, 0.95);
   color: #a5d6a7;
   border-color: #2e7d32;
+  box-shadow: 0 0 15px rgba(46, 125, 50, 0.3);
 }
 
 .error {
   background: rgba(183, 28, 28, 0.95);
   color: #ffcdd2;
   border-color: #c62828;
+  box-shadow: 0 0 15px rgba(198, 40, 40, 0.3);
+}
+
+.warning {
+  background: rgba(255, 111, 0, 0.95);
+  color: #ffe0b2;
+  border-color: #ff8f00;
+  box-shadow: 0 0 15px rgba(255, 143, 0, 0.3);
 }
 
 .info {
@@ -80,17 +88,18 @@ defineExpose({
 }
 
 .toast-content i {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
 }
 
+/* Animation */
 .toast-fade-enter-active,
 .toast-fade-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .toast-fade-enter-from,
 .toast-fade-leave-to {
   opacity: 0;
-  transform: translate(-50%, -20px);
+  transform: translate(-50%, -30px) scale(0.9);
 }
 </style>

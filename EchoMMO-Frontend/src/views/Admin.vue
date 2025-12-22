@@ -1332,8 +1332,13 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                 placeholder="Số lượng vàng"
                 required
               />
-              <button type="submit" class="btn-action gold">
-                Ban Ngân Lượng
+              <button
+                type="submit"
+                class="btn-action gold btn-interactive"
+                :disabled="isGrantingGold"
+              >
+                <i v-if="isGrantingGold" class="fas fa-spinner fa-spin"></i>
+                {{ isGrantingGold ? "Đang chuyển..." : "Ban Ngân Lượng" }}
               </button>
             </form>
 
@@ -1353,8 +1358,13 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                 placeholder="Số lượng Echo (VD: 10.5)"
                 required
               />
-              <button type="submit" class="btn-action cyan">
-                Ban EchoCoin
+              <button
+                type="submit"
+                class="btn-action cyan btn-interactive"
+                :disabled="isGrantingEcho"
+              >
+                <i v-if="isGrantingEcho" class="fas fa-spinner fa-spin"></i>
+                {{ isGrantingEcho ? "Đang chuyển..." : "Ban EchoCoin" }}
               </button>
             </form>
 
@@ -1382,7 +1392,14 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                 placeholder="Số lượng"
                 required
               />
-              <button type="submit" class="btn-action blue">Ban Bảo Vật</button>
+              <button
+                type="submit"
+                class="btn-action blue btn-interactive"
+                :disabled="isGrantingItem"
+              >
+                <i v-if="isGrantingItem" class="fas fa-spinner fa-spin"></i>
+                {{ isGrantingItem ? "Đang chế tác..." : "Ban Bảo Vật" }}
+              </button>
             </form>
           </div>
 
@@ -1411,8 +1428,16 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                 v-model="notificationForm.recipientUsername"
                 placeholder="Người nhận (Để trống = Toàn Server)"
               />
-              <button type="submit" class="btn-action red">
-                Phát Loa Toàn Cõi
+              <button
+                type="submit"
+                class="btn-action red btn-interactive"
+                :disabled="isSendingNotification"
+              >
+                <i
+                  v-if="isSendingNotification"
+                  class="fas fa-spinner fa-spin"
+                ></i>
+                {{ isSendingNotification ? "Đang phát loa..." : "Phát Loa Toàn Cõi" }}
               </button>
             </form>
           </div>
@@ -1465,6 +1490,12 @@ const showCreateItem = ref(false);
 const showBanModal = ref(false);
 const selectedUser = ref(null);
 const banReason = ref("");
+
+// --- LOADING STATES (NEW) ---
+const isGrantingGold = ref(false);
+const isGrantingEcho = ref(false);
+const isGrantingItem = ref(false);
+const isSendingNotification = ref(false);
 
 // WIZARD STATES
 const currentStep = ref(1);
@@ -1562,7 +1593,6 @@ const tabs = [
   { id: "notify", label: "Điều Hành (Action)", icon: "fas fa-tasks" },
 ];
 
-// [FIX] Bổ sung các loại Tool khớp với SlotType.java
 const itemTypes = [
   { value: "WEAPON", label: "Binh Khí", icon: "fas fa-khanda" },
   { value: "ARMOR", label: "Y Phục", icon: "fas fa-tshirt" },
@@ -1570,12 +1600,10 @@ const itemTypes = [
   { value: "BOOTS", label: "Hài (Giày)", icon: "fas fa-shoe-prints" },
   { value: "RING", label: "Nhẫn", icon: "fas fa-ring" },
   { value: "NECKLACE", label: "Vòng Cổ", icon: "fas fa-gem" },
-  // Tools Group
   { value: "PICKAXE", label: "Cúp Đào", icon: "fas fa-hammer" },
   { value: "AXE", label: "Rìu Chặt", icon: "fas fa-tree" },
   { value: "SHOVEL", label: "Xẻng Đào", icon: "fas fa-trowel" },
   { value: "FISHING_ROD", label: "Cần Câu", icon: "fas fa-fish" },
-  // Others
   { value: "CONSUMABLE", label: "Đan Dược", icon: "fas fa-flask" },
   { value: "MATERIAL", label: "Nguyên Liệu", icon: "fas fa-cubes" },
 ];
@@ -1649,7 +1677,6 @@ const itemOptions = computed(() =>
   (adminStore.items || []).map((i) => ({ id: i.itemId, name: i.name })),
 );
 
-// [FIX] Computed asset list theo đúng loại
 const currentRawAssets = computed(() => {
   return assetLibrary[itemForm.type] || assetLibrary["WEAPON"];
 });
@@ -1665,27 +1692,18 @@ const getAllowedMainStats = computed(() => {
     { value: "HP", label: "Sinh Lực", icon: "fas fa-heart" },
     { value: "SPEED", label: "Tốc Độ", icon: "fas fa-wind" },
   ];
-  // Tools thường không có combat stats, nhưng cho phép chọn nếu muốn buff ẩn
   switch (itemForm.type) {
-    case "WEAPON":
-      return [all[0]];
-    case "ARMOR":
-      return [all[1]];
-    case "HELMET":
-      return [all[2], all[1]];
-    case "BOOTS":
-      return [all[3], all[1]];
-    case "RING":
-      return [all[0], all[3]];
-    case "NECKLACE":
-      return [all[0], all[1], all[2]];
+    case "WEAPON": return [all[0]];
+    case "ARMOR": return [all[1]];
+    case "HELMET": return [all[2], all[1]];
+    case "BOOTS": return [all[3], all[1]];
+    case "RING": return [all[0], all[3]];
+    case "NECKLACE": return [all[0], all[1], all[2]];
     case "PICKAXE":
     case "AXE":
     case "SHOVEL":
-    case "FISHING_ROD":
-      return all; // Cho phép chọn hết nếu muốn
-    default:
-      return all;
+    case "FISHING_ROD": return all;
+    default: return all;
   }
 });
 
@@ -1736,7 +1754,7 @@ const toggleCreateMode = () => {
 
 const selectType = (t) => {
   itemForm.type = t;
-  itemForm.slotType = t; // [FIX] Gán luôn slotType theo Type
+  itemForm.slotType = t;
   setTimeout(() => nextStep(), 200);
 };
 
@@ -1761,24 +1779,16 @@ const nextStep = () => {
 
 const getSubStatCount = () => {
   const map = {
-    COMMON: 1,
-    UNCOMMON: 0,
-    RARE: 2,
-    EPIC: 3,
-    LEGENDARY: 4,
-    MYTHIC: 5,
+    COMMON: 1, UNCOMMON: 0, RARE: 2,
+    EPIC: 3, LEGENDARY: 4, MYTHIC: 5,
   };
   return map[itemForm.rarity] || 0;
 };
 
 const getSubStatInfo = (r) => {
   const map = {
-    COMMON: 1,
-    UNCOMMON: 0,
-    RARE: 2,
-    EPIC: 3,
-    LEGENDARY: 4,
-    MYTHIC: 5,
+    COMMON: 1, UNCOMMON: 0, RARE: 2,
+    EPIC: 3, LEGENDARY: 4, MYTHIC: 5,
   };
   return (map[r] || 0) + " dòng";
 };
@@ -1804,12 +1814,8 @@ const calculatePrice = () => {
     (itemForm.hpBonus || 0) +
     (itemForm.speedBonus || 0) * 200;
   const mult = {
-    COMMON: 1,
-    UNCOMMON: 2,
-    RARE: 5,
-    EPIC: 15,
-    LEGENDARY: 50,
-    MYTHIC: 200,
+    COMMON: 1, UNCOMMON: 2, RARE: 5,
+    EPIC: 15, LEGENDARY: 50, MYTHIC: 200,
   };
 
   suggestedPrice.value = score * (mult[itemForm.rarity] || 1);
@@ -1830,7 +1836,6 @@ watch(
 
 const createItem = async () => {
   try {
-    // [FIX] Đảm bảo slotType luôn khớp với type trước khi gửi
     itemForm.slotType = itemForm.type;
 
     if (distributionType.value === "SHOP") {
@@ -1857,17 +1862,24 @@ const createItem = async () => {
   }
 };
 
-// ... (Các hàm grant gold, item, notification giữ nguyên) ...
+// --- ACTION HANDLERS ---
 const handleGrantGold = async () => {
+  if (isGrantingGold.value) return;
+  isGrantingGold.value = true;
   try {
     await adminStore.grantGold(grantGoldForm.username, grantGoldForm.amount);
     notificationStore.showToast("Đã cấp ngân lượng!", "success");
+    grantGoldForm.amount = 1000; // Reset amount
   } catch (e) {
-    notificationStore.showToast("Lỗi!", "error");
+    notificationStore.showToast("Lỗi: " + (e.response?.data?.message || e.message), "error");
+  } finally {
+    isGrantingGold.value = false;
   }
 };
 
 const handleGrantEcho = async () => {
+  if (isGrantingEcho.value) return;
+  isGrantingEcho.value = true;
   try {
     await adminStore.grantEcho(grantEchoForm.username, grantEchoForm.amount);
     notificationStore.showToast("Đã ban EchoCoin!", "success");
@@ -1875,10 +1887,14 @@ const handleGrantEcho = async () => {
     grantEchoForm.amount = "";
   } catch (e) {
     notificationStore.showToast("Lỗi ban thưởng Echo!", "error");
+  } finally {
+    isGrantingEcho.value = false;
   }
 };
 
 const handleGrantItem = async () => {
+  if (isGrantingItem.value) return;
+  isGrantingItem.value = true;
   try {
     await adminStore.grantItem(
       grantItemForm.username,
@@ -1886,16 +1902,35 @@ const handleGrantItem = async () => {
       grantItemForm.quantity,
     );
     notificationStore.showToast("Đã ban bảo vật!", "success");
+    grantItemForm.quantity = 1;
   } catch (e) {
-    notificationStore.showToast("Lỗi!", "error");
+    notificationStore.showToast("Lỗi: " + (e.response?.data?.message || e.message), "error");
+  } finally {
+    isGrantingItem.value = false;
   }
 };
+
 const handleSendNotification = async () => {
+  if (isSendingNotification.value) return;
+
+  if (!notificationForm.title || !notificationForm.message) {
+      notificationStore.showToast("Thiếu tiêu đề hoặc nội dung!", "warning");
+      return;
+  }
+
+  isSendingNotification.value = true;
   try {
     await adminStore.sendNotification(notificationForm);
     notificationStore.showToast("Đã phát loa!", "success");
+    
+    // Reset form
+    notificationForm.title = "";
+    notificationForm.message = "";
+    notificationForm.recipientUsername = "";
   } catch (e) {
-    notificationStore.showToast("Lỗi!", "error");
+    notificationStore.showToast("Lỗi phát loa: " + (e.response?.data || e.message), "error");
+  } finally {
+    isSendingNotification.value = false;
   }
 };
 
@@ -1967,6 +2002,8 @@ onMounted(() => {
   overflow-x: hidden;
 }
 
+/* ... (Giữ nguyên các style cũ của layout) ... */
+
 .bg-layer {
   position: fixed;
   inset: 0;
@@ -1987,6 +2024,32 @@ onMounted(() => {
   max-width: 1400px;
   margin: 0 auto;
   padding: 40px 20px;
+}
+
+/* --- BUTTON INTERACTIVE STYLES (NEW) --- */
+.btn-interactive {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-interactive:not(:disabled):hover {
+  filter: brightness(1.2);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.btn-interactive:not(:disabled):active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.btn-interactive:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+  transform: none;
+  box-shadow: none;
 }
 
 /* --- HEADER --- */

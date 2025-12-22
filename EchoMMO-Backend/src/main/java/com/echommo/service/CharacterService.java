@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +36,6 @@ public class CharacterService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Helper: Chuyển null thành 0
     private BigDecimal safe(BigDecimal val) {
         return val == null ? BigDecimal.ZERO : val;
     }
@@ -50,11 +50,9 @@ public class CharacterService {
         if (user == null) return null;
 
         Character c = characterRepo.findByUser(user).orElse(null);
-
         if (c != null) {
             ensureNoNullStats(c);
-            recalculateStats(c); // Cập nhật chỉ số từ trang bị
-            recalculateStatPoints(c); // Cập nhật điểm tiềm năng theo (LVL-1)*5
+            recalculateStats(c);
         }
         return c;
     }
@@ -84,27 +82,25 @@ public class CharacterService {
         c.setCurrentExp(0L);
         c.setStatus(CharacterStatus.IDLE);
         c.setMonsterKills(0);
-
-        // Chỉ số khởi đầu cơ bản (Mặc định là 5)
         c.setStr(5); c.setVit(5); c.setAgi(5);
         c.setDex(5); c.setIntelligence(5); c.setLuck(5);
-        c.setStatPoints(0); // Cấp 1: (1-1)*5 = 0 điểm
+        c.setStatPoints(0);
 
         recalculateStats(c);
-
         Character savedChar = characterRepo.save(c);
         grantStarterPack(savedChar);
         return savedChar;
     }
 
     /**
-     * TÍNH TOÁN LẠI TẤT CẢ CHỈ SỐ: Điểm tiềm năng + Trang bị mặc định
+     * TÍNH TOÁN LẠI TẤT CẢ CHỈ SỐ TỪ 6 MÓN TRANG BỊ
      */
+    @Transactional
     public void recalculateStats(Character c) {
         ensureNoNullStats(c);
         int lvl = safeInt(c.getLevel());
 
-        // 1. CHỈ SỐ GỐC TỪ ĐIỂM TIỀM NĂNG
+        // 1. Chỉ số gốc (Base Stats)
         int rawMaxHp = 200 + (safeInt(c.getVit()) * 20);
         int rawAtk = 10 + (safeInt(c.getStr()) * 2);
         int rawDef = 5 + (safeInt(c.getVit()) / 5);
@@ -112,7 +108,7 @@ public class CharacterService {
         int rawCritRate = 5 + (safeInt(c.getLuck()) / 5);
         int rawCritDmg = 150 + (safeInt(c.getDex()) / 2);
 
-        // 2. CỘNG CHỈ SỐ TỪ TRANG BỊ ĐANG MẶC
+        // 2. Quét toàn bộ trang bị đang mặc (isEquipped = true)
         List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(c.getCharId());
 
         BigDecimal equipAtk = BigDecimal.ZERO;
@@ -125,55 +121,96 @@ public class CharacterService {
 
         for (UserItem item : equippedItems) {
             BigDecimal mainVal = safe(item.getMainStatValue());
+            String type = item.getMainStatType();
 
-            // Cộng chỉ số chính
-            if (item.getItem().getSlotType() == SlotType.WEAPON) {
-                equipAtk = equipAtk.add(mainVal);
-            } else if (item.getItem().getSlotType() == SlotType.ARMOR
-                    || item.getItem().getSlotType() == SlotType.HELMET
-                    || item.getItem().getSlotType() == SlotType.BOOTS) {
-                equipDef = equipDef.add(mainVal);
+            // Xử lý null hoặc "NONE" cho type
+            if (type == null || type.equals("NONE") || type.isEmpty()) {
+                type = "UNKNOWN";
             }
 
-            // Cộng dòng phụ Sub Stats
+            // --- LOGIC CỘNG CHỈ SỐ CHÍNH (QUAN TRỌNG) ---
+            switch (type) {
+                case "ATK_FLAT":
+                case "ATK":
+                    equipAtk = equipAtk.add(mainVal);
+                    break;
+                case "DEF_FLAT":
+                case "DEF":
+                    equipDef = equipDef.add(mainVal);
+                    break;
+                case "HP_FLAT":
+                case "HP":
+                    equipHp = equipHp.add(mainVal);
+                    break;
+                case "ATK_PERCENT":
+                    equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk).multiply(mainVal.divide(BigDecimal.valueOf(100))));
+                    break;
+                case "DEF_PERCENT":
+                    equipDef = equipDef.add(BigDecimal.valueOf(rawDef).multiply(mainVal.divide(BigDecimal.valueOf(100))));
+                    break;
+                case "HP_PERCENT":
+                    equipHp = equipHp.add(BigDecimal.valueOf(rawMaxHp).multiply(mainVal.divide(BigDecimal.valueOf(100))));
+                    break;
+                case "CRIT_RATE": bonusCritRate += mainVal.doubleValue(); break;
+                case "CRIT_DMG": bonusCritDmg += mainVal.doubleValue(); break;
+                case "SPEED": bonusSpeed += mainVal.doubleValue(); break;
+
+                // [FIX QUAN TRỌNG]: Nếu không rõ loại chỉ số, tự động phân loại theo Slot
+                case "UNKNOWN":
+                default:
+                    SlotType slot = item.getItem().getSlotType();
+                    if (slot == SlotType.WEAPON || slot == SlotType.RING) {
+                        // Vũ khí và Nhẫn -> Cộng Công
+                        equipAtk = equipAtk.add(mainVal);
+                    } else if (slot == SlotType.ARMOR || slot == SlotType.HELMET ||
+                            slot == SlotType.BOOTS || slot == SlotType.NECKLACE) {
+                        // Áo, Mũ, Giày, Dây chuyền -> Cộng Thủ
+                        equipDef = equipDef.add(mainVal);
+                    }
+                    break;
+            }
+
+            // --- XỬ LÝ DÒNG ẨN (SUBSTATS) ---
             try {
-                if (item.getSubStats() != null && !item.getSubStats().equals("[]")) {
+                if (item.getSubStats() != null && !item.getSubStats().equals("[]") && !item.getSubStats().isEmpty()) {
                     List<SubStatDTO> subs = objectMapper.readValue(item.getSubStats(), new TypeReference<List<SubStatDTO>>() {});
                     for (SubStatDTO sub : subs) {
+                        double val = sub.getValue();
                         switch (sub.getCode()) {
-                            case "ATK_FLAT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(sub.getValue()));
-                            case "DEF_FLAT" -> equipDef = equipDef.add(BigDecimal.valueOf(sub.getValue()));
-                            case "HP_FLAT" -> equipHp = equipHp.add(BigDecimal.valueOf(sub.getValue()));
-                            case "SPEED" -> bonusSpeed += sub.getValue();
-                            case "CRIT_RATE" -> bonusCritRate += sub.getValue();
-                            case "CRIT_DMG" -> bonusCritDmg += sub.getValue();
-                            case "ATK_PERCENT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk * (sub.getValue() / 100.0)));
-                            case "DEF_PERCENT" -> equipDef = equipDef.add(BigDecimal.valueOf(rawDef * (sub.getValue() / 100.0)));
-                            case "HP_PERCENT" -> equipHp = equipHp.add(BigDecimal.valueOf(rawMaxHp * (sub.getValue() / 100.0)));
+                            case "ATK_FLAT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(val));
+                            case "DEF_FLAT" -> equipDef = equipDef.add(BigDecimal.valueOf(val));
+                            case "HP_FLAT" -> equipHp = equipHp.add(BigDecimal.valueOf(val));
+                            case "SPEED" -> bonusSpeed += val;
+                            case "CRIT_RATE" -> bonusCritRate += val;
+                            case "CRIT_DMG" -> bonusCritDmg += val;
+                            case "ATK_PERCENT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk * (val / 100.0)));
+                            case "DEF_PERCENT" -> equipDef = equipDef.add(BigDecimal.valueOf(rawDef * (val / 100.0)));
+                            case "HP_PERCENT" -> equipHp = equipHp.add(BigDecimal.valueOf(rawMaxHp * (val / 100.0)));
                         }
                     }
                 }
             } catch (Exception ignored) {}
         }
 
-        // 3. TỔNG HỢP KẾT QUẢ VÀO CHARACTER
-        c.setMaxHp(rawMaxHp + equipHp.intValue());
-        c.setBaseAtk(rawAtk + equipAtk.intValue());
-        c.setBaseDef(rawDef + equipDef.intValue());
-        c.setBaseSpeed(rawSpeed + (int)bonusSpeed);
-        c.setBaseCritRate(rawCritRate + (int)bonusCritRate);
-        c.setBaseCritDmg(rawCritDmg + (int)bonusCritDmg);
+        // 3. Cập nhật vào Character
+        c.setBaseAtk(rawAtk + equipAtk.setScale(0, RoundingMode.HALF_UP).intValue());
+        c.setBaseDef(rawDef + equipDef.setScale(0, RoundingMode.HALF_UP).intValue());
+        c.setMaxHp(rawMaxHp + equipHp.setScale(0, RoundingMode.HALF_UP).intValue());
+        c.setBaseSpeed(rawSpeed + (int) Math.round(bonusSpeed));
+        c.setBaseCritRate(rawCritRate + (int) Math.round(bonusCritRate));
+        c.setBaseCritDmg(rawCritDmg + (int) Math.round(bonusCritDmg));
 
-        // Lực chiến tổng hợp
+        // Tính lực chiến
         int power = (c.getMaxHp() / 10) + (c.getBaseAtk() * 5) + (c.getBaseDef() * 8) + (lvl * 20);
         c.setTotalPower(power);
 
-        // Chống tràn máu
         if (c.getCurrentHp() == null || c.getCurrentHp() > c.getMaxHp()) {
             c.setCurrentHp(c.getMaxHp());
         }
 
-        characterRepo.save(c);
+        // Lưu xuống DB ngay lập tức
+        characterRepo.saveAndFlush(c);
+        System.out.println(">>> Updated Stats for " + c.getName() + ": ATK=" + c.getBaseAtk() + ", DEF=" + c.getBaseDef());
     }
 
     @Transactional
@@ -203,27 +240,22 @@ public class CharacterService {
         c.setIntelligence(safeInt(c.getIntelligence()) + addInt);
         c.setLuck(safeInt(c.getLuck()) + addLuck);
 
+        c = characterRepo.save(c);
         recalculateStats(c);
+        recalculateStatPoints(c);
+
         return characterRepo.save(c);
     }
 
-    /**
-     * TÍNH LẠI ĐIỂM TIỀM NĂNG: n = (Level - 1) * 5
-     */
     private void recalculateStatPoints(Character c) {
         int lvl = safeInt(c.getLevel());
-
-        // Tổng điểm nhận được theo Level
         int totalPointsEarned = (lvl - 1) * 5;
-
-        // Tổng điểm đã tiêu (Trừ đi 5 điểm gốc mỗi loại)
         int usedPoints = (safeInt(c.getStr()) - 5) +
                 (safeInt(c.getVit()) - 5) +
                 (safeInt(c.getAgi()) - 5) +
                 (safeInt(c.getDex()) - 5) +
                 (safeInt(c.getIntelligence()) - 5) +
                 (safeInt(c.getLuck()) - 5);
-
         c.setStatPoints(Math.max(0, totalPointsEarned - usedPoints));
     }
 

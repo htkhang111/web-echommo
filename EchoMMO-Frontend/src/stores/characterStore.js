@@ -271,30 +271,32 @@ export const useCharacterStore = defineStore("character", {
   },
 
   actions: {
-    // Hàm đồng bộ dữ liệu quan trọng
+    // Gọi hàm này sau khi trang bị đồ xong
     async syncGameData() {
       await this.fetchCharacter();
     },
 
     async fetchCharacter() {
+      // Bỏ comment dòng này nếu muốn chặn spam request, nhưng khi debug thì nên để mở
+      // if (this.isLoading) return;
+      
+      this.isLoading = true;
       try {
-        const res = await axiosClient.get("/character/me");
+        // Thêm timestamp để tránh Browser Cache
+        const res = await axiosClient.get("/character/me?t=" + Date.now());
         if (res.data) {
           this.character = res.data;
         }
       } catch (error) {
         console.error("Lỗi fetch character:", error);
+      } finally {
+        this.isLoading = false;
       }
     },
 
-    // [NEW] Action gọi API cộng điểm tiềm năng
-    // Nhận vào statsMap dạng: { str: 1, vit: 2, ... }
     async addStats(statsMap) {
       try {
         const res = await axiosClient.post("/character/add-stats", statsMap);
-
-        // Cập nhật lại nhân vật với dữ liệu mới từ Server trả về
-        // (Server sẽ trả về Character đã tính lại lực chiến và trừ điểm tiềm năng)
         if (res.data) {
           this.character = res.data;
         }
@@ -314,7 +316,6 @@ export const useCharacterStore = defineStore("character", {
         const res = await axiosClient.post("/exploration/explore", payload);
         const data = res.data;
 
-        // Cập nhật State ngay lập tức (Optimistic Update)
         if (this.character) {
           if (data.currentEnergy !== undefined)
             this.character.currentEnergy = data.currentEnergy;
@@ -323,7 +324,6 @@ export const useCharacterStore = defineStore("character", {
           if (data.currentHp !== undefined)
             this.character.currentHp = data.currentHp;
 
-          // [QUAN TRỌNG] Nếu server trả về GATHERING, cập nhật ngay vào character để Gathering.vue đọc được
           if (data.type === "GATHERING") {
             this.character.gatheringItemId = data.rewardItemId;
             this.character.gatheringRemainingAmount = data.rewardAmount;
@@ -340,7 +340,7 @@ export const useCharacterStore = defineStore("character", {
           this.addLog(data.message, data.type === "ENEMY" ? "ENEMY" : "INFO");
         }
 
-        return data; // Trả về data để Component xử lý chuyển trang
+        return data; 
       } catch (error) {
         const msg = error.response?.data?.message || "Lỗi kết nối";
         if (msg === "CAPTCHA") throw new Error("CAPTCHA");

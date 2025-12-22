@@ -493,10 +493,10 @@ onMounted(() => {
             <div class="reward-item gold" v-if="lastResult.totalGold > 0">
               <div class="item-icon-wrapper">
                 <img 
-      :src="getAssetUrl(item.image || item.code)" 
-      class="reward-icon" 
-      @error="handleImgError"
-    />
+                  :src="getAssetUrl('r_coin')" 
+                  class="reward-icon" 
+                  @error="handleImgError"
+                />
               </div>
               <span class="val"
                 >+{{ formatNumber(lastResult.totalGold) }} Vàng</span
@@ -521,7 +521,7 @@ onMounted(() => {
             >
               <div class="item-icon-wrapper">
                 <img 
-                  :src="getAssetUrl(item.code)" 
+                  :src="getAssetUrl(item.image || item.code)" 
                   class="reward-icon" 
                   @error="handleImgError"
                 />
