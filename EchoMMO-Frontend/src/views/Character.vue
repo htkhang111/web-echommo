@@ -99,7 +99,7 @@
                   equipment[key] && getDurabilityPercent(equipment[key]) <= 0,
               }"
               @mousedown.left="unequipSlow(key)"
-              :title="SLOT_CONFIG[key].label"
+              :title="equipment[key] ? getItemTooltip(equipment[key]) : SLOT_CONFIG[key].label"
             >
               <div class="slot-frame">
                 <img
@@ -150,7 +150,7 @@
                       getDurabilityPercent(equipment[key]) <= 0,
                   }"
                   @mousedown.left="unequipSlow(key)"
-                  :title="SLOT_CONFIG[key].label"
+                  :title="equipment[key] ? getItemTooltip(equipment[key]) : SLOT_CONFIG[key].label"
                 >
                   <img
                     v-if="equipment[key]"
@@ -184,7 +184,7 @@
                   equipment[key] && getDurabilityPercent(equipment[key]) <= 0,
               }"
               @mousedown.left="unequipSlow(key)"
-              :title="SLOT_CONFIG[key].label"
+              :title="equipment[key] ? getItemTooltip(equipment[key]) : SLOT_CONFIG[key].label"
             >
               <div class="slot-frame">
                 <img
@@ -241,6 +241,10 @@
               <span class="c-val">{{ totalStats.speed }}</span>
             </div>
             <div class="c-stat">
+              <span class="c-label hp"><i class="fas fa-heart"></i> Máu</span>
+              <span class="c-val">{{ totalStats.hp }}</span>
+            </div>
+            <div class="c-stat">
               <span class="c-label crit"><i class="fas fa-bolt"></i> Bạo</span>
               <span class="c-val">{{ totalStats.crit }}%</span>
             </div>
@@ -260,7 +264,7 @@
               @click="equip(item)"
               @mouseenter="hoveredType = determineSlot(item.item)"
               @mouseleave="hoveredType = null"
-              :title="item.item.name"
+              :title="getItemTooltip(item)"
             >
               <img :src="resolveItemImage(item.item.imageUrl)" />
 
@@ -449,11 +453,42 @@ const userSkinImg = computed(() => {
 
 const hoveredType = ref(null);
 
-// --- [CORE FIX] CALCULATE TOTAL STATS (SYNCED WITH BACKEND) ---
+// --- HELPER: TOOLTIP HIỂN THỊ CHỈ SỐ ---
+const getItemTooltip = (ui) => {
+  if (!ui || !ui.item) return "";
+  let text = `${ui.item.name} (+${ui.enhanceLevel || 0})\n`;
+  text += `Độ bền: ${ui.currentDurability ?? 100}/${ui.maxDurability ?? 100}\n`;
+  
+  // Stats calculation for display
+  const type = ui.mainStatType ? ui.mainStatType.toUpperCase() : "";
+  const val = Number(ui.mainStatValue || 0);
+  
+  let stats = [];
+  
+  // 1. Main Stat (UserItem)
+  if (val > 0) {
+     if (type.includes("ATK")) stats.push(`Công: +${val}`);
+     else if (type.includes("DEF")) stats.push(`Thủ: +${val}`);
+     else if (type.includes("HP")) stats.push(`Máu: +${val}`);
+     else if (type.includes("SPEED")) stats.push(`Tốc: +${val}`);
+     else if (type.includes("CRIT")) stats.push(`Bạo: +${val}%`);
+     else stats.push(`${type}: +${val}`);
+  }
+  
+  // 2. Base Stats (Fallback - chỉ hiện nếu chưa được cộng ở trên)
+  if (!type.includes("ATK") && ui.item.atkBonus > 0) stats.push(`Công: +${ui.item.atkBonus}`);
+  if (!type.includes("DEF") && ui.item.defBonus > 0) stats.push(`Thủ: +${ui.item.defBonus}`);
+  if (!type.includes("HP") && ui.item.hpBonus > 0) stats.push(`Máu: +${ui.item.hpBonus}`);
+  if (!type.includes("SPEED") && ui.item.speedBonus > 0) stats.push(`Tốc: +${ui.item.speedBonus}`);
+  
+  return text + stats.join("\n");
+};
+
+// --- [CORE FIX] CALCULATE TOTAL STATS (SMART FALLBACK) ---
 const totalStats = computed(() => {
   const char = charStore.character || {};
 
-  // 1. Base Attributes (Base + Pending)
+  // 1. Base Attributes
   let totalAttr = {
     str: (char.str || 0) + pendingStats.str,
     vit: (char.vit || 0) + pendingStats.vit,
@@ -463,7 +498,7 @@ const totalStats = computed(() => {
     luck: (char.luck || 0) + pendingStats.luck,
   };
 
-  // 2. Base Combat Stats (Formula: 1 STR = 2 ATK)
+  // 2. Base Combat Stats
   let combat = {
     atk: 5 + totalAttr.str * 2,
     def: 2 + Math.floor(totalAttr.vit / 3),
@@ -477,63 +512,52 @@ const totalStats = computed(() => {
   Object.values(equipment.value).forEach((ui) => {
     if (!ui || !ui.item) return;
 
-    // A. Durability Check
-    // Handle undefined/null as 100 (safe fallback for old items). Only broken if <= 0.
+    // Check durability
     const dur = ui.currentDurability !== undefined ? ui.currentDurability : 100;
     if (dur <= 0) return;
 
-    // B. Main Stat (Priority: UserItem > Item Template)
-    let hasMainStat = false;
+    // Get Main Stat Type
+    const type = ui.mainStatType ? ui.mainStatType.toUpperCase() : "";
+    const val = Number(ui.mainStatValue || 0);
 
-    // Check if UserItem has custom stats (from enhancement or generation)
-    if (ui.mainStatType && ui.mainStatValue && Number(ui.mainStatValue) > 0) {
-      hasMainStat = true;
-      const type = ui.mainStatType.toUpperCase();
-      const val = Number(ui.mainStatValue);
-
+    // A. Add Main Stat
+    if (val > 0 && type) {
       if (["ATK", "ATK_FLAT"].includes(type)) combat.atk += val;
       else if (["DEF", "DEF_FLAT"].includes(type)) combat.def += val;
       else if (["HP", "HP_FLAT"].includes(type)) combat.hp += val;
       else if (type === "SPEED") combat.speed += val;
       else if (type === "CRIT_RATE") combat.crit += val;
       else if (type === "CRIT_DMG") critDmg += val;
-      // Percent logic
-      else if (type === "ATK_PERCENT")
-        combat.atk += (5 + totalAttr.str * 2) * (val / 100);
-      else if (type === "HP_PERCENT")
-        combat.hp += (100 + totalAttr.vit * 15) * (val / 100);
+      else if (type === "ATK_PERCENT") combat.atk += (5 + totalAttr.str * 2) * (val / 100);
+      else if (type === "HP_PERCENT") combat.hp += (100 + totalAttr.vit * 15) * (val / 100);
     }
 
-    // [FIX HERE] C. Fallback: If UserItem has NO MainStat, use Item Template Base Stats
-    if (!hasMainStat) {
-      combat.atk += ui.item.atkBonus || 0;
-      combat.def += ui.item.defBonus || 0;
-      combat.hp += ui.item.hpBonus || 0;
-      combat.speed += ui.item.speedBonus || 0;
-    }
+    // B. Smart Fallback: Add Base Stats NOT covered by Main Stat
+    
+    // Add Base ATK if main stat is NOT ATK
+    if (!type.includes("ATK")) combat.atk += (ui.item.atkBonus || 0);
+    
+    // Add Base DEF if main stat is NOT DEF
+    if (!type.includes("DEF")) combat.def += (ui.item.defBonus || 0);
+    
+    // Add Base HP if main stat is NOT HP
+    if (!type.includes("HP")) combat.hp += (ui.item.hpBonus || 0);
+    
+    // Add Base SPEED if main stat is NOT SPEED
+    if (!type.includes("SPEED")) combat.speed += (ui.item.speedBonus || 0);
 
-    // D. Sub Stats
+    // C. Sub Stats (Same as before)
     if (ui.subStats) {
       let subs = [];
-      try {
-        subs =
-          typeof ui.subStats === "string"
-            ? JSON.parse(ui.subStats)
-            : ui.subStats;
-      } catch (e) {}
-
+      try { subs = typeof ui.subStats === "string" ? JSON.parse(ui.subStats) : ui.subStats; } catch (e) {}
       if (Array.isArray(subs)) {
         subs.forEach((stat) => {
-          const type = (stat.code || stat.type || "").toUpperCase();
-          const val = Number(stat.value || 0);
-
-          if (["ATK", "ATK_FLAT"].includes(type)) combat.atk += val;
-          else if (["DEF", "DEF_FLAT"].includes(type)) combat.def += val;
-          else if (["HP", "HP_FLAT"].includes(type)) combat.hp += val;
-          else if (type === "SPEED") combat.speed += val;
-          else if (type === "CRIT_RATE") combat.crit += val;
-          else if (type === "ATK_PERCENT")
-            combat.atk += (5 + totalAttr.str * 2) * (val / 100);
+          const sType = (stat.code || stat.type || "").toUpperCase();
+          const sVal = Number(stat.value || 0);
+          if (["ATK", "ATK_FLAT"].includes(sType)) combat.atk += sVal;
+          else if (["DEF", "DEF_FLAT"].includes(sType)) combat.def += sVal;
+          else if (["HP", "HP_FLAT"].includes(sType)) combat.hp += sVal;
+          // ... add other substats as needed
         });
       }
     }
@@ -560,7 +584,6 @@ const getLevelClass = (lv) => {
 
 // Helper: Durability
 const getDurabilityPercent = (item) => {
-  // If undefined, treat as 100% (safe for old items)
   if (
     item.maxDurability === undefined &&
     item.max_durability === undefined
@@ -955,6 +978,10 @@ onMounted(async () => {
 
 .c-label.def {
   color: #42a5f5;
+}
+
+.c-label.hp {
+  color: #e53935;
 }
 
 .c-label.speed {

@@ -862,6 +862,13 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                   </td>
                   <td class="actions-cell">
                     <button
+                      @click="openEditUser(u)"
+                      class="btn-icon edit"
+                      title="Sửa hồ sơ"
+                    >
+                      <i class="fas fa-pen"></i>
+                    </button>
+                    <button
                       @click="openAdminChat(u)"
                       class="btn-icon chat"
                       title="Mật đàm"
@@ -1110,8 +1117,8 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                       />
                     </div>
                   </div>
-                  <div class="empty-text" v-else>
-                    Loại vật phẩm này không có chỉ số chính.
+                   <div class="empty-text" v-else>
+                    Vật phẩm này không cần chỉ số chính.
                   </div>
 
                   <div class="divider-line"></div>
@@ -1281,6 +1288,26 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
               </form>
             </div>
           </transition>
+          
+          <div class="filter-bar glass-panel mt-3">
+            <div class="search-group">
+              <i class="fas fa-search"></i>
+              <input
+                v-model="itemFilters.search"
+                placeholder="Tìm tên hoặc mã bảo vật..."
+              />
+            </div>
+            <div class="actions">
+              <select v-model="itemFilters.type">
+                <option value="">-- Tất Cả Loại --</option>
+                <option v-for="t in itemTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
+              </select>
+              <select v-model="itemFilters.rarity">
+                <option value="">-- Tất Cả Phẩm --</option>
+                <option v-for="r in rarities" :key="r.value" :value="r.value">{{ r.label }}</option>
+              </select>
+            </div>
+          </div>
 
           <div class="table-wrapper glass-panel custom-scroll-panel">
             <table class="wuxia-table">
@@ -1292,7 +1319,7 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                   <th>Phẩm Cấp</th>
                   <th>Giá</th>
                   <th>Nguồn</th>
-                  <th>Hủy</th>
+                  <th>Thao Tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -1319,7 +1346,14 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                     >
                     <span v-else class="badge drop">Drop</span>
                   </td>
-                  <td>
+                  <td class="actions-cell">
+                    <button
+                      @click="openEditItem(i)"
+                      class="btn-icon edit"
+                      title="Chỉnh sửa"
+                    >
+                      <i class="fas fa-pen"></i>
+                    </button>
                     <button
                       @click="requestDeleteItem(i)"
                       class="btn-icon delete"
@@ -1330,6 +1364,9 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                 </tr>
               </tbody>
             </table>
+            <div v-if="filteredItems.length === 0" class="empty-data">
+              <i class="fas fa-box-open"></i> Kho tàng trống rỗng...
+            </div>
           </div>
         </section>
 
@@ -1400,7 +1437,7 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                 <div class="filter-row">
                   <input 
                     v-model="grantItemSearch" 
-                    placeholder="Tìm tên/mã vật phẩm..."
+                    placeholder="Tìm tên/mã..."
                     class="search-input"
                   />
                   <select v-model="grantItemTypeFilter" class="type-filter">
@@ -1496,6 +1533,93 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
       </main>
     </div>
 
+    <div v-if="showEditItemModal" class="modal-backdrop" @click.self="showEditItemModal = false">
+      <div class="modal-content edit-theme zoom-in">
+        <div class="modal-header">
+          <i class="fas fa-edit"></i> CHỈNH SỬA PHÁP BẢO
+        </div>
+        <div class="modal-body custom-scrollbar">
+          <div class="edit-preview">
+            <img :src="resolveItemImage(editItemForm.imageUrl)" class="preview-large" @error="handleImgError"/>
+            <div class="preview-meta">
+              <strong :class="'rarity-' + editItemForm.rarity">{{ editItemForm.name }}</strong>
+              <small>{{ editItemForm.code }}</small>
+            </div>
+          </div>
+          
+          <div class="form-grid">
+            <div class="input-group">
+              <label>Tên Hiển Thị</label>
+              <input v-model="editItemForm.name" />
+            </div>
+             <div class="input-group">
+              <label>Giá (Vàng)</label>
+              <input v-model.number="editItemForm.basePrice" type="number"/>
+            </div>
+             <div class="input-group full">
+              <label>Mô Tả</label>
+              <textarea v-model="editItemForm.description" rows="2"></textarea>
+            </div>
+            <div class="input-group full">
+              <label>URL Hình Ảnh</label>
+              <input v-model="editItemForm.imageUrl" placeholder="https://..." />
+            </div>
+            
+            <div class="stats-edit-section full">
+              <label class="section-label">Chỉ Số Chiến Đấu</label>
+              <div class="stats-grid-small">
+                <div><label>ATK</label><input type="number" v-model.number="editItemForm.atkBonus"></div>
+                <div><label>DEF</label><input type="number" v-model.number="editItemForm.defBonus"></div>
+                <div><label>HP</label><input type="number" v-model.number="editItemForm.hpBonus"></div>
+                <div><label>SPD</label><input type="number" v-model.number="editItemForm.speedBonus"></div>
+              </div>
+               <label class="section-label mt-2">Chỉ Số Công Cụ</label>
+              <div class="stats-grid-small">
+                <div><label>Bền</label><input type="number" v-model.number="editItemForm.maxDurability"></div>
+                <div><label>Luck</label><input type="number" v-model.number="editItemForm.maxLuck"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-btns">
+          <button @click="showEditItemModal = false" class="btn-cancel">Hủy</button>
+          <button @click="handleUpdateItem" class="btn-confirm-edit">Lưu Thay Đổi</button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showEditUserModal" class="modal-backdrop" @click.self="showEditUserModal = false">
+      <div class="modal-content edit-theme zoom-in">
+        <div class="modal-header">
+          <i class="fas fa-user-edit"></i> HỒ SƠ ĐẠO HỮU
+        </div>
+        <div class="modal-body">
+           <div class="form-grid">
+            <div class="input-group">
+              <label>Tên Đăng Nhập (Readonly)</label>
+              <input v-model="editUserForm.username" disabled class="disabled-input"/>
+            </div>
+             <div class="input-group">
+              <label>Email Liên Lạc</label>
+              <input v-model="editUserForm.email" />
+            </div>
+             <div class="input-group full">
+              <label>Avatar URL</label>
+              <input v-model="editUserForm.avatarUrl" />
+            </div>
+            <div class="input-group full warning-zone">
+              <label>Đổi Mật Khẩu (Bỏ trống nếu không đổi)</label>
+              <input v-model="editUserForm.newPassword" type="password" placeholder="Nhập mật khẩu mới..." />
+            </div>
+           </div>
+        </div>
+        <div class="modal-btns">
+          <button @click="showEditUserModal = false" class="btn-cancel">Hủy</button>
+          <button @click="handleUpdateUser" class="btn-confirm-edit">Cập Nhật</button>
+        </div>
+      </div>
+    </div>
+
     <div
       v-if="showBanModal"
       class="modal-backdrop"
@@ -1543,6 +1667,15 @@ const showBanModal = ref(false);
 const selectedUser = ref(null);
 const banReason = ref("");
 
+// [NEW] Edit States
+const showEditItemModal = ref(false);
+const editItemForm = reactive({});
+const showEditUserModal = ref(false);
+const editUserForm = reactive({});
+
+// [NEW] Filter States
+const itemFilters = reactive({ search: "", type: "", rarity: "" });
+
 const isGrantingGold = ref(false);
 const isGrantingEcho = ref(false);
 const isGrantingItem = ref(false);
@@ -1558,7 +1691,7 @@ const selectedMainStatValue = ref(0);
 // Danh sách sub-stat động
 const subStatsList = ref([]);
 
-// [NEW] Grant Item Search & Filter States
+// [NEW] Grant Item Search
 const grantItemSearch = ref("");
 const grantItemTypeFilter = ref("");
 
@@ -1690,38 +1823,48 @@ const filteredUsers = computed(() => {
   return users;
 });
 
+// [UPDATED] FILTER ITEMS: Lọc theo Type, Rarity và Search
 const filteredItems = computed(() => {
-  return (adminStore.items || []).slice().reverse();
+  let items = adminStore.items || [];
+  
+  // Filter Search
+  if (itemFilters.search) {
+    const s = itemFilters.search.toLowerCase();
+    items = items.filter(i => i.name.toLowerCase().includes(s) || i.code.toLowerCase().includes(s));
+  }
+  // Filter Type
+  if (itemFilters.type) {
+    items = items.filter(i => i.type === itemFilters.type);
+  }
+  // Filter Rarity
+  if (itemFilters.rarity) {
+    items = items.filter(i => i.rarity === itemFilters.rarity);
+  }
+
+  return items.slice().reverse();
+});
+
+// [NEW] Filter for Grant Item dropdown
+const filteredGrantList = computed(() => {
+  let list = adminStore.items || [];
+  if (grantItemTypeFilter.value) {
+    list = list.filter(i => i.type === grantItemTypeFilter.value);
+  }
+  if (grantItemSearch.value) {
+    const s = grantItemSearch.value.toLowerCase();
+    list = list.filter(i => i.name.toLowerCase().includes(s) || i.code.toLowerCase().includes(s));
+  }
+  return list.slice(0, 20); // Limit display
+});
+
+const selectedGrantItem = computed(() => {
+  if (!grantItemForm.itemId) return null;
+  return adminStore.items.find(i => i.itemId === grantItemForm.itemId);
 });
 
 const itemOptions = computed(() =>
   (adminStore.items || []).map((i) => ({ id: i.itemId, name: i.name })),
 );
-
-// [NEW] Logic filter cho phần Ban Item
-const filteredGrantList = computed(() => {
-  let list = adminStore.items || [];
-  
-  // Filter by Type
-  if (grantItemTypeFilter.value) {
-    list = list.filter(i => i.type === grantItemTypeFilter.value);
-  }
-
-  // Filter by Search Name/Code
-  if (grantItemSearch.value) {
-    const s = grantItemSearch.value.toLowerCase();
-    list = list.filter(i => i.name.toLowerCase().includes(s) || i.code.toLowerCase().includes(s));
-  }
-
-  // Limit display to avoid lag (top 20)
-  return list.slice(0, 20);
-});
-
-// [NEW] Lấy item đã chọn để hiển thị Preview
-const selectedGrantItem = computed(() => {
-  if (!grantItemForm.itemId) return null;
-  return adminStore.items.find(i => i.itemId === grantItemForm.itemId);
-});
 
 const currentRawAssets = computed(() => {
   return assetLibrary[itemForm.type] || assetLibrary["WEAPON"];
@@ -1815,8 +1958,9 @@ const getAllowedSubStats = computed(() => {
     }
   }
 
-  // 2. Lọc Main Stat đã chọn (Nguyên tắc: Không trùng loại)
-  // Nếu Main là ATK hoặc ATK%, thì Sub ko được hiện ATK và ATK%
+  // 2. Lọc Main Stat đã chọn
+  // Rule: Nếu Main Stat là %, Sub chỉ hiện Flat (không hiện % tương ứng)
+  // Thực tế: Nếu main là ATK_PERCENT, thì sub không được có ATK_PERCENT (nhưng ATK flat vẫn ok)
   return allowed.filter(s => s.value !== mainStat);
 });
 
@@ -2157,6 +2301,53 @@ const requestDeleteItem = async (i) => {
   }
 };
 
+// --- HELPER HANDLERS ---
+const handleImgError = (e) => {
+  e.target.src = resolveItemImage("o_coal.png"); // Fallback
+};
+
+// --- EDIT HANDLERS (NEW) ---
+const openEditItem = (item) => {
+  Object.assign(editItemForm, JSON.parse(JSON.stringify(item)));
+  showEditItemModal.value = true;
+};
+
+const handleUpdateItem = async () => {
+  try {
+    await axiosClient.put(`/admin/item/${editItemForm.itemId}`, editItemForm);
+    notificationStore.showToast("Cập nhật vật phẩm thành công!", "success");
+    showEditItemModal.value = false;
+    adminStore.fetchItems();
+  } catch (e) {
+    notificationStore.showToast("Lỗi cập nhật: " + (e.response?.data || e.message), "error");
+  }
+};
+
+const openEditUser = (user) => {
+  Object.assign(editUserForm, {
+    userId: user.userId,
+    username: user.username,
+    email: user.email,
+    avatarUrl: user.avatarUrl,
+    newPassword: "" 
+  });
+  showEditUserModal.value = true;
+};
+
+const handleUpdateUser = async () => {
+  try {
+    const payload = { ...editUserForm };
+    if (!payload.newPassword) delete payload.newPassword;
+    
+    await axiosClient.put(`/admin/user/${editUserForm.userId}`, payload);
+    notificationStore.showToast("Cập nhật hồ sơ thành công!", "success");
+    showEditUserModal.value = false;
+    adminStore.fetchUsers();
+  } catch (e) {
+    notificationStore.showToast("Lỗi cập nhật: " + (e.response?.data || e.message), "error");
+  }
+};
+
 onMounted(() => {
   adminStore.fetchStats();
   adminStore.fetchUsers();
@@ -2172,6 +2363,8 @@ onMounted(() => {
 .bg-layer.base { background: radial-gradient(circle at top, #1a100e, #000000); }
 .bg-layer.overlay { background-image: url("https://www.transparenttextures.com/patterns/black-scales.png"); opacity: 0.3; }
 .admin-container { position: relative; z-index: 10; max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+
+/* ... (Style buttons, header, nav, tables... giữ nguyên) ... */
 .btn-interactive { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
 .btn-interactive:not(:disabled):hover { filter: brightness(1.2); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); }
 .btn-interactive:not(:disabled):active { transform: translateY(1px) scale(0.98); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); }
@@ -2341,7 +2534,7 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
 .sub-stats-preview { margin-top: 5px; display: flex; flex-direction: column; gap: 2px; }
 .preview-sub { color: #a5d6a7; font-family: monospace; }
 
-/* Item Selector for Ban Items */
+/* Item Selector */
 .item-selector-container { margin-bottom: 10px; background: rgba(0,0,0,0.2); border: 1px solid #444; border-radius: 6px; padding: 10px; }
 .filter-row { display: flex; gap: 10px; margin-bottom: 10px; }
 .search-input { flex: 1; padding: 8px; background: rgba(0,0,0,0.5); border: 1px solid #555; color: #fff; border-radius: 4px; }
@@ -2358,4 +2551,25 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
 .preview-details { display: flex; flex-direction: column; }
 .preview-name { font-weight: bold; font-size: 1rem; }
 .preview-details small { color: #888; }
+
+/* EDIT MODAL STYLES */
+.edit-theme { background: #1a1a1a; border: 2px solid #42a5f5; width: 600px; max-width: 95%; overflow: hidden; box-shadow: 0 0 50px rgba(66, 165, 245, 0.3); }
+.edit-theme .modal-header { background: #1565c0; color: #fff; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; text-transform: uppercase; }
+.edit-preview { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px; }
+.preview-large { width: 80px; height: 80px; object-fit: contain; border: 1px solid #444; background: #000; border-radius: 6px; }
+.preview-meta { display: flex; flex-direction: column; }
+.preview-meta strong { font-size: 1.4rem; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 0 10px; }
+.form-grid .full { grid-column: span 2; }
+.stats-edit-section { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 6px; border: 1px solid #333; margin-top: 10px; }
+.section-label { display: block; color: #42a5f5; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; font-size: 0.8rem; }
+.stats-grid-small { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.stats-grid-small div { display: flex; flex-direction: column; gap: 5px; }
+.stats-grid-small label { font-size: 0.75rem; color: #aaa; text-align: center; }
+.stats-grid-small input { text-align: center; padding: 5px; background: rgba(0,0,0,0.4); border: 1px solid #444; color: #fff; border-radius: 4px; }
+.btn-confirm-edit { background: #42a5f5; color: #fff; border: none; padding: 10px 30px; border-radius: 30px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+.btn-confirm-edit:hover { background: #1e88e5; box-shadow: 0 0 15px rgba(66, 165, 245, 0.4); }
+.edit { background: linear-gradient(135deg, #ffb74d, #f57c00); }
+.warning-zone { border: 1px solid #ef5350; padding: 10px; border-radius: 4px; background: rgba(239, 83, 80, 0.1); }
+.disabled-input { opacity: 0.6; cursor: not-allowed; background: #222; }
 </style>

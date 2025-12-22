@@ -555,6 +555,11 @@ onMounted(() => {
             <span class="slots-text">
               {{ inventoryStore.items.length }} / {{ authStore.user?.inventorySlots || 49 }}
             </span>
+            
+            <button class="btn-icon-action" @click="toggleViewMode" :title="viewMode === 'list' ? 'Xem dạng lưới' : 'Xem dạng cuộn'">
+                <i :class="viewMode === 'list' ? 'fas fa-th' : 'fas fa-stream'"></i>
+            </button>
+
             <button class="btn-add-slots" @click="expandSlots" title="Mở rộng (+7 ô)">
               <i class="fas fa-plus"></i>
             </button>
@@ -570,6 +575,7 @@ onMounted(() => {
         </div>
 
         <div 
+            v-if="viewMode === 'list'"
             class="infinite-wheel-container" 
             ref="wheelContainer"
             @wheel.prevent="onWheel"
@@ -582,7 +588,7 @@ onMounted(() => {
 
           <div 
             v-for="itemObj in renderedItems" 
-            :key="itemObj.virtualId"
+            :key="itemObj.virtualKey"
             class="wheel-item"
             :class="{ 
                 'active': itemObj.isActive, 
@@ -616,6 +622,37 @@ onMounted(() => {
             <i class="fas fa-box-open"></i> Túi Trống
           </div>
         </div>
+
+        <div v-else class="grid-view-container custom-scroll">
+            <div class="inv-grid">
+                <div 
+                    v-for="item in filteredItems" 
+                    :key="item.userItemId"
+                    class="inv-slot"
+                    :class="[
+                        'rarity-' + (item.item.rarity || 'COMMON'),
+                        { 'selected': selectedItem?.userItemId === item.userItemId },
+                        { 'equipped': item.isEquipped }
+                    ]"
+                    @click="selectItem(item)"
+                >
+                    <div class="slot-inner">
+                        <img :src="resolveItemImage(item.item.imageUrl)" loading="lazy" />
+                        <span v-if="item.enhanceLevel" class="enhance-tag" :class="getEnhanceColor(item.enhanceLevel)">
+                            +{{ item.enhanceLevel }}
+                        </span>
+                        <span v-if="item.quantity > 1" class="qty-tag">{{ item.quantity }}</span>
+                        <i v-if="item.isEquipped" class="fas fa-shield-alt equipped-icon-grid"></i>
+                    </div>
+                </div>
+                <div 
+                    v-for="n in Math.max(0, (authStore.user?.inventorySlots || 49) - filteredItems.length)" 
+                    :key="'empty-' + n"
+                    class="inv-slot empty"
+                ></div>
+            </div>
+        </div>
+
       </div>
 
       <div class="inv-detail-panel glass-panel detail-mode">
@@ -638,7 +675,8 @@ onMounted(() => {
           <div class="stats-box">
             <div v-if="selectedItem.mainStatValue > 0" class="stat-row main-stat">
               <span class="stat-label">
-                <i class="fas fa-khanda"></i> {{ getStatLabel(selectedItem.mainStatType || selectedItem.item) }}
+                <i class="fas fa-khanda"></i> 
+                {{ getStatLabel(selectedItem.mainStatType, selectedItem.item.type) }}
               </span>
               <span class="stat-val">+{{ formatNumber(selectedItem.mainStatValue) }}</span>
             </div>
@@ -706,8 +744,9 @@ const toast = ref(null);
 
 const currentTab = ref('ALL');
 const selectedItem = ref(null);
+const viewMode = ref('list'); 
 
-// --- CONFIG ---
+// --- CONFIG WHEEL ---
 const ITEM_HEIGHT = 50; 
 const VISIBLE_COUNT = 13;
 const scrollY = ref(0);
@@ -720,7 +759,7 @@ let lastTouchY = 0;
 let velocity = 0;
 let animationFrameId = null;
 let lastTime = 0;
-let targetScrollY = null; // Dùng cho click-to-scroll
+let targetScrollY = null; 
 
 const tabs = [
   { id: 'ALL', label: 'Tất Cả' },
@@ -738,28 +777,37 @@ const filteredItems = computed(() => {
   return items;
 });
 
-// --- LOGIC AUTO SELECT (Cuộn tới đâu hiện tới đó) ---
+const toggleViewMode = () => {
+    viewMode.value = viewMode.value === 'list' ? 'grid' : 'list';
+    if (viewMode.value === 'list') {
+        scrollY.value = 0;
+    }
+};
+
+// --- LOGIC AUTO SELECT ---
 watch(scrollY, (newVal) => {
+    if (viewMode.value !== 'list') return;
     const items = filteredItems.value;
     if (!items.length) return;
-
-    // Tính index của item đang nằm giữa (Math.round)
     const centerIndex = Math.round(newVal / ITEM_HEIGHT);
     const total = items.length;
-    
-    // Modulo để lấy đúng item trong mảng (xử lý số âm)
     const realIndex = ((centerIndex % total) + total) % total;
-    
     const targetItem = items[realIndex];
-    
-    // Cập nhật selectedItem nếu khác cái cũ
     if (selectedItem.value?.userItemId !== targetItem?.userItemId) {
         selectedItem.value = targetItem;
     }
 });
 
+// Auto select first item
+watch(filteredItems, (newItems) => {
+    if (newItems.length > 0 && !selectedItem.value) {
+        selectedItem.value = newItems[0];
+    }
+}, { immediate: true });
+
 // --- RENDER LOGIC ---
 const renderedItems = computed(() => {
+    if (viewMode.value !== 'list') return [];
     const items = filteredItems.value;
     const total = items.length;
     if (total === 0) return [];
@@ -808,8 +856,8 @@ const renderedItems = computed(() => {
         };
 
         result.push({
-            virtualKey: `${itemData.userItemId}_${i}`, // Key độc nhất
-            index: i, // Index ảo để click-to-scroll
+            virtualKey: `${itemData.userItemId}_${i}`,
+            index: i,
             data: itemData,
             style,
             isActive
@@ -818,9 +866,8 @@ const renderedItems = computed(() => {
     return result;
 });
 
-// --- CLICK TO CENTER ---
+// --- SCROLL HELPERS ---
 const scrollToIndex = (virtualIndex) => {
-    // Tính toán đích đến
     targetScrollY = virtualIndex * ITEM_HEIGHT;
     cancelAnimationFrame(animationFrameId);
     animateToTarget();
@@ -828,11 +875,9 @@ const scrollToIndex = (virtualIndex) => {
 
 const animateToTarget = () => {
     if (targetScrollY === null) return;
-    
-    // Hiệu ứng lướt tới đích (Lerp)
     const diff = targetScrollY - scrollY.value;
     if (Math.abs(diff) > 0.5) {
-        scrollY.value += diff * 0.1; // Tốc độ lướt
+        scrollY.value += diff * 0.1;
         animationFrameId = requestAnimationFrame(animateToTarget);
     } else {
         scrollY.value = targetScrollY;
@@ -840,15 +885,13 @@ const animateToTarget = () => {
     }
 };
 
-// --- PHYSICS SCROLL ---
 const inertiaLoop = (time) => {
     if (!lastTime) lastTime = time;
     const delta = time - lastTime;
     lastTime = time;
-
     if (Math.abs(velocity) > 0.1) {
         scrollY.value -= velocity * 16;
-        velocity *= 0.92; // Ma sát
+        velocity *= 0.92;
         animationFrameId = requestAnimationFrame(inertiaLoop);
     } else {
         velocity = 0;
@@ -868,7 +911,6 @@ const snapToGrid = () => {
     }
 };
 
-// --- HANDLERS ---
 const onWheel = (e) => {
     cancelAnimationFrame(animationFrameId);
     targetScrollY = null;
@@ -929,19 +971,45 @@ const switchTab = (tabId) => {
     velocity = 0;
 };
 
-// --- HELPERS (Logic cũ) ---
+// --- [FIXED] HELPERS HIỂN THỊ CHỈ SỐ ---
+const selectItem = (item) => { selectedItem.value = item; };
+
 const parsedSubStats = computed(() => {
   if (!selectedItem.value || !selectedItem.value.subStats) return [];
   try { return JSON.parse(selectedItem.value.subStats); } catch (e) { return []; }
 });
-const getStatLabel = (statInfo) => {
-    if(typeof statInfo === 'string') return statInfo; 
-    return statInfo.atkBonus ? "Công Lực" : statInfo.defBonus ? "Hộ Thể" : "Sức Mạnh";
-};
+
+// [FIXED] TỪ ĐIỂN FULL
 const getStatName = (code) => {
-    const dict = { "ATK_FLAT": "Công Lực", "HP_FLAT": "Sinh Lực", "CRIT_RATE": "Bạo Kích" };
+    const dict = { 
+        "ATK": "Công Lực", "ATK_FLAT": "Công Lực", "ATK_PERCENT": "Công Lực %",
+        "DEF": "Hộ Thể", "DEF_FLAT": "Hộ Thể", "DEF_PERCENT": "Hộ Thể %",
+        "HP": "Sinh Lực", "HP_FLAT": "Sinh Lực", "HP_PERCENT": "Sinh Lực %",
+        "SPEED": "Thân Pháp", 
+        "CRIT": "Bạo Kích", "CRIT_RATE": "Bạo Kích", 
+        "CRIT_DMG": "Sát Thương Bạo",
+        "LUCK": "May Mắn", "DURABILITY": "Độ Bền"
+    };
     return dict[code] || code;
 };
+
+// [FIXED] LOGIC THÔNG MINH: TỰ ĐOÁN NẾU THIẾU DỮ LIỆU
+const getStatLabel = (mainStatType, itemType) => {
+    // 1. Có mã -> Dịch
+    if (mainStatType && typeof mainStatType === 'string') {
+        return getStatName(mainStatType);
+    }
+    
+    // 2. Không có mã -> Đoán theo loại vật phẩm (Fallback cho item cũ)
+    if (itemType) {
+        if (itemType === 'WEAPON') return "Công Lực";
+        if (['ARMOR', 'HELMET', 'BOOTS', 'RING', 'NECKLACE'].includes(itemType)) return "Hộ Thể";
+        if (itemType === 'TOOL') return "Hiệu Suất";
+    }
+    
+    return "Sức Mạnh";
+};
+
 const canEquip = (uItem) => ['WEAPON', 'ARMOR', 'HELMET', 'BOOTS', 'RING', 'NECKLACE', 'TOOL'].includes(uItem.item.type);
 const handleEquip = async () => {
   if (!selectedItem.value) return;
@@ -990,6 +1058,12 @@ const handleRepair = async () => {
         const fresh = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId);
         if(fresh) selectedItem.value = fresh;
     } catch(e) { toast.value?.show(e, "error"); }
+};
+const getEnhanceColor = (lv) => {
+    if(lv >= 15) return 'tag-red';
+    if(lv >= 10) return 'tag-purple';
+    if(lv >= 5) return 'tag-gold';
+    return 'tag-white';
 };
 const formatNumber = (num) => new Intl.NumberFormat().format(num || 0);
 
@@ -1049,14 +1123,17 @@ onUnmounted(() => {
 .panel-header h3 { margin: 0; color: #ffecb3; font-size: 1.1rem; font-weight: bold; letter-spacing: 1px; }
 .header-right { display: flex; align-items: center; gap: 8px; }
 .slots-text { font-size: 0.85rem; color: #a1887f; }
-.btn-add-slots {
-    background: linear-gradient(135deg, #43a047, #2e7d32);
+
+/* Buttons in Header */
+.btn-add-slots, .btn-icon-action {
     border: 1px solid #66bb6a;
-    color: white; width: 22px; height: 22px; border-radius: 4px;
+    color: white; width: 26px; height: 26px; border-radius: 4px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
-    transition: transform 0.2s; font-size: 0.8rem;
+    transition: transform 0.2s; font-size: 0.8rem; margin-left: 5px;
 }
-.btn-add-slots:hover { transform: scale(1.1); filter: brightness(1.2); }
+.btn-add-slots { background: linear-gradient(135deg, #43a047, #2e7d32); }
+.btn-icon-action { background: #3e2723; border-color: #8d6e63; color: #ffecb3; }
+.btn-add-slots:hover, .btn-icon-action:hover { transform: scale(1.1); filter: brightness(1.2); }
 
 /* Tabs */
 .filter-tabs { display: flex; background: rgba(0,0,0,0.4); padding: 4px; gap: 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -1078,7 +1155,7 @@ onUnmounted(() => {
 
 /* Center Bar */
 .center-highlight-bar {
-    position: absolute; top: 50%; left: 0; right: 0; height: 56px; /* 50 + padding */
+    position: absolute; top: 50%; left: 0; right: 0; height: 56px; 
     transform: translateY(-50%);
     background: linear-gradient(90deg, transparent 0%, rgba(255, 202, 40, 0.08) 20%, rgba(255, 202, 40, 0.08) 80%, transparent 100%);
     border-top: 1px solid rgba(255, 202, 40, 0.3);
@@ -1087,7 +1164,7 @@ onUnmounted(() => {
     pointer-events: none; z-index: 0;
 }
 
-/* Item */
+/* Item Wheel */
 .wheel-item {
     position: absolute; left: 0; right: 0; top: 0; height: 50px;
     display: flex; align-items: center; justify-content: center;
@@ -1106,7 +1183,6 @@ onUnmounted(() => {
     transition: background 0.2s, border 0.2s;
 }
 
-/* Active Style */
 .wheel-item.active .wheel-inner {
     background: linear-gradient(90deg, rgba(62, 39, 35, 0.9) 0%, rgba(93, 64, 55, 1) 50%, rgba(62, 39, 35, 0.9) 100%);
     border-color: #ffca28;
@@ -1135,6 +1211,41 @@ onUnmounted(() => {
 
 .empty-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #5d4037; opacity: 0.5; font-style: italic; }
 
+/* --- GRID VIEW STYLES --- */
+.grid-view-container { flex: 1; padding: 15px; overflow-y: auto; }
+.inv-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+.inv-slot {
+    aspect-ratio: 1;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid #4e342e;
+    border-radius: 4px;
+    cursor: pointer; position: relative;
+    transition: 0.2s;
+}
+.inv-slot:hover { border-color: #bcaaa4; transform: scale(1.05); z-index: 5; }
+.inv-slot.selected { border-color: #ffecb3; box-shadow: 0 0 8px #ffecb3; }
+.inv-slot.empty { opacity: 0.1; pointer-events: none; border-style: dashed; }
+
+.slot-inner { width: 100%; height: 100%; padding: 4px; display: flex; justify-content: center; align-items: center; }
+.slot-inner img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.enhance-tag { position: absolute; top: 1px; right: 1px; font-size: 9px; padding: 0 3px; border-radius: 2px; font-weight: bold; color: white; background: #555; }
+.tag-gold { background: #fbc02d; color: black; }
+.tag-purple { background: #7b1fa2; }
+.tag-red { background: #d32f2f; }
+.qty-tag { position: absolute; bottom: 1px; right: 1px; font-size: 9px; background: rgba(0,0,0,0.8); color: white; padding: 0 3px; border-radius: 2px; }
+.equipped-icon-grid { position: absolute; top: 2px; left: 2px; font-size: 10px; color: #66bb6a; }
+
+/* Rarity Borders in Grid */
+.rarity-COMMON { border-color: #9e9e9e; }
+.rarity-UNCOMMON { border-color: #66bb6a; }
+.rarity-RARE { border-color: #42a5f5; }
+.rarity-EPIC { border-color: #ab47bc; }
+.rarity-LEGENDARY { border-color: #ffca28; }
+
 /* --- RIGHT PANEL --- */
 .inv-detail-panel { padding: 20px; }
 .detail-content { display: flex; flex-direction: column; height: 100%; }
@@ -1144,6 +1255,24 @@ onUnmounted(() => {
     margin-bottom: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);
 }
 .big-preview { transform: scale(1.8); filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8)); }
+
+.stats-box { flex: 1; }
+.stat-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,0.1); }
+.main-stat { margin-bottom: 12px; border-bottom: 1px solid rgba(255, 82, 82, 0.4); padding-bottom: 8px; }
+.main-stat .stat-label { font-size: 1rem; color: #ef9a9a; font-weight: bold; }
+.main-stat .stat-val { font-size: 1.1rem; color: #fff; font-weight: bold; text-shadow: 0 0 5px rgba(255,82,82,0.5); }
+.sub-stat { color: #b0bec5; font-size: 0.9rem; }
+.sub-val { color: #81d4fa; }
+.dot { color: #5d4037; margin-right: 6px; font-size: 0.7rem; }
+
+.desc-text { margin-top: 15px; font-style: italic; color: #a1887f; font-size: 0.85rem; line-height: 1.4; padding: 10px; background: rgba(0,0,0,0.2); border-left: 3px solid #5d4037; }
+.durability-box { margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
+.durability-header { display: flex; justify-content: space-between; font-size: 0.8rem; color: #ccc; margin-bottom: 4px; }
+.durability-progress-bg { height: 6px; background: #263238; border-radius: 3px; overflow: hidden; }
+.durability-progress-fill { height: 100%; transition: width 0.3s; }
+.broken-warning { color: #ff5252; font-weight: bold; font-size: 0.8rem; margin-top: 4px; text-align: center; }
+.dur-high { background: #66bb6a; color: #66bb6a; }
+.dur-low { background: #ef5350; color: #ef5350; }
 
 .btn-action {
     width: 100%; padding: 12px; margin-top: 10px; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
@@ -1157,6 +1286,6 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .inventory-layout { grid-template-columns: 1fr; height: auto; }
-  .infinite-wheel-container { height: 320px; }
+  .infinite-wheel-container, .grid-view-container { height: 320px; }
 }
-</style>
+</style>a

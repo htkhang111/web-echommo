@@ -358,7 +358,6 @@ public class InventoryServiceImpl implements InventoryService {
         UserItem userItem = userItemRepo.findById(userItemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy vật phẩm!"));
 
-        // [FIX] Cần hàm getUser() trong UserItem.java để dòng này chạy được
         if (!userItem.getUser().getUserId().equals(user.getUserId())) {
             throw new RuntimeException("Vật phẩm không thuộc về bạn!");
         }
@@ -374,7 +373,6 @@ public class InventoryServiceImpl implements InventoryService {
         }
 
         int missingDurability = max - current;
-        // 1 Echo Coin = 10 Durability
         double costValue = Math.ceil(missingDurability / 10.0);
         BigDecimal cost = BigDecimal.valueOf(costValue);
 
@@ -395,15 +393,14 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public User expandInventory(User user) {
-        // [FIX] Logic hệ số 7 (Mặc định 49, Mỗi lần +7)
+        // [LOGIC MỚI] Hệ số 7
         int currentSlots = user.getInventorySlots() != null ? user.getInventorySlots() : 49;
 
-        // Tối đa 210 ô (để chia hết cho 7)
         if (currentSlots >= 210) throw new RuntimeException("Kho đồ đã đạt giới hạn tối đa!");
 
         int nextSlots = currentSlots + 7;
 
-        // Công thức phí: ((current - 49) / 7) + 1
+        // Phí: ((current - 49) / 7) + 1
         int costInt = ((currentSlots - 49) / 7) + 1;
         if (costInt < 1) costInt = 1;
 
@@ -432,7 +429,7 @@ public class InventoryServiceImpl implements InventoryService {
 
         int currentCount = userItemRepo.countByCharacter_CharId(character.getCharId());
 
-        // [FIX] Check mặc định 49 ô
+        // [FIX] Mặc định check theo 49 ô
         int maxSlots = user.getInventorySlots() != null ? user.getInventorySlots() : 49;
 
         boolean isStackable = List.of("MATERIAL", "CONSUMABLE").contains(item.getType());
@@ -453,6 +450,9 @@ public class InventoryServiceImpl implements InventoryService {
         }
 
         for (int i = 0; i < quantity; i++) {
+            // [LOGIC MỚI] Lấy loại chỉ số chuẩn từ helper (Dữ liệu thật)
+            String defaultStatType = getDefaultStatType(item.getType());
+
             UserItem ui = UserItem.builder()
                     .character(character)
                     .item(item)
@@ -461,17 +461,37 @@ public class InventoryServiceImpl implements InventoryService {
                     .enhanceLevel(0)
                     .rarity(item.getRarity() != null ? item.getRarity() : Rarity.COMMON)
                     .acquiredAt(LocalDateTime.now())
+                    // Gán giá trị chỉ số chính
                     .mainStatValue(BigDecimal.valueOf(item.getBaseMainStat() != null ? item.getBaseMainStat() : 0))
+                    // Gán loại chỉ số chính (quan trọng để hiển thị đúng ở Frontend)
+                    .mainStatType(defaultStatType)
+
                     .maxDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100)
                     .currentDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100)
                     .build();
 
-            if (List.of("WEAPON", "ARMOR", "TOOL").contains(item.getType())) {
+            // Nếu là trang bị, có thể random thêm
+            if (List.of("WEAPON", "ARMOR", "TOOL", "HELMET", "BOOTS", "RING", "NECKLACE").contains(item.getType())) {
                 itemGenService.randomizeNewItem(ui);
             } else {
                 ui.setSubStats("[]");
             }
             userItemRepo.save(ui);
+        }
+    }
+
+    // Hàm helper xác định chỉ số mặc định (Dữ liệu thật)
+    private String getDefaultStatType(String itemType) {
+        if (itemType == null) return null;
+        switch (itemType) {
+            case "WEAPON": return "ATK_FLAT";      // Kiếm -> Công Lực
+            case "ARMOR":                          // Giáp -> Hộ Thể
+            case "HELMET":
+            case "BOOTS": return "DEF_FLAT";
+            case "RING": return "CRIT_RATE";       // Nhẫn -> Bạo Kích
+            case "NECKLACE": return "HP_FLAT";     // Dây Chuyền -> Sinh Lực
+            case "TOOL": return "DURABILITY";      // Công cụ -> Độ Bền
+            default: return null;
         }
     }
 }

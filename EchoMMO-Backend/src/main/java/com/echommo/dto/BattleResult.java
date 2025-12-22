@@ -13,10 +13,10 @@ public class BattleResult {
     private List<String> combatLog;
     private String status; // "ONGOING", "VICTORY", "DEFEAT"
 
-    // [MỚI] Các trường phục vụ tính năng Drop Item
-    private boolean hasDrop;        // Có rơi đồ không
-    private String dropName;        // Tên vật phẩm
-    private String dropRarity;      // Phẩm chất: COMMON, RARE, EPIC...
-    private String dropImage;       // URL ảnh vật phẩm
-    private boolean inventoryFull;  // Cờ báo túi đầy (để Frontend xử lý hỏi user)
+    // [MỚI] Thông tin Drop Item
+    private boolean hasDrop;
+    private String dropName;
+    private String dropRarity;
+    private String dropImage;
+    private boolean inventoryFull;
 }
