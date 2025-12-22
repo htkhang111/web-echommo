@@ -233,13 +233,16 @@ const handleResult = async () => {
     const res = await charStore.explore({ mapId: currentMapId.value });
     await charStore.fetchCharacter();
 
+    // [FIX] Sử dụng rewardItemCode để lấy ảnh chuẩn xác
     if (res.type === "GATHERING") {
-      const img = getItemImage(res.rewardName); 
+      const img = getItemImage(res.rewardItemCode || res.rewardName); 
       setLog(`<span style="color:#00e676; font-weight:bold;">${res.message}</span>`, "GATHER", img, { label: "⛏️ KHAI THÁC", handler: () => router.push("/gathering") });
       return;
     }
+    
     if (res.type === "ITEM" && res.rewardName) {
-      const img = getItemImage(res.rewardName) || getItemImage("GOLD");
+      // [FIX] Ưu tiên rewardItemCode
+      const img = getItemImage(res.rewardItemCode || res.rewardName) || getItemImage("GOLD");
       let msg = `<span style="color:#ffd700; font-weight:bold;">${res.message}</span>`;
       if (questStore.checkQuestCompletion) {
         const rGold = questStore.checkQuestCompletion(res.rewardName);

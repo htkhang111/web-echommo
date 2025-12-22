@@ -1,3 +1,4 @@
+// EchoMMO-Backend/src/main/java/com/echommo/service/ExplorationService.java
 package com.echommo.service;
 
 import com.echommo.dto.ExplorationResponse;
@@ -103,7 +104,9 @@ public class ExplorationService {
 
         int roll = r.nextInt(100);
         String type; String msg;
-        String rewardName = null; Integer rewardAmount = 0; Integer rewardItemId = null;
+        String rewardName = null;
+        String rewardItemCode = null; // [NEW]
+        Integer rewardAmount = 0; Integer rewardItemId = null;
 
         if (roll < 70) {
             type = "TEXT";
@@ -129,6 +132,7 @@ public class ExplorationService {
 
                     msg = "Phát hiện bãi " + item.getName();
                     rewardName = item.getName();
+                    rewardItemCode = item.getCode(); // [NEW] Gán code
                     rewardAmount = amount;
                     rewardItemId = item.getItemId();
                 } else {
@@ -159,9 +163,10 @@ public class ExplorationService {
                 if (it != null) {
                     addItemToInventory(c, it, 1);
                     msg = "Nhặt được 1 " + it.getName();
-                    rewardName = it.getName(); rewardAmount = 1;
+                    rewardName = it.getName();
+                    rewardItemCode = it.getCode(); // [NEW] Gán code
+                    rewardAmount = 1;
                 } else {
-                    // [CLEAN] Thay thế dòng "hòn đá cuội" gây khó chịu
                     msg = "Không tìm thấy tài nguyên giá trị.";
                 }
             }
@@ -176,7 +181,9 @@ public class ExplorationService {
                 .message(msg).type(type)
                 .currentLv(c.getLevel()).currentExp(c.getCurrentExp())
                 .currentEnergy(c.getCurrentEnergy()).maxEnergy(c.getMaxEnergy())
-                .rewardName(rewardName).rewardAmount(rewardAmount).rewardItemId(rewardItemId)
+                .rewardName(rewardName)
+                .rewardItemCode(rewardItemCode) // [NEW] Trả về code
+                .rewardAmount(rewardAmount).rewardItemId(rewardItemId)
                 .build();
     }
 
@@ -230,26 +237,21 @@ public class ExplorationService {
 
         Item resourceItem = itemRepo.findById(itemId).orElseThrow();
 
-        // 1. Xác định Tool yêu cầu
         SlotType requiredToolType = determineRequiredTool(resourceItem.getCode());
 
-        // 2. Tìm Tool đang trang bị
         UserItem equippedTool = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(c.getCharId()).stream()
                 .filter(ui -> ui.getItem().getSlotType() == requiredToolType)
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("Bạn cần trang bị " + getToolName(requiredToolType) + " để khai thác!"));
 
-        // 3. Kiểm tra độ bền
         if (equippedTool.getCurrentDurability() != null && equippedTool.getCurrentDurability() <= 0) {
             throw new RuntimeException("Dụng cụ đã hỏng! Hãy sửa chữa.");
         }
 
-        // 4. Tính toán tiêu thụ
         int baseEnergy = (amountRequest >= 10) ? 12 : amountRequest;
         int expGain = (amountRequest >= 10) ? 100 : amountRequest * 10;
         int actualAmount = (amountRequest >= 10) ? 10 : amountRequest;
 
-        // Check tỷ lệ tiết kiệm Energy (Tier 5)
         boolean freeEnergy = false;
         Item toolTemplate = equippedTool.getItem();
         if (toolTemplate.getEnergySaveChance() != null && toolTemplate.getEnergySaveChance() > 0) {
@@ -262,7 +264,6 @@ public class ExplorationService {
             throw new RuntimeException("Thiếu năng lượng! Cần " + baseEnergy);
         }
 
-        // 5. Trừ độ bền dụng cụ
         int durabilityCost = (amountRequest >= 10) ? 2 : 1;
         if (equippedTool.getCurrentDurability() != null) {
             equippedTool.setCurrentDurability(Math.max(0, equippedTool.getCurrentDurability() - durabilityCost));

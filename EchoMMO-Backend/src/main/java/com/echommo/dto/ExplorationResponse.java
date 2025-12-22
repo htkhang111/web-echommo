@@ -1,3 +1,4 @@
+// EchoMMO-Backend/src/main/java/com/echommo/dto/ExplorationResponse.java
 package com.echommo.dto;
 
 import lombok.AllArgsConstructor;
@@ -14,15 +15,18 @@ public class ExplorationResponse {
     // --- LEGACY ---
     private String message;
     private String type;
-    private BigDecimal goldGained; // Changed type, logic compatible
+    private BigDecimal goldGained;
     private Long currentExp;
     private Integer currentLv;
     private Integer currentEnergy;
     private Integer maxEnergy;
     private Integer newLevel;
-    private String rewardName;
+
+    private String rewardName;      // Tên hiển thị (Gỗ Sồi)
+    private String rewardItemCode;  // [NEW] Mã code để lấy ảnh (w_wood)
     private Integer rewardAmount;
     private Integer rewardItemId;
+
     private String itemReceived;
     private int quantity;
 
