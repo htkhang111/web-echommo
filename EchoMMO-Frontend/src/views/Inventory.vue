@@ -541,81 +541,85 @@ onMounted(() => {
 
 <template>
   <div class="page-container inventory-page wuxia-theme">
-    
     <div class="bg-overlay"></div>
 
     <div class="inventory-layout">
       
       <div class="inv-list-panel glass-panel">
+        
         <div class="panel-header">
-          <h3><i class="fas fa-sack-dollar"></i> HÀNH NANG</h3>
-          <span class="slots-info">
-            {{ inventoryStore.items.length }} / {{ authStore.user?.inventorySlots || 50 }}
-            <button class="btn-tiny-add" @click="expandSlots" title="Mở rộng túi">
+          <div class="header-left">
+            <h3><i class="fas fa-sack-dollar"></i> HÀNH NANG</h3>
+          </div>
+          <div class="header-right">
+            <span class="slots-text">
+              {{ inventoryStore.items.length }} / {{ authStore.user?.inventorySlots || 49 }}
+            </span>
+            <button class="btn-add-slots" @click="expandSlots" title="Mở rộng (+7 ô)">
               <i class="fas fa-plus"></i>
             </button>
-          </span>
+          </div>
         </div>
 
         <div class="filter-tabs">
-          <button 
-            v-for="tab in tabs" 
-            :key="tab.id"
-            :class="{ active: currentTab === tab.id }"
-            @click="currentTab = tab.id"
-          >
+          <button v-for="tab in tabs" :key="tab.id" 
+            :class="{ active: currentTab === tab.id }" 
+            @click="switchTab(tab.id)">
             {{ tab.label }}
           </button>
         </div>
 
-        <div class="inv-grid custom-scroll">
+        <div 
+            class="infinite-wheel-container" 
+            ref="wheelContainer"
+            @wheel.prevent="onWheel"
+            @touchstart="onTouchStart"
+            @touchmove="onTouchMove"
+            @touchend="onTouchEnd"
+            @mousedown="onMouseDown"
+        >
+          <div class="center-highlight-bar"></div>
+
           <div 
-            v-for="item in filteredItems" 
-            :key="item.userItemId"
-            class="inv-slot"
-            :class="[
-              'rarity-' + (item.item.rarity || 'COMMON'),
-              { 'selected': selectedItem?.userItemId === item.userItemId },
-              { 'equipped': item.isEquipped }
-            ]"
-            @click="selectItem(item)"
+            v-for="itemObj in renderedItems" 
+            :key="itemObj.virtualId"
+            class="wheel-item"
+            :class="{ 
+                'active': itemObj.isActive, 
+                ['rarity-' + (itemObj.data.item.rarity || 'COMMON')]: true 
+            }"
+            :style="itemObj.style"
+            @click="selectItem(itemObj.data)"
           >
-            <div class="slot-inner">
-              <img :src="resolveItemImage(item.item.imageUrl)" loading="lazy" class="item-icon" />
-              
-              <span v-if="item.enhanceLevel || item.level" class="enhance-tag" :class="getEnhanceColor(item.enhanceLevel || item.level)">
-                +{{ item.enhanceLevel || item.level }}
-              </span>
-
-              <span v-if="item.quantity > 1" class="qty-tag">x{{ item.quantity }}</span>
-
-              <div v-if="item.isEquipped" class="equipped-badge">
-                <i class="fas fa-check"></i>
-              </div>
-
-              <div v-if="shouldShowDurability(item)" class="mini-durability-bar">
-                <div 
-                  class="mini-bar-fill" 
-                  :style="{ width: getDurabilityPercent(item) + '%' }"
-                  :class="getDurabilityColorClass(item)"
-                ></div>
-              </div>
+            <div class="wheel-inner">
+                <div class="icon-box">
+                    <img :src="resolveItemImage(itemObj.data.item.imageUrl)" class="item-icon" />
+                    <span v-if="itemObj.data.quantity > 1" class="qty-badge">{{ itemObj.data.quantity }}</span>
+                </div>
+                
+                <div class="info-box">
+                    <div class="name-row">
+                        <span class="item-name">{{ itemObj.data.item.name }}</span>
+                        <span v-if="itemObj.data.enhanceLevel" class="enhance-txt">+{{ itemObj.data.enhanceLevel }}</span>
+                    </div>
+                    <div class="sub-row" v-if="itemObj.isActive">
+                        <span class="tier-txt">Tier {{ itemObj.data.item.tier }}</span>
+                        <span v-if="itemObj.data.isEquipped" class="status-equipped">
+                            <i class="fas fa-shield-alt"></i>
+                        </span>
+                    </div>
+                </div>
             </div>
-            
-            <div class="rarity-glow"></div>
           </div>
 
-          <div 
-            v-for="n in Math.max(0, (authStore.user?.inventorySlots || 50) - filteredItems.length)" 
-            :key="'empty-' + n"
-            class="inv-slot empty"
-          ></div>
+          <div v-if="filteredItems.length === 0" class="empty-msg">
+            <i class="fas fa-box-open"></i> Túi Trống
+          </div>
         </div>
       </div>
 
       <div class="inv-detail-panel glass-panel detail-mode">
         <div v-if="selectedItem" class="detail-content custom-scroll">
-          
           <div class="detail-header">
             <h2 :class="'text-rarity-' + (selectedItem.item.rarity || 'COMMON')">
               {{ selectedItem.item.name }}
@@ -646,7 +650,7 @@ onMounted(() => {
                 <span class="sub-val">+{{ sub.value }}{{ sub.isPercent ? '%' : '' }}</span>
               </div>
             </div>
-
+             
             <div v-if="selectedItem.item.type === 'TOOL' && selectedItem.maxDurability" class="durability-box">
                 <div class="durability-header">
                     <span><i class="fas fa-hammer"></i> Độ Bền</span>
@@ -655,22 +659,9 @@ onMounted(() => {
                     </span>
                 </div>
                 <div class="durability-progress-bg">
-                    <div 
-                        class="durability-progress-fill" 
+                    <div class="durability-progress-fill" 
                         :style="{ width: getDurabilityPercent(selectedItem) + '%' }"
-                        :class="getDurabilityColorClass(selectedItem)"
-                    ></div>
-                </div>
-                <div v-if="selectedItem.currentDurability <= 0" class="broken-warning">
-                    <i class="fas fa-skull-crossbones"></i> HỎNG HÓC - Cần sửa ngay!
-                </div>
-            </div>
-
-            <div v-if="isTier5Tool(selectedItem)" class="legendary-effect">
-                <div class="effect-title">🌟 Thần Binh Nội Tại</div>
-                <div class="effect-desc">
-                    • <b>May Mắn:</b> {{ selectedItem.item.minLuck }}-{{ selectedItem.item.maxLuck }} <br>
-                    • <b>Bảo Khí:</b> {{ (selectedItem.item.energySaveChance * 100).toFixed(0) }}% tỷ lệ bảo toàn thể lực.
+                        :class="getDurabilityColorClass(selectedItem)"></div>
                 </div>
             </div>
 
@@ -680,49 +671,30 @@ onMounted(() => {
           </div>
 
           <div class="action-buttons">
-            <button 
-              v-if="canEquip(selectedItem)" 
-              class="btn-action btn-equip" 
-              @click="handleEquip"
-            >
+            <button v-if="canEquip(selectedItem)" class="btn-action btn-equip" @click="handleEquip">
               <span>{{ selectedItem.isEquipped ? 'Gỡ Trang Bị' : 'Trang Bị' }}</span>
             </button>
-
-            <button 
-              v-if="selectedItem.item.type === 'CONSUMABLE'" 
-              class="btn-action btn-use" 
-              @click="handleUse"
-            >
+            <button v-if="selectedItem.item.type === 'CONSUMABLE'" class="btn-action btn-use" @click="handleUse">
               <span>Sử Dụng</span>
             </button>
-
-            <button 
-              v-if="needsRepair(selectedItem)" 
-              class="btn-action btn-repair" 
-              @click="handleRepair"
-            >
+            <button v-if="needsRepair(selectedItem)" class="btn-action btn-repair" @click="handleRepair">
               <span><i class="fas fa-tools"></i> Sửa ({{ calculateRepairCost(selectedItem) }} <i class="fas fa-coins"></i>)</span>
             </button>
           </div>
-
         </div>
         
         <div v-else class="empty-detail">
-          <div class="empty-icon-glow">
-            <i class="fas fa-box-open"></i>
-          </div>
+          <div class="empty-icon-glow"><i class="fas fa-box-open"></i></div>
           <p>Chọn vật phẩm để xem chi tiết</p>
         </div>
       </div>
-
     </div>
-
     <GameToast ref="toast" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import { useAuthStore } from '@/stores/authStore';
 import { resolveItemImage } from '@/utils/assetHelper';
@@ -735,6 +707,20 @@ const toast = ref(null);
 const currentTab = ref('ALL');
 const selectedItem = ref(null);
 
+// --- CẤU HÌNH CUỘN (TINH CHỈNH CHO NHỎ GỌN) ---
+const ITEM_HEIGHT = 56; // [CHANGE] Giảm từ 64/90 xuống 56px cho vừa mắt
+const VISIBLE_COUNT = 11; // Số lượng item vẽ ra (lẻ)
+const scrollY = ref(0);
+const wheelContainer = ref(null);
+
+// Physics vars
+let isDragging = false;
+let startY = 0;
+let lastTouchY = 0;
+let velocity = 0;
+let animationFrameId = null;
+let lastTime = 0;
+
 const tabs = [
   { id: 'ALL', label: 'Tất Cả' },
   { id: 'EQUIP', label: 'Trang Bị' },
@@ -745,169 +731,253 @@ const tabs = [
 
 const filteredItems = computed(() => {
   let items = inventoryStore.items || [];
-  if (currentTab.value === 'ALL') return items;
-  
-  if (currentTab.value === 'EQUIP') {
-    return items.filter(i => ['WEAPON', 'ARMOR', 'RING', 'NECKLACE', 'BOOTS', 'HELMET'].includes(i.item.type));
-  }
-  
-  if (currentTab.value === 'TOOL') {
-    return items.filter(i => i.item.type === 'TOOL');
-  }
-
-  return items.filter(i => i.item.type === currentTab.value);
+  if (currentTab.value === 'EQUIP') return items.filter(i => ['WEAPON', 'ARMOR', 'RING', 'NECKLACE', 'BOOTS', 'HELMET'].includes(i.item.type));
+  if (currentTab.value === 'TOOL') return items.filter(i => i.item.type === 'TOOL');
+  if (currentTab.value !== 'ALL') return items.filter(i => i.item.type === currentTab.value);
+  return items;
 });
 
+// --- CORE LOGIC: RENDER ITEMS (FIX LỖI KEY) ---
+const renderedItems = computed(() => {
+    const items = filteredItems.value;
+    const total = items.length;
+    if (total === 0) return [];
+
+    const containerHeight = wheelContainer.value ? wheelContainer.value.clientHeight : 500;
+    const centerY = containerHeight / 2;
+
+    const result = [];
+    const baseIndex = Math.floor(scrollY.value / ITEM_HEIGHT);
+    const buffer = Math.ceil(VISIBLE_COUNT / 2) + 2;
+
+    for (let i = baseIndex - buffer; i <= baseIndex + buffer; i++) {
+        // Modulo để tạo vòng lặp vô tận
+        let dataIndex = ((i % total) + total) % total;
+        const itemData = items[dataIndex];
+        
+        // Vị trí tương đối so với tâm
+        const itemY = i * ITEM_HEIGHT - scrollY.value; 
+        
+        // Hiệu ứng 3D
+        const absDist = Math.abs(itemY);
+        const maxDist = (VISIBLE_COUNT * ITEM_HEIGHT) / 2;
+        
+        let scale = 1;
+        let opacity = 1;
+        let rotateX = 0;
+        let brightness = 1;
+        let zIndex = 10;
+
+        if (absDist < maxDist) {
+            const ratio = 1 - (absDist / maxDist); // 1 tại tâm, 0 ở rìa
+            
+            // Tinh chỉnh thông số cho mượt và không quá bự
+            scale = 0.8 + (ratio * 0.2); // Min 0.8, Max 1.0
+            opacity = 0.2 + (ratio * 0.8); // Min 0.2, Max 1.0
+            brightness = 0.3 + (ratio * 0.7);
+            rotateX = -itemY * 0.1; // Độ cong
+            zIndex = Math.floor(ratio * 100);
+        } else {
+            scale = 0.8;
+            opacity = 0;
+        }
+
+        // Active khi ở rất gần tâm
+        const isActive = absDist < (ITEM_HEIGHT / 2);
+
+        // Style
+        const style = {
+            transform: `translateY(${centerY + itemY - (ITEM_HEIGHT/2)}px) perspective(500px) rotateX(${rotateX}deg) scale(${scale})`,
+            opacity: opacity,
+            zIndex: zIndex,
+            filter: `brightness(${brightness})`,
+            visibility: opacity <= 0.01 ? 'hidden' : 'visible'
+        };
+
+        result.push({
+            // [FIX] Key độc nhất kết hợp giữa ID và Index ảo (i)
+            virtualId: `${itemData.userItemId}_${i}`,
+            data: itemData,
+            style,
+            isActive
+        });
+    }
+    return result;
+});
+
+// --- PHYSICS & SCROLL HANDLING ---
+
+const inertiaLoop = (time) => {
+    if (!lastTime) lastTime = time;
+    const delta = time - lastTime;
+    lastTime = time;
+
+    // Giảm tốc (Friction)
+    if (Math.abs(velocity) > 0.1) {
+        scrollY.value -= velocity * 16; // Di chuyển theo vận tốc
+        velocity *= 0.92; // Ma sát (càng nhỏ dừng càng nhanh)
+        animationFrameId = requestAnimationFrame(inertiaLoop);
+    } else {
+        velocity = 0;
+        snapToGrid(); // Dừng hẳn thì căn chỉnh
+    }
+};
+
+const snapToGrid = () => {
+    const targetY = Math.round(scrollY.value / ITEM_HEIGHT) * ITEM_HEIGHT;
+    const diff = targetY - scrollY.value;
+    
+    if (Math.abs(diff) > 0.5) {
+        scrollY.value += diff * 0.15; // Tốc độ tự căn chỉnh
+        animationFrameId = requestAnimationFrame(snapToGrid);
+    } else {
+        scrollY.value = targetY;
+        cancelAnimationFrame(animationFrameId);
+    }
+};
+
+// Mouse Wheel
+const onWheel = (e) => {
+    cancelAnimationFrame(animationFrameId);
+    velocity = 0;
+    scrollY.value += e.deltaY * 0.4; // Hệ số tốc độ chuột
+    snapToGrid(); // Gọi snap ngay để có cảm giác khựng từng nấc
+};
+
+// Touch / Drag Logic
+const onMouseDown = (e) => {
+    isDragging = true;
+    startY = e.clientY;
+    lastTouchY = startY;
+    velocity = 0;
+    cancelAnimationFrame(animationFrameId);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+};
+
+const onMouseMove = (e) => {
+    if (!isDragging) return;
+    const y = e.clientY;
+    const delta = lastTouchY - y;
+    scrollY.value += delta;
+    lastTouchY = y;
+};
+
+const onMouseUp = (e) => {
+    isDragging = false;
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+    // Tính vận tốc ném
+    velocity = (startY - e.clientY) * 0.05; 
+    lastTime = 0;
+    inertiaLoop(performance.now());
+};
+
+// Touch Mobile
+const onTouchStart = (e) => {
+    isDragging = true;
+    startY = e.touches[0].clientY;
+    lastTouchY = startY;
+    velocity = 0;
+    cancelAnimationFrame(animationFrameId);
+};
+const onTouchMove = (e) => {
+    if (!isDragging) return;
+    const y = e.touches[0].clientY;
+    const delta = lastTouchY - y;
+    scrollY.value += delta;
+    lastTouchY = y;
+};
+const onTouchEnd = (e) => {
+    isDragging = false;
+    velocity = (startY - lastTouchY) * 0.05;
+    lastTime = 0;
+    inertiaLoop(performance.now());
+};
+
+const switchTab = (tabId) => {
+    currentTab.value = tabId;
+    scrollY.value = 0;
+    velocity = 0;
+};
+
+// --- LOGIC HELPER ---
+const selectItem = (item) => { selectedItem.value = item; };
 const parsedSubStats = computed(() => {
   if (!selectedItem.value || !selectedItem.value.subStats) return [];
-  try {
-    return JSON.parse(selectedItem.value.subStats);
-  } catch (e) {
-    return [];
-  }
+  try { return JSON.parse(selectedItem.value.subStats); } catch (e) { return []; }
 });
-
 const getStatLabel = (statInfo) => {
     if(typeof statInfo === 'string') return statInfo; 
-    if(statInfo.atkBonus) return "Công Lực";
-    if(statInfo.defBonus) return "Hộ Thể";
-    if(statInfo.hpBonus) return "Sinh Lực";
-    if(statInfo.speedBonus) return "Thân Pháp";
-    return "Sức Mạnh";
+    return statInfo.atkBonus ? "Công Lực" : statInfo.defBonus ? "Hộ Thể" : "Sức Mạnh";
 };
-
 const getStatName = (code) => {
-    const dict = {
-        "ATK_FLAT": "Công Lực", "ATK_PERCENT": "Công Lực %",
-        "DEF_FLAT": "Hộ Thể", "DEF_PERCENT": "Hộ Thể %",
-        "HP_FLAT": "Sinh Lực", "HP_PERCENT": "Sinh Lực %",
-        "SPEED": "Thân Pháp", "CRIT_RATE": "Bạo Kích", "CRIT_DMG": "Sát Thương Bạo"
-    };
+    const dict = { "ATK_FLAT": "Công Lực", "HP_FLAT": "Sinh Lực", "CRIT_RATE": "Bạo Kích" };
     return dict[code] || code;
 };
-
-const canEquip = (uItem) => {
-    const type = uItem.item.type;
-    return ['WEAPON', 'ARMOR', 'HELMET', 'BOOTS', 'RING', 'NECKLACE', 'TOOL'].includes(type);
-};
-
-const selectItem = (item) => {
-  selectedItem.value = item;
-};
-
+const canEquip = (uItem) => ['WEAPON', 'ARMOR', 'HELMET', 'BOOTS', 'RING', 'NECKLACE', 'TOOL'].includes(uItem.item.type);
 const handleEquip = async () => {
   if (!selectedItem.value) return;
   try {
     if (selectedItem.value.isEquipped) {
       await inventoryStore.unequipItem(selectedItem.value.userItemId);
-      toast.value.show("Đã tháo trang bị!", "success");
+      toast.value?.show("Đã tháo trang bị!", "success");
     } else {
       await inventoryStore.equipItem(selectedItem.value.userItemId);
-      toast.value.show("Đã trang bị thành công!", "success");
+      toast.value?.show("Đã trang bị thành công!", "success");
     }
     const fresh = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId);
     if(fresh) selectedItem.value = fresh;
-  } catch (err) {
-    toast.value.show(err, "error");
-  }
+  } catch (err) { toast.value?.show(err, "error"); }
 };
-
-const handleUse = async () => {
-  if (!selectedItem.value) return;
-  try {
-    const msg = await inventoryStore.useItem(selectedItem.value.userItemId);
-    toast.value.show(msg, "success");
-    const exists = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId);
-    if(!exists) selectedItem.value = null;
-    else selectedItem.value = exists;
-  } catch (err) {
-    toast.value.show(err, "error");
-  }
-};
-
-const expandSlots = async () => {
-    if(!confirm("Bạn có muốn dùng Echo Coin để mở rộng túi đồ không?")) return;
+const handleUse = async () => { 
+    if(!selectedItem.value) return;
     try {
-        await inventoryStore.expandInventory();
-        toast.value.show("Mở rộng thành công!", "success");
-    } catch (e) {
-        toast.value.show(e, "error");
-    }
+        const msg = await inventoryStore.useItem(selectedItem.value.userItemId);
+        toast.value?.show(msg, "success");
+    } catch(e) { toast.value?.show(e, "error"); }
 };
-
-const shouldShowDurability = (uItem) => {
-    return uItem.item.type === 'TOOL' && uItem.maxDurability && uItem.maxDurability > 0;
+const expandSlots = async () => {
+    const currentSlots = authStore.user?.inventorySlots || 49;
+    if (currentSlots >= 210) { toast.value?.show("Đã đạt giới hạn tối đa!", "error"); return; }
+    const cost = Math.floor((currentSlots - 49) / 7) + 1;
+    if(!confirm(`Mở rộng thêm 7 ô chứa?\nChi phí: ${cost} Echo Coin`)) return;
+    if (authStore.wallet.echoCoin < cost) { toast.value?.show(`Thiếu Echo Coin! Cần ${cost}.`, "error"); return; }
+    try {
+        const msg = await inventoryStore.expandInventory();
+        toast.value?.show(msg || "Mở rộng thành công!", "success");
+    } catch (e) { toast.value?.show(typeof e === 'string' ? e : "Lỗi", "error"); }
 };
-
-const getDurabilityPercent = (uItem) => {
-    if (!uItem.maxDurability) return 100;
-    return Math.max(0, Math.min(100, (uItem.currentDurability / uItem.maxDurability) * 100));
-};
-
-const getDurabilityColorClass = (uItem) => {
-    const pct = getDurabilityPercent(uItem);
-    if (pct <= 0) return 'dur-broken';
-    if (pct < 30) return 'dur-low';
-    if (pct < 70) return 'dur-mid';
-    return 'dur-high';
-};
-
-const needsRepair = (uItem) => {
-    return uItem.item.type === 'TOOL' && uItem.maxDurability && uItem.currentDurability < uItem.maxDurability;
-};
-
-const calculateRepairCost = (uItem) => {
-    if (!uItem.maxDurability) return 0;
-    const missing = uItem.maxDurability - uItem.currentDurability;
-    return Math.max(1, Math.ceil(missing / 10));
-};
-
+const shouldShowDurability = (uItem) => uItem.item.type === 'TOOL' && uItem.maxDurability > 0;
+const getDurabilityPercent = (uItem) => (!uItem.maxDurability) ? 100 : Math.max(0, Math.min(100, (uItem.currentDurability / uItem.maxDurability) * 100));
+const getDurabilityColorClass = (uItem) => { const pct = getDurabilityPercent(uItem); return pct < 30 ? 'dur-low' : 'dur-high'; };
+const needsRepair = (uItem) => uItem.item.type === 'TOOL' && uItem.maxDurability && uItem.currentDurability < uItem.maxDurability;
+const calculateRepairCost = (uItem) => Math.max(1, Math.ceil((uItem.maxDurability - uItem.currentDurability) / 10));
 const handleRepair = async () => {
     if (!selectedItem.value) return;
     const cost = calculateRepairCost(selectedItem.value);
-    
-    if (authStore.wallet.echoCoin < cost) {
-        toast.value.show(`Không đủ Echo Coin! Cần ${cost}.`, "error");
-        return;
-    }
-
-    if (!confirm(`Sửa vật phẩm này tốn ${cost} Echo Coin. Đồng ý?`)) return;
-
+    if(!confirm(`Sửa chữa tốn ${cost} Coin?`)) return;
     try {
-        const msg = await inventoryStore.repairItem(selectedItem.value.userItemId);
-        toast.value.show("Sửa chữa thành công!", "success");
+        await inventoryStore.repairItem(selectedItem.value.userItemId);
+        toast.value?.show("Đã sửa!", "success");
         const fresh = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId);
         if(fresh) selectedItem.value = fresh;
-    } catch (e) {
-        toast.value.show(typeof e === 'string' ? e : "Lỗi sửa đồ", "error");
-    }
+    } catch(e) { toast.value?.show(e, "error"); }
 };
+const formatNumber = (num) => new Intl.NumberFormat().format(num || 0);
 
-const isTier5Tool = (uItem) => {
-    return uItem.item.type === 'TOOL' && uItem.item.tier === 5;
-};
-
-const formatNumber = (num) => {
-    if(!num) return 0;
-    return new Intl.NumberFormat().format(num);
-};
-
-const getEnhanceColor = (lv) => {
-    if(lv >= 15) return 'tag-red';
-    if(lv >= 10) return 'tag-purple';
-    if(lv >= 5) return 'tag-gold';
-    return 'tag-white';
-};
-
-onMounted(() => {
-  inventoryStore.fetchInventory();
+onMounted(async () => {
+  await inventoryStore.fetchInventory();
+});
+onUnmounted(() => {
+    cancelAnimationFrame(animationFrameId);
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
 });
 </script>
 
 <style scoped>
-/* --- FONTS & GLOBAL --- */
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+TC:wght@300;400;700&display=swap');
-
+/* --- BASE THEME --- */
 .wuxia-theme {
   background-color: #050505;
   background-image: radial-gradient(circle at 50% 30%, #1a100d 0%, #000000 90%);
@@ -917,423 +987,148 @@ onMounted(() => {
   padding: 20px;
   position: relative;
   overflow: hidden;
+  user-select: none; /* Tránh bôi đen text khi kéo */
 }
-
-/* Background overlay (vignette texture) */
 .bg-overlay {
-  position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: url('https://www.transparenttextures.com/patterns/dark-leather.png'); /* Texture da tối nhẹ */
-  opacity: 0.3;
-  pointer-events: none;
-  z-index: 0;
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: url('https://www.transparenttextures.com/patterns/dark-leather.png'); opacity: 0.3;
+  pointer-events: none; z-index: 0;
 }
-
 .inventory-layout {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: 1.6fr 1fr;
-  gap: 24px;
-  max-width: 1280px;
-  margin: 0 auto;
-  height: 85vh;
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: 1.2fr 1fr; /* Điều chỉnh tỉ lệ */
+  gap: 30px;
+  max-width: 1100px; margin: 0 auto; height: 85vh;
 }
 
-/* --- GLASS PANELS (Bảng kính mờ) --- */
+/* --- GLASS PANEL --- */
 .glass-panel {
-  background: rgba(30, 20, 15, 0.75);
+  background: rgba(30, 20, 15, 0.6);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(139, 94, 60, 0.3);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.8);
   border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
+  display: flex; flex-direction: column; overflow: hidden;
 }
 
-.glass-panel::before {
-    /* Viền trên sáng bóng */
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255, 236, 179, 0.5), transparent);
-}
-
+/* Header */
 .panel-header {
-  background: linear-gradient(180deg, rgba(62, 39, 35, 0.9) 0%, rgba(46, 29, 25, 0.8) 100%);
-  padding: 12px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(139, 94, 60, 0.4);
-}
-
-.panel-header h3 {
-  margin: 0;
-  color: #ffecb3;
-  font-family: 'Cinzel', serif;
-  font-weight: 700;
-  font-size: 1.2rem;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
-  letter-spacing: 1px;
-}
-
-.slots-info {
-  font-size: 0.9rem;
-  color: #c7b299;
-  font-family: 'Cinzel', serif;
-}
-
-.btn-tiny-add {
-  background: linear-gradient(135deg, #66bb6a, #2e7d32);
-  border: none;
-  color: white;
-  width: 24px; height: 24px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-left: 8px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-  transition: transform 0.2s;
-  display: inline-flex;
-  align-items: center; justify-content: center;
-}
-.btn-tiny-add:hover { transform: scale(1.1); filter: brightness(1.2); }
-
-/* --- TABS --- */
-.filter-tabs {
-  display: flex;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 8px 12px;
-  gap: 8px;
-  overflow-x: auto;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.filter-tabs button {
-  flex: 1;
-  background: transparent;
-  border: 1px solid rgba(139, 94, 60, 0.3);
-  color: #a1887f;
-  padding: 8px 12px;
-  cursor: pointer;
-  transition: all 0.3s;
-  white-space: nowrap;
-  font-family: 'Noto Serif TC', serif;
-  font-size: 0.9rem;
-  border-radius: 4px;
-}
-
-.filter-tabs button:hover {
-  background: rgba(139, 94, 60, 0.1);
-  color: #e0d4b9;
-}
-
-.filter-tabs button.active {
-  background: linear-gradient(180deg, #5d4037 0%, #3e2723 100%);
-  color: #ffecb3;
-  border-color: #ffecb3;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-  text-shadow: 0 1px 2px black;
-}
-
-/* --- GRID ITEMS --- */
-.inv-grid {
-  flex: 1;
-  padding: 16px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-  gap: 10px;
-  overflow-y: auto;
-  align-content: start;
-}
-
-.inv-slot {
-  aspect-ratio: 1;
-  background: rgba(10, 5, 2, 0.6);
-  border: 1px solid #3e2723;
-  border-radius: 6px;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.8); /* Depth effect */
-  overflow: hidden;
-}
-
-.inv-slot:hover {
-  transform: translateY(-3px) scale(1.02);
-  z-index: 10;
-  box-shadow: 0 8px 15px rgba(0,0,0,0.6);
-  border-color: #a1887f;
-}
-
-.inv-slot.selected {
-  border-color: #ffd54f;
-  box-shadow: 0 0 0 1px #ffd54f, 0 0 15px rgba(255, 213, 79, 0.3);
-  background: rgba(255, 213, 79, 0.05);
-}
-
-.inv-slot.empty {
-  opacity: 0.3;
-  background: rgba(0,0,0,0.2);
-  border: 1px dashed #4e342e;
-  pointer-events: none;
-}
-
-/* Rarity Styles for Slots (Background glow) */
-.rarity-COMMON { box-shadow: inset 0 0 5px rgba(158,158,158,0.2); }
-.rarity-UNCOMMON { border-color: #2e7d32; box-shadow: inset 0 0 10px rgba(46,125,50,0.3); }
-.rarity-RARE { border-color: #1565c0; box-shadow: inset 0 0 10px rgba(21,101,192,0.3); }
-.rarity-EPIC { border-color: #7b1fa2; box-shadow: inset 0 0 15px rgba(123,31,162,0.4); }
-.rarity-LEGENDARY { 
-  border-color: #ffa000; 
-  box-shadow: inset 0 0 20px rgba(255,160,0,0.5); 
-  animation: legendaryPulse 3s infinite;
-}
-
-@keyframes legendaryPulse {
-  0% { box-shadow: inset 0 0 15px rgba(255,160,0,0.4); }
-  50% { box-shadow: inset 0 0 25px rgba(255,160,0,0.7); }
-  100% { box-shadow: inset 0 0 15px rgba(255,160,0,0.4); }
-}
-
-.slot-inner { 
-  width: 100%; height: 100%; 
-  display: flex; justify-content: center; align-items: center; 
-  padding: 4px;
-}
-
-.item-icon {
-  max-width: 90%; max-height: 90%;
-  object-fit: contain;
-  filter: drop-shadow(0 4px 4px rgba(0,0,0,0.6));
-}
-
-/* Tags (Qty, Enhance, Equipped) */
-.qty-tag {
-  position: absolute; bottom: 2px; right: 2px;
-  background: rgba(0,0,0,0.85); color: #fff;
-  font-size: 10px; padding: 1px 4px; border-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.2);
-}
-
-.enhance-tag {
-  position: absolute; top: 2px; right: 2px;
-  font-size: 10px; padding: 1px 4px; border-radius: 3px;
-  font-weight: bold; color: white;
-  text-shadow: 0 1px 2px black;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-}
-.tag-white { background: #616161; }
-.tag-gold { background: linear-gradient(135deg, #fbc02d, #f57f17); color: black; }
-.tag-purple { background: linear-gradient(135deg, #ab47bc, #7b1fa2); }
-.tag-red { background: linear-gradient(135deg, #ef5350, #c62828); }
-
-.equipped-badge {
-  position: absolute; top: 2px; left: 2px;
-  background: #2e7d32; color: white;
-  width: 16px; height: 16px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 9px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-  border: 1px solid #66bb6a;
-}
-
-/* Mini Durability */
-.mini-durability-bar {
-  position: absolute; bottom: 2px; left: 2px; right: 2px;
-  height: 3px; background: rgba(0,0,0,0.6); border-radius: 2px;
-  overflow: hidden;
-}
-.mini-bar-fill { height: 100%; border-radius: 2px; }
-
-/* --- DETAIL PANEL --- */
-.detail-mode {
-  background: rgba(30, 20, 15, 0.85); /* Darker for better text readability */
-}
-
-.detail-content {
-  padding: 24px;
-  display: flex; flex-direction: column;
-  height: 100%; overflow-y: auto;
-}
-
-.empty-detail {
-  display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
-  height: 100%; color: #8d6e63;
-}
-.empty-icon-glow {
-  font-size: 4rem; margin-bottom: 20px; opacity: 0.5;
-  filter: drop-shadow(0 0 10px rgba(141, 110, 99, 0.5));
-}
-
-/* Detail Header */
-.detail-header {
-  text-align: center; margin-bottom: 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  padding-bottom: 15px;
-}
-.detail-header h2 {
-  margin: 0 0 5px 0;
-  font-family: 'Cinzel', serif;
-  font-size: 1.6rem;
-  letter-spacing: 1px;
-}
-.item-meta { display: flex; gap: 10px; justify-content: center; }
-.type-badge, .tier-badge {
-  font-size: 0.75rem; color: #bcaaa4;
-  background: rgba(255,255,255,0.05);
-  padding: 2px 8px; border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.1);
-}
-
-/* Text Colors */
-.text-rarity-COMMON { color: #bdbdbd; }
-.text-rarity-UNCOMMON { color: #66bb6a; text-shadow: 0 0 5px rgba(102,187,106,0.5); }
-.text-rarity-RARE { color: #42a5f5; text-shadow: 0 0 5px rgba(66,165,245,0.5); }
-.text-rarity-EPIC { color: #ab47bc; text-shadow: 0 0 8px rgba(171,71,188,0.6); }
-.text-rarity-LEGENDARY { 
-  color: #ffd54f; 
-  text-shadow: 0 0 10px rgba(255, 213, 79, 0.8), 0 0 20px rgba(255, 160, 0, 0.4); 
-}
-
-/* Detail Image Stage */
-.detail-image-box {
-  height: 180px;
-  display: flex; justify-content: center; align-items: center;
-  margin-bottom: 20px;
-  border-radius: 8px;
-  position: relative;
-  background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
-  border: 1px solid rgba(255,255,255,0.05);
-  overflow: hidden;
-}
-
-.image-halo {
-  position: absolute; width: 100px; height: 100px;
-  border-radius: 50%;
-  filter: blur(40px);
-  z-index: 0;
-}
-.glow-COMMON .image-halo { background: rgba(255,255,255,0.1); }
-.glow-UNCOMMON .image-halo { background: rgba(102,187,106,0.2); }
-.glow-RARE .image-halo { background: rgba(66,165,245,0.2); }
-.glow-EPIC .image-halo { background: rgba(171,71,188,0.25); }
-.glow-LEGENDARY .image-halo { background: rgba(255,213,79,0.3); animation: haloPulse 4s infinite; }
-
-@keyframes haloPulse { 0% { opacity: 0.5; transform: scale(1); } 50% { opacity: 0.8; transform: scale(1.2); } 100% { opacity: 0.5; transform: scale(1); } }
-
-.big-preview { 
-  height: 100px; width: 100px; object-fit: contain; 
-  z-index: 1; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.6));
-  image-rendering: pixelated; transform: scale(1.8);
-}
-
-/* Stats */
-.stats-box { flex: 1; }
-.stat-row { 
+  background: linear-gradient(180deg, rgba(62, 39, 35, 0.95) 0%, rgba(46, 30, 25, 0.9) 100%);
+  padding: 10px 16px;
   display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0; border-bottom: 1px dashed rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(139, 94, 60, 0.4);
+  z-index: 20;
 }
-.main-stat {
-  background: linear-gradient(90deg, rgba(239,83,80,0.1), transparent);
-  padding: 10px; border-radius: 4px; border: 1px solid rgba(239,83,80,0.3);
-  margin-bottom: 15px;
+.panel-header h3 { margin: 0; color: #ffecb3; font-size: 1.1rem; font-weight: bold; letter-spacing: 1px; }
+.header-right { display: flex; align-items: center; gap: 8px; }
+.slots-text { font-size: 0.85rem; color: #a1887f; }
+.btn-add-slots {
+    background: linear-gradient(135deg, #43a047, #2e7d32);
+    border: 1px solid #66bb6a;
+    color: white; width: 22px; height: 22px; border-radius: 4px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: transform 0.2s; font-size: 0.8rem;
 }
-.main-stat .stat-label { font-size: 1.1rem; color: #ef9a9a; font-weight: bold; }
-.main-stat .stat-val { font-size: 1.2rem; color: #fff; font-weight: bold; text-shadow: 0 0 5px #ef5350; }
+.btn-add-slots:hover { transform: scale(1.1); filter: brightness(1.2); }
 
-.sub-stats-container { margin-bottom: 15px; }
-.sub-stat { font-size: 0.95rem; color: #b0bec5; }
-.dot { color: #78909c; font-size: 0.7rem; margin-right: 8px; }
-.sub-val { color: #81d4fa; }
-
-/* Durability */
-.durability-box {
-  margin-top: 15px; background: rgba(0,0,0,0.3);
-  padding: 12px; border-radius: 6px; border: 1px solid #3e2723;
+/* Tabs */
+.filter-tabs { display: flex; background: rgba(0,0,0,0.4); padding: 4px; gap: 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.filter-tabs button {
+    flex: 1; padding: 6px; border: none; background: transparent; color: #8d6e63; cursor: pointer;
+    font-size: 0.8rem; border-radius: 4px; transition: 0.2s;
 }
-.durability-header { display: flex; justify-content: space-between; font-size: 0.9rem; color: #bdbdbd; margin-bottom: 8px; }
-.durability-progress-bg { height: 8px; background: #212121; border-radius: 4px; overflow: hidden; box-shadow: inset 0 1px 3px black; }
-.durability-progress-fill { height: 100%; transition: width 0.4s ease; background-image: linear-gradient(45deg,rgba(255,255,255,.15) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.15) 50%,rgba(255,255,255,.15) 75%,transparent 75%,transparent); background-size: 1rem 1rem; }
+.filter-tabs button.active { background: rgba(93, 64, 55, 0.6); color: #ffca28; font-weight: bold; }
 
-.dur-high { background-color: #43a047; }
-.dur-mid { background-color: #fb8c00; }
-.dur-low { background-color: #e53935; }
-.dur-broken { background-color: #b71c1c; }
-
-.broken-warning { 
-  color: #ff5252; font-weight: bold; font-size: 0.9rem; margin-top: 8px; text-align: center; 
-  animation: blink 1s infinite; text-transform: uppercase; letter-spacing: 1px;
+/* --- INFINITE WHEEL CONTAINER --- */
+.infinite-wheel-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at center, rgba(62, 39, 35, 0.2) 0%, transparent 80%);
+    cursor: grab;
 }
+.infinite-wheel-container:active { cursor: grabbing; }
 
-/* Effect Box */
-.legendary-effect {
-    background: linear-gradient(135deg, rgba(255, 160, 0, 0.1), transparent);
-    border: 1px solid #ffb300;
-    padding: 10px; border-radius: 6px; margin-top: 10px;
-}
-.effect-title { color: #ffca28; font-weight: bold; font-size: 0.9rem; margin-bottom: 5px; text-transform: uppercase; }
-.effect-desc { font-size: 0.85rem; color: #ffe082; line-height: 1.4; }
-
-.desc-text { 
-  margin-top: 20px; font-style: italic; color: #a1887f; font-size: 0.9rem; line-height: 1.5; 
-  padding: 15px; background: rgba(0,0,0,0.2); border-left: 3px solid #5d4037;
+/* Center Bar */
+.center-highlight-bar {
+    position: absolute; top: 50%; left: 0; right: 0; height: 56px; /* Khớp ITEM_HEIGHT */
+    transform: translateY(-50%);
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 202, 40, 0.08) 20%, rgba(255, 202, 40, 0.08) 80%, transparent 100%);
+    border-top: 1px solid rgba(255, 202, 40, 0.3);
+    border-bottom: 1px solid rgba(255, 202, 40, 0.3);
+    box-shadow: 0 0 15px rgba(255, 202, 40, 0.1);
+    pointer-events: none; z-index: 0;
 }
 
-/* Buttons */
-.action-buttons { margin-top: 20px; display: grid; gap: 12px; }
+/* Item */
+.wheel-item {
+    position: absolute; left: 0; right: 0; top: 0; height: 56px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 10px;
+    will-change: transform, opacity;
+}
+
+.wheel-inner {
+    width: 90%; height: 48px; /* Nhỏ hơn container */
+    display: flex; align-items: center;
+    background: rgba(46, 30, 25, 0.6);
+    border: 1px solid rgba(139, 94, 60, 0.3);
+    border-radius: 6px;
+    padding: 0 10px;
+    transition: background 0.2s, border 0.2s;
+}
+
+/* Active Style */
+.wheel-item.active .wheel-inner {
+    background: linear-gradient(90deg, rgba(62, 39, 35, 0.9) 0%, rgba(93, 64, 55, 1) 50%, rgba(62, 39, 35, 0.9) 100%);
+    border-color: #ffca28;
+    transform: scale(1.02);
+}
+
+.icon-box { position: relative; margin-right: 12px; }
+.item-icon { width: 36px; height: 36px; object-fit: contain; filter: drop-shadow(0 2px 2px black); }
+.qty-badge { position: absolute; bottom: -2px; right: -4px; background: #3e2723; color: #fff; font-size: 0.6rem; padding: 0 3px; border-radius: 2px; border: 1px solid #5d4037; }
+
+.info-box { flex: 1; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.name-row { display: flex; align-items: center; gap: 6px; }
+.item-name { font-weight: bold; font-size: 0.9rem; color: #e0d4b9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.active .item-name { color: #fff; text-shadow: 0 0 5px rgba(255,255,255,0.4); }
+
+.enhance-txt { color: #ff5252; font-size: 0.8rem; font-weight: bold; }
+.sub-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.7rem; color: #a1887f; margin-top: 1px; }
+.status-equipped { color: #66bb6a; display: flex; align-items: center; gap: 3px; }
+
+/* Rarity */
+.rarity-COMMON .item-name { color: #bdbdbd; }
+.rarity-UNCOMMON .item-name { color: #81c784; }
+.rarity-RARE .item-name { color: #64b5f6; }
+.rarity-EPIC .item-name { color: #ba68c8; }
+.rarity-LEGENDARY .item-name { color: #ffd54f; }
+
+.empty-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #5d4037; opacity: 0.5; font-style: italic; }
+
+/* --- RIGHT PANEL --- */
+.inv-detail-panel { padding: 20px; }
+.detail-content { display: flex; flex-direction: column; height: 100%; }
+.detail-image-box { 
+    height: 160px; display: flex; justify-content: center; align-items: center;
+    background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
+    margin-bottom: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);
+}
+.big-preview { transform: scale(1.8); filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8)); }
+
 .btn-action {
-  position: relative;
-  padding: 14px;
-  border: none;
-  font-family: 'Cinzel', serif;
-  font-weight: 700;
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  cursor: pointer;
-  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-  transition: all 0.2s;
-  overflow: hidden;
+    width: 100%; padding: 12px; margin-top: 10px; border: none; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    transition: 0.2s;
 }
-
-/* Button Equip (Green/Jade) */
-.btn-equip {
-  background: linear-gradient(180deg, #388e3c 0%, #1b5e20 100%);
-  color: #e8f5e9;
-  border-bottom: 3px solid #1b5e20;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
-}
-.btn-equip:hover { filter: brightness(1.1); transform: translateY(-1px); }
-.btn-equip:active { transform: translateY(2px); border-bottom-width: 0; }
-
-/* Button Use (Blue) */
-.btn-use {
-  background: linear-gradient(180deg, #1976d2 0%, #0d47a1 100%);
-  color: #e3f2fd;
-  border-bottom: 3px solid #0d47a1;
-}
-
-/* Button Repair (Gold/Iron) */
-.btn-repair {
-  background: linear-gradient(180deg, #fbc02d 0%, #f57f17 100%);
-  color: #3e2723;
-  border-bottom: 3px solid #e65100;
-}
-
-/* Custom Scrollbar */
-.custom-scroll::-webkit-scrollbar { width: 6px; }
-.custom-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
-.custom-scroll::-webkit-scrollbar-thumb { background: #5d4037; border-radius: 3px; }
-.custom-scroll::-webkit-scrollbar-thumb:hover { background: #8d6e63; }
+.btn-action:hover { filter: brightness(1.15); transform: translateY(-2px); }
+.btn-equip { background: linear-gradient(to bottom, #2e7d32, #1b5e20); color: white; }
+.btn-use { background: linear-gradient(to bottom, #1565c0, #0d47a1); color: white; }
+.btn-repair { background: linear-gradient(to bottom, #ff8f00, #ff6f00); color: black; }
 
 @media (max-width: 768px) {
   .inventory-layout { grid-template-columns: 1fr; height: auto; }
-  .inv-grid { max-height: 400px; }
-  .detail-image-box { height: 120px; }
+  .infinite-wheel-container { height: 320px; }
 }
 </style>

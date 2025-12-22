@@ -1081,23 +1081,24 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                 <div v-if="currentStep === 5" class="wizard-step active">
                   <div class="step-label">5. Thổi Hồn (Chỉ Số)</div>
 
-                  <div class="stat-section">
+                  <div class="stat-section" v-if="getAllowedMainStats.length > 0">
                     <label class="sub-label highlight"
-                      >1. Chỉ Số Chính (Dựa theo loại
-                      {{ itemForm.type }})</label
+                      >1. Chỉ Số Chính (Dựa theo loại {{ itemForm.type }})</label
                     >
                     <div class="stat-type-selector">
-                      <div
-                        v-for="stat in getAllowedMainStats"
-                        :key="stat.value"
-                        :class="[
-                          'stat-chip',
-                          { active: selectedMainStatType === stat.value },
-                        ]"
-                        @click="setMainStatType(stat.value)"
+                      <select 
+                        v-model="selectedMainStatType" 
+                        class="main-stat-select"
+                        @change="calculatePrice"
                       >
-                        <i :class="stat.icon"></i> {{ stat.label }}
-                      </div>
+                        <option 
+                          v-for="stat in getAllowedMainStats" 
+                          :key="stat.value" 
+                          :value="stat.value"
+                        >
+                          {{ stat.label }}
+                        </option>
+                      </select>
                     </div>
                     <div class="input-group mt-2">
                       <input
@@ -1109,41 +1110,52 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                       />
                     </div>
                   </div>
+                  <div class="empty-text" v-else>
+                    Loại vật phẩm này không có chỉ số chính.
+                  </div>
 
                   <div class="divider-line"></div>
 
                   <div class="stat-section">
                     <label class="sub-label"
-                      >2. Dòng Phụ ({{ getSubStatCount() }} dòng)</label
+                      >2. Dòng Phụ ({{ subStatsList.length }} dòng)</label
                     >
                     <div
-                      v-if="getSubStatCount() > 0"
+                      v-if="subStatsList.length > 0 && getAllowedSubStats.length > 0"
                       class="sub-stats-container"
                     >
                       <div
-                        v-for="i in getSubStatCount()"
-                        :key="i"
+                        v-for="(sub, idx) in subStatsList"
+                        :key="idx"
                         class="sub-stat-row fade-in"
                       >
-                        <span class="row-index">#{{ i }}</span>
+                        <span class="row-index">#{{ idx + 1 }}</span>
                         <select
+                          v-model="sub.type"
                           class="sub-stat-select"
                           @change="calculatePrice"
                         >
-                          <option value="ATK_PERCENT">ATK %</option>
-                          <option value="CRIT_RATE">Crit Rate %</option>
-                          <option value="CRIT_DMG">Crit Dmg %</option>
-                          <option value="SPEED">Speed</option>
+                          <option value="">-- Chọn --</option>
+                          <option 
+                            v-for="opt in getAllowedSubStats" 
+                            :key="opt.value" 
+                            :value="opt.value"
+                          >
+                            {{ opt.label }}
+                          </option>
                         </select>
                         <input
                           type="number"
+                          v-model.number="sub.value"
                           placeholder="Giá trị"
                           @input="calculatePrice"
                         />
+                        <span v-if="sub.type && sub.type.includes('_')" class="unit-label">%</span>
                       </div>
                     </div>
                     <div v-else class="empty-text">
-                      Phẩm chất này không có dòng phụ.
+                      <span v-if="getAllowedSubStats.length === 0">Vật phẩm này không hỗ trợ dòng phụ.</span>
+                      <span v-else>Phẩm chất này chưa có dòng phụ.</span>
                     </div>
                   </div>
 
@@ -1177,7 +1189,14 @@ select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15
                         <p>{{ itemForm.rarity }} - {{ itemForm.type }}</p>
                         <div class="preview-stats">
                           Main: +{{ selectedMainStatValue }}
-                          {{ selectedMainStatType }}
+                          {{ getStatLabel(selectedMainStatType) }}
+                        </div>
+                        <div class="sub-stats-preview">
+                          <div v-for="(s, i) in subStatsList" :key="i" class="preview-sub">
+                             <small v-if="s.type && s.value">
+                               +{{ s.value }}{{ s.type.includes('_') ? '%' : '' }} {{ getStatLabel(s.type) }}
+                             </small>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1485,19 +1504,18 @@ const adminStore = useAdminStore();
 const notificationStore = useNotificationStore();
 const chatStore = useChatStore();
 
+// State vars
 const activeTab = ref("stats");
 const showCreateItem = ref(false);
 const showBanModal = ref(false);
 const selectedUser = ref(null);
 const banReason = ref("");
 
-// --- LOADING STATES (NEW) ---
 const isGrantingGold = ref(false);
 const isGrantingEcho = ref(false);
 const isGrantingItem = ref(false);
 const isSendingNotification = ref(false);
 
-// WIZARD STATES
 const currentStep = ref(1);
 const suggestedPrice = ref(0);
 const isPriceManuallyEdited = ref(false);
@@ -1505,84 +1523,48 @@ const distributionType = ref("DROP");
 const selectedMainStatType = ref("ATK");
 const selectedMainStatValue = ref(0);
 
-// --- ASSET CONFIG (CẬP NHẬT CHUẨN) ---
+// Danh sách sub-stat động
+const subStatsList = ref([]);
+
+// --- ASSET CONFIG ---
 const assetLibrary = {
   WEAPON: [
-    "s_sword_0.png",
-    "s_sword_1.png",
-    "s_sword_2.png",
-    "s_sword_3.png",
-    "s_sword_4.png",
+    "s_sword_0.png", "s_sword_1.png", "s_sword_2.png", "s_sword_3.png", "s_sword_4.png",
   ],
   PICKAXE: [
-    "tool/pickaxe/p-0-strongpickaxe.png",
-    "tool/pickaxe/p-1-vikingpickaxe.png",
-    "tool/pickaxe/p-2-superduperpickaxe.png",
-    "tool/pickaxe/p-3-deathandaxes.png",
+    "tool/pickaxe/p-0-strongpickaxe.png", "tool/pickaxe/p-1-vikingpickaxe.png",
+    "tool/pickaxe/p-2-superduperpickaxe.png", "tool/pickaxe/p-3-deathandaxes.png",
     "tool/pickaxe/p-4-dimensionalpickaxe.png",
   ],
   AXE: [
-    "tool/axe/a-0-strongaxe.png",
-    "tool/axe/a-1-best axeinthegame.png",
-    "tool/axe/a-2-axeofthegods.png",
-    "tool/axe/a-3-thiccaxe.png",
-    "tool/axe/a-4-heartoftheforest.webp",
+    "tool/axe/a-0-strongaxe.png", "tool/axe/a-1-best axeinthegame.png",
+    "tool/axe/a-2-axeofthegods.png", "tool/axe/a-3-thiccaxe.png", "tool/axe/a-4-heartoftheforest.webp",
   ],
   SHOVEL: [
-    "tool/shovel/s-0-strongshovel.png",
-    "tool/shovel/s-1-epicshovel.png",
-    "tool/shovel/s-2-theshovelii.png",
-    "tool/shovel/s-3-supershovel.png",
-    "tool/shovel/s-4-golddigger.png",
+    "tool/shovel/s-0-strongshovel.png", "tool/shovel/s-1-epicshovel.png",
+    "tool/shovel/s-2-theshovelii.png", "tool/shovel/s-3-supershovel.png", "tool/shovel/s-4-golddigger.png",
   ],
   FISHING_ROD: [
-    "tool/fishing-rod/fr-0-strongfishingrod.png",
-    "tool/fishing-rod/fr-1-superfishingrod.png",
-    "tool/fishing-rod/fr-4-themasterbaiter.png",
+    "tool/fishing-rod/fr-0-strongfishingrod.png", "tool/fishing-rod/fr-1-superfishingrod.png", "tool/fishing-rod/fr-4-themasterbaiter.png",
   ],
   ARMOR: [
-    "a_armor_0.png",
-    "a_armor_1.png",
-    "a_armor_2.png",
-    "a_armor_3.png",
-    "a_armor_4.png",
+    "a_armor_0.png", "a_armor_1.png", "a_armor_2.png", "a_armor_3.png", "a_armor_4.png",
   ],
   HELMET: [
-    "h_helmet_0.png",
-    "h_helmet_1.png",
-    "h_helmet_2.png",
-    "h_helmet_3.png",
-    "h_helmet_4.png",
+    "h_helmet_0.png", "h_helmet_1.png", "h_helmet_2.png", "h_helmet_3.png", "h_helmet_4.png",
   ],
   BOOTS: [
-    "b_boot_0.png",
-    "b_boot_1.png",
-    "b_boot_2.png",
-    "b_boot_3.png",
-    "b_boot_4.png",
+    "b_boot_0.png", "b_boot_1.png", "b_boot_2.png", "b_boot_3.png", "b_boot_4.png",
   ],
   RING: [
-    "ri_ring_0.png",
-    "ri_ring_1.png",
-    "ri_ring_2.png",
-    "ri_ring_3.png",
-    "ri_ring_4.png",
+    "ri_ring_0.png", "ri_ring_1.png", "ri_ring_2.png", "ri_ring_3.png", "ri_ring_4.png",
   ],
   NECKLACE: [
-    "n_necklace_0.png",
-    "n_necklace_1.png",
-    "n_necklace_2.png",
-    "n_necklace_3.png",
-    "n_necklace_4.png",
+    "n_necklace_0.png", "n_necklace_1.png", "n_necklace_2.png", "n_necklace_3.png", "n_necklace_4.png",
   ],
   CONSUMABLE: ["r_potion.png"],
   MATERIAL: [
-    "w_wood.png",
-    "o_iron.png",
-    "o_gold.png",
-    "f_fish.png",
-    "r_coin.png",
-    "r_coin-echo.png",
+    "w_wood.png", "o_iron.png", "o_gold.png", "f_fish.png", "r_coin.png", "r_coin-echo.png",
   ],
 };
 
@@ -1635,9 +1617,13 @@ const itemForm = reactive({
   defBonus: 0,
   hpBonus: 0,
   speedBonus: 0,
+  // Tool stats
+  maxDurability: 0,
+  minLuck: 0,
+  maxLuck: 0,
+  energySaveChance: 0
 });
 
-// Forms
 const grantGoldForm = reactive({ username: "", amount: 1000 });
 const grantEchoForm = reactive({ username: "", amount: "" });
 const grantItemForm = reactive({ username: "", itemId: 0, quantity: 1 });
@@ -1648,7 +1634,6 @@ const notificationForm = reactive({
   recipientUsername: "",
 });
 
-// Computed & Helpers
 const formatNumber = (n) => Number(n).toLocaleString();
 
 const filteredUsers = computed(() => {
@@ -1685,29 +1670,98 @@ const currentAssets = computed(() => {
   return currentRawAssets.value.map((path) => resolveItemImage(path));
 });
 
+// [UPDATED] DANH SÁCH CHỈ SỐ TOÀN CỤC (BAO GỒM CẢ %)
+const allStats = [
+  { value: "ATK", label: "Tấn Công (Flat)" },
+  { value: "ATK_PERCENT", label: "Tấn Công (%)" },
+  { value: "DEF", label: "Phòng Thủ (Flat)" },
+  { value: "DEF_PERCENT", label: "Phòng Thủ (%)" },
+  { value: "HP", label: "Sinh Lực (Flat)" },
+  { value: "HP_PERCENT", label: "Sinh Lực (%)" },
+  { value: "SPEED", label: "Tốc Độ" },
+  { value: "CRIT_RATE", label: "Bạo Kích (%)" },
+  { value: "CRIT_DMG", label: "Sát Thương Bạo (%)" },
+  { value: "DURABILITY", label: "Độ Bền" },
+  { value: "LUCK", label: "May Mắn" },
+];
+
+// [UPDATED] LOGIC BỘ LỌC CHO MAIN STATS
 const getAllowedMainStats = computed(() => {
-  const all = [
-    { value: "ATK", label: "Tấn Công", icon: "fas fa-fist-raised" },
-    { value: "DEF", label: "Phòng Thủ", icon: "fas fa-shield-alt" },
-    { value: "HP", label: "Sinh Lực", icon: "fas fa-heart" },
-    { value: "SPEED", label: "Tốc Độ", icon: "fas fa-wind" },
-  ];
-  switch (itemForm.type) {
-    case "WEAPON": return [all[0]];
-    case "ARMOR": return [all[1]];
-    case "HELMET": return [all[2], all[1]];
-    case "BOOTS": return [all[3], all[1]];
-    case "RING": return [all[0], all[3]];
-    case "NECKLACE": return [all[0], all[1], all[2]];
-    case "PICKAXE":
-    case "AXE":
-    case "SHOVEL":
-    case "FISHING_ROD": return all;
-    default: return all;
+  const type = itemForm.type;
+  
+  // Công cụ: Độ bền, May mắn
+  if (["PICKAXE", "AXE", "SHOVEL", "FISHING_ROD"].includes(type)) {
+    return allStats.filter(s => ["DURABILITY", "LUCK"].includes(s.value));
+  }
+
+  // Consumable: Chỉ HP
+  if (type === "CONSUMABLE") {
+    return allStats.filter(s => s.value === "HP");
+  }
+
+  switch (type) {
+    case "WEAPON": 
+      // Vũ khí: ATK, SPEED, CRIT... (Bỏ HP, DEF)
+      return allStats.filter(s => 
+        !["HP", "HP_PERCENT", "DEF", "DEF_PERCENT", "DURABILITY", "LUCK"].includes(s.value)
+      );
+    case "ARMOR":
+    case "HELMET":
+      // Giáp/Mũ: HP, DEF (Bỏ ATK, SPEED, CRIT)
+      return allStats.filter(s => 
+        !["ATK", "ATK_PERCENT", "CRIT_RATE", "CRIT_DMG", "SPEED", "DURABILITY", "LUCK"].includes(s.value)
+      );
+    case "BOOTS":
+      // Giày: SPEED, HP, DEF
+      return allStats.filter(s => 
+        !["ATK", "ATK_PERCENT", "CRIT_RATE", "CRIT_DMG", "DURABILITY", "LUCK"].includes(s.value)
+      );
+    case "RING":
+      // Nhẫn: Chỉ HP, DEF, ATK (cả flat và %). Bỏ Tốc độ, Crit...
+      return allStats.filter(s => 
+        ["HP", "HP_PERCENT", "DEF", "DEF_PERCENT", "ATK", "ATK_PERCENT"].includes(s.value)
+      );
+    case "NECKLACE":
+      // Vòng cổ: Bỏ Tốc độ
+      return allStats.filter(s => 
+        !["SPEED", "DURABILITY", "LUCK"].includes(s.value)
+      );
+    default: return allStats.slice(0, 4);
   }
 });
 
-// Methods
+// [UPDATED] LOGIC BỘ LỌC CHO SUB STATS
+const getAllowedSubStats = computed(() => {
+  const type = itemForm.type;
+  const mainStat = selectedMainStatType.value;
+  
+  // Công cụ & Consumable: Không có sub stat
+  if (["PICKAXE", "AXE", "SHOVEL", "FISHING_ROD", "CONSUMABLE"].includes(type)) {
+    return []; 
+  }
+
+  // Lấy danh sách gốc (full)
+  let allowed = [...allStats].filter(s => !["DURABILITY", "LUCK"].includes(s.value));
+
+  // 1. Lọc theo Loại Trang Bị (Ngoại trừ Ring/Necklace được full)
+  if (!["RING", "NECKLACE"].includes(type)) {
+    if (type === "WEAPON") {
+      allowed = allowed.filter(s => !["HP", "HP_PERCENT", "DEF", "DEF_PERCENT"].includes(s.value));
+    } else if (["ARMOR", "HELMET"].includes(type)) {
+      allowed = allowed.filter(s => !["ATK", "ATK_PERCENT", "CRIT_RATE", "CRIT_DMG", "SPEED"].includes(s.value));
+    } else if (type === "BOOTS") {
+      allowed = allowed.filter(s => !["ATK", "ATK_PERCENT", "CRIT_RATE", "CRIT_DMG"].includes(s.value));
+    }
+  }
+
+  // 2. Lọc Main Stat đã chọn (Nguyên tắc: Không trùng loại)
+  // Nếu Main là ATK hoặc ATK%, thì Sub ko được hiện ATK và ATK%
+  // Tuy nhiên, theo yêu cầu: "nếu main stat là %, sub chỉ hiện flat". 
+  // => Điều này thực ra là logic chuẩn: Main đã ăn stat nào rồi thì Sub né stat đó ra.
+  
+  return allowed.filter(s => s.value !== mainStat);
+});
+
 const switchTab = (tab) => {
   activeTab.value = tab;
   if (tab === "stats") adminStore.fetchStats();
@@ -1723,38 +1777,42 @@ const openAdminChat = (user) => {
   );
 };
 
-// --- WIZARD METHODS ---
 const toggleCreateMode = () => {
   showCreateItem.value = !showCreateItem.value;
   if (showCreateItem.value) {
     currentStep.value = 1;
     Object.assign(itemForm, {
-      code: "",
-      name: "",
-      description: "",
-      type: "WEAPON",
-      slotType: "WEAPON",
-      rarity: "COMMON",
-      basePrice: 0,
-      imageUrl: "",
-      isSystemItem: false,
-      isLimited: false,
-      atkBonus: 0,
-      defBonus: 0,
-      hpBonus: 0,
-      speedBonus: 0,
+      code: "", name: "", description: "",
+      type: "WEAPON", slotType: "WEAPON", rarity: "COMMON",
+      basePrice: 0, imageUrl: "",
+      isSystemItem: false, isLimited: false,
+      atkBonus: 0, defBonus: 0, hpBonus: 0, speedBonus: 0,
+      maxDurability: 0, minLuck: 0, maxLuck: 0, energySaveChance: 0
     });
     distributionType.value = "DROP";
     selectedMainStatType.value = "ATK";
     selectedMainStatValue.value = 0;
     suggestedPrice.value = 0;
     isPriceManuallyEdited.value = false;
+    subStatsList.value = [];
   }
 };
 
 const selectType = (t) => {
   itemForm.type = t;
   itemForm.slotType = t;
+  // Reset main stat mặc định cho hợp lý
+  if (["PICKAXE", "AXE", "SHOVEL", "FISHING_ROD"].includes(t)) {
+    selectedMainStatType.value = "DURABILITY";
+  } else if (t === "ARMOR" || t === "HELMET") {
+    selectedMainStatType.value = "DEF";
+  } else if (t === "BOOTS") {
+    selectedMainStatType.value = "SPEED";
+  } else if (t === "CONSUMABLE") {
+    selectedMainStatType.value = "HP";
+  } else {
+    selectedMainStatType.value = "ATK";
+  }
   setTimeout(() => nextStep(), 200);
 };
 
@@ -1764,6 +1822,12 @@ const selectAsset = (rawPath) => {
 
 const setRarity = (r) => {
   itemForm.rarity = r;
+  // Reset lại sub stat list khi đổi rarity
+  subStatsList.value = [];
+  const count = getSubStatCount();
+  for (let i = 0; i < count; i++) {
+    subStatsList.value.push({ type: "", value: 0 });
+  }
   calculatePrice();
 };
 
@@ -1774,45 +1838,88 @@ const setMainStatType = (type) => {
 
 const nextStep = () => {
   if (currentStep.value < 6) currentStep.value++;
+  if (currentStep.value === 4) {
+     // Trigger setRarity logic when entering Substat step
+     setRarity(itemForm.rarity);
+  }
   if (currentStep.value === 6) calculatePrice();
 };
 
+// [FIX] LOGIC SỐ DÒNG SUBSTAT: 0 -> 1 -> 2 ...
 const getSubStatCount = () => {
+  // Tools & Consumables luôn 0 dòng phụ
+  if (["PICKAXE", "AXE", "SHOVEL", "FISHING_ROD", "CONSUMABLE"].includes(itemForm.type)) {
+    return 0;
+  }
+
   const map = {
-    COMMON: 1, UNCOMMON: 0, RARE: 2,
-    EPIC: 3, LEGENDARY: 4, MYTHIC: 5,
+    COMMON: 0,      // Thường: 0 dòng
+    UNCOMMON: 1,    // Phi thường: 1 dòng
+    RARE: 2,        // Hiếm: 2 dòng
+    EPIC: 3,        // Sử thi: 3 dòng
+    LEGENDARY: 4,   // Huyền thoại: 4 dòng
+    MYTHIC: 5,      // Thần thoại: 5 dòng
   };
   return map[itemForm.rarity] || 0;
 };
 
 const getSubStatInfo = (r) => {
+  // Check tool first
+  if (["PICKAXE", "AXE", "SHOVEL", "FISHING_ROD", "CONSUMABLE"].includes(itemForm.type)) {
+    return "0 dòng";
+  }
   const map = {
-    COMMON: 1, UNCOMMON: 0, RARE: 2,
+    COMMON: 0, UNCOMMON: 1, RARE: 2,
     EPIC: 3, LEGENDARY: 4, MYTHIC: 5,
   };
   return (map[r] || 0) + " dòng";
 };
 
+// Hàm lấy tên hiển thị
+const getStatLabel = (key) => {
+  const found = allStats.find(s => s.value === key);
+  return found ? found.label : key;
+};
+
 const calculatePrice = () => {
+  // Reset
   itemForm.atkBonus = 0;
   itemForm.defBonus = 0;
   itemForm.hpBonus = 0;
   itemForm.speedBonus = 0;
-  if (selectedMainStatType.value === "ATK")
-    itemForm.atkBonus = selectedMainStatValue.value;
-  if (selectedMainStatType.value === "DEF")
-    itemForm.defBonus = selectedMainStatValue.value;
-  if (selectedMainStatType.value === "HP")
-    itemForm.hpBonus = selectedMainStatValue.value;
-  if (selectedMainStatType.value === "SPEED")
-    itemForm.speedBonus = selectedMainStatValue.value;
+  itemForm.maxDurability = 0;
+  itemForm.minLuck = 0;
+  itemForm.maxLuck = 0;
 
+  // Main Stat
+  applyStat(selectedMainStatType.value, selectedMainStatValue.value);
+
+  // Sub Stats
+  subStatsList.value.forEach(sub => {
+    if (sub.type && sub.value) {
+      applyStat(sub.type, sub.value);
+    }
+  });
+
+  // Score Calculation
   let score = 200;
-  score +=
-    (itemForm.atkBonus || 0) +
-    (itemForm.defBonus || 0) +
-    (itemForm.hpBonus || 0) +
-    (itemForm.speedBonus || 0) * 200;
+  score += (itemForm.atkBonus || 0) + (itemForm.defBonus || 0) + (itemForm.hpBonus || 0);
+  score += (itemForm.speedBonus || 0) * 200;
+  score += (itemForm.maxDurability || 0) + (itemForm.maxLuck || 0) * 10;
+
+  // Cộng thêm score cho các dòng %
+  subStatsList.value.forEach(sub => {
+    if (sub.type && sub.value) {
+      if (sub.type.includes("PERCENT") || sub.type.includes("CRIT")) {
+        score += sub.value * 50; 
+      }
+    }
+  });
+
+  if (selectedMainStatType.value.includes("PERCENT") || selectedMainStatType.value.includes("CRIT")) {
+      score += selectedMainStatValue.value * 50;
+  }
+
   const mult = {
     COMMON: 1, UNCOMMON: 2, RARE: 5,
     EPIC: 15, LEGENDARY: 50, MYTHIC: 200,
@@ -1822,6 +1929,18 @@ const calculatePrice = () => {
 
   if (!isPriceManuallyEdited.value) {
     itemForm.basePrice = suggestedPrice.value;
+  }
+};
+
+const applyStat = (type, val) => {
+  if (type === "ATK") itemForm.atkBonus += val;
+  else if (type === "DEF") itemForm.defBonus += val;
+  else if (type === "HP") itemForm.hpBonus += val;
+  else if (type === "SPEED") itemForm.speedBonus += val;
+  else if (type === "DURABILITY") itemForm.maxDurability = val;
+  else if (type === "LUCK") {
+    itemForm.maxLuck = val;
+    itemForm.minLuck = Math.floor(val * 0.8);
   }
 };
 
@@ -1862,14 +1981,13 @@ const createItem = async () => {
   }
 };
 
-// --- ACTION HANDLERS ---
 const handleGrantGold = async () => {
   if (isGrantingGold.value) return;
   isGrantingGold.value = true;
   try {
     await adminStore.grantGold(grantGoldForm.username, grantGoldForm.amount);
     notificationStore.showToast("Đã cấp ngân lượng!", "success");
-    grantGoldForm.amount = 1000; // Reset amount
+    grantGoldForm.amount = 1000;
   } catch (e) {
     notificationStore.showToast("Lỗi: " + (e.response?.data?.message || e.message), "error");
   } finally {
@@ -1922,8 +2040,6 @@ const handleSendNotification = async () => {
   try {
     await adminStore.sendNotification(notificationForm);
     notificationStore.showToast("Đã phát loa!", "success");
-    
-    // Reset form
     notificationForm.title = "";
     notificationForm.message = "";
     notificationForm.recipientUsername = "";
@@ -1993,1090 +2109,177 @@ onMounted(() => {
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+TC:wght@400;700&display=swap");
 
 /* --- GLOBAL LAYOUT --- */
-.admin-page {
-  min-height: 100vh;
-  background-color: #0a0a0a;
-  color: #e0e0e0;
-  font-family: "Noto Serif TC", serif;
-  position: relative;
-  overflow-x: hidden;
-}
-
-/* ... (Giữ nguyên các style cũ của layout) ... */
-
-.bg-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-.bg-layer.base {
-  background: radial-gradient(circle at top, #1a100e, #000000);
-}
-.bg-layer.overlay {
-  background-image: url("https://www.transparenttextures.com/patterns/black-scales.png");
-  opacity: 0.3;
-}
-
-.admin-container {
-  position: relative;
-  z-index: 10;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 40px 20px;
-}
-
-/* --- BUTTON INTERACTIVE STYLES (NEW) --- */
-.btn-interactive {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-interactive:not(:disabled):hover {
-  filter: brightness(1.2);
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-}
-
-.btn-interactive:not(:disabled):active {
-  transform: translateY(1px) scale(0.98);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-}
-
-.btn-interactive:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  filter: grayscale(0.5);
-  transform: none;
-  box-shadow: none;
-}
-
-/* --- HEADER --- */
-.admin-header {
-  text-align: center;
-  margin-bottom: 40px;
-  position: relative;
-}
-.glow-text {
-  font-family: "Cinzel", serif;
-  font-size: 3.5rem;
-  color: #ffca28;
-  text-transform: uppercase;
-  margin: 0;
-  text-shadow:
-    0 0 10px rgba(255, 202, 40, 0.5),
-    0 0 20px rgba(255, 0, 0, 0.3);
-  letter-spacing: 5px;
-  background: -webkit-linear-gradient(#ffd700, #ff8c00);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.subtitle {
-  color: #aaa;
-  font-size: 1.1rem;
-  font-style: italic;
-  margin-top: 10px;
-  letter-spacing: 1px;
-}
-.header-decor {
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #ffca28, transparent);
-  width: 50%;
-  margin: 20px auto 0;
-}
-
-/* --- NAVIGATION --- */
-.admin-nav {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-bottom: 40px;
-  flex-wrap: wrap;
-}
-.nav-item {
-  background: rgba(20, 20, 20, 0.8);
-  border: 1px solid #444;
-  color: #bbb;
-  padding: 12px 25px;
-  font-size: 1.2rem;
-  cursor: pointer;
-  position: relative;
-  transition: all 0.4s ease;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: "Noto Serif TC", serif;
-  text-transform: uppercase;
-  clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%, 0 20%);
-}
-.nav-item:hover,
-.nav-item.active {
-  background: rgba(62, 39, 35, 0.9);
-  color: #ffca28;
-  border-color: #ffca28;
-  box-shadow: 0 0 15px rgba(255, 202, 40, 0.2);
-  transform: translateY(-2px);
-}
-.nav-item.active i {
-  color: #ffca28;
-}
-
-/* --- SECTIONS & PANELS --- */
-.glass-panel {
-  background: rgba(20, 20, 20, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 215, 0, 0.15);
-  border-radius: 8px;
-  padding: 25px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  transition:
-    transform 0.3s ease,
-    box-shadow 0.3s ease;
-  margin-bottom: 20px;
-}
-
-.table-wrapper {
-  max-height: 70vh;
-  overflow-y: auto;
-  position: relative;
-  padding: 0;
-}
-
-.custom-scroll-panel::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.custom-scroll-panel::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-}
-.custom-scroll-panel::-webkit-scrollbar-thumb {
-  background: #5d4037;
-  border-radius: 4px;
-  border: 1px solid #3e2723;
-}
-.custom-scroll-panel::-webkit-scrollbar-thumb:hover {
-  background: #ffca28;
-}
-
-.wuxia-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.wuxia-table th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  text-align: left;
-  padding: 15px;
-  color: #ffca28;
-  font-family: "Cinzel", serif;
-  border-bottom: 2px solid rgba(255, 215, 0, 0.5);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  background: rgba(30, 20, 15, 0.98);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
-}
-
-.wuxia-table td {
-  padding: 15px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  vertical-align: middle;
-  color: #ccc;
-  transition: background 0.2s;
-}
-.wuxia-table tr:hover td {
-  background: linear-gradient(90deg, rgba(255, 202, 40, 0.05), transparent);
-  color: #fff;
-}
-.id-col {
-  font-family: monospace;
-  color: #666;
-}
-.name-col {
-  font-weight: bold;
-  color: #fff;
-  font-size: 1.1rem;
-}
-.gold-val {
-  color: #ffca28;
-  font-weight: bold;
-}
-
-/* Stats Cards */
-.stats-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 25px;
-  margin-bottom: 40px;
-}
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 25px;
-  border-left: 4px solid #444;
-}
-.stat-card.highlight {
-  border-left-color: #ffca28;
-}
-.stat-card.highlight-echo {
-  border-left-color: #26c6da;
-}
-
-.icon-box {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.5rem;
-  background: rgba(0, 0, 0, 0.4);
-}
-.user {
-  color: #42a5f5;
-  text-shadow: 0 0 10px #42a5f5;
-}
-.item {
-  color: #ab47bc;
-  text-shadow: 0 0 10px #ab47bc;
-}
-.gold {
-  color: #ffca28;
-  text-shadow: 0 0 10px #ffca28;
-}
-.echo {
-  color: #26c6da;
-  text-shadow: 0 0 10px #26c6da;
-}
-
-.info h3 {
-  margin: 0;
-  color: #888;
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-.info .number {
-  font-size: 2.5rem;
-  font-weight: bold;
-  color: #eee;
-  font-family: "Cinzel", serif;
-}
-.echo-text {
-  color: #26c6da;
-}
-
-/* Badges */
-.badge {
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: bold;
-  text-transform: uppercase;
-}
-.badge.user {
-  background: rgba(33, 150, 243, 0.15);
-  color: #64b5f6;
-  border: 1px solid #1e88e5;
-}
-.badge.admin {
-  background: rgba(255, 167, 38, 0.15);
-  color: #ffb74d;
-  border: 1px solid #fb8c00;
-}
-.badge.active {
-  color: #00e676;
-  border: 1px solid #00e676;
-}
-.badge.drop {
-  color: #29b6f6;
-  border: 1px solid #29b6f6;
-}
-.badge.limited {
-  color: #ffca28;
-  border: 1px solid #ffca28;
-  font-weight: bold;
-  text-shadow: 0 0 5px #ffca28;
-}
-
-.status-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-}
-.status-dot.active {
-  background: #00e676;
-  box-shadow: 0 0 8px #00e676;
-}
-.status-dot.banned {
-  background: #ff1744;
-  box-shadow: 0 0 8px #ff1744;
-}
-
-/* Action Buttons */
-.actions-cell {
-  display: flex;
-  gap: 8px;
-}
-.btn-icon {
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-}
-.chat {
-  background: linear-gradient(135deg, #42a5f5, #1565c0);
-}
-.ban {
-  background: linear-gradient(135deg, #ef5350, #c62828);
-}
-.unban {
-  background: linear-gradient(135deg, #66bb6a, #2e7d32);
-}
-.delete {
-  background: linear-gradient(135deg, #757575, #424242);
-}
-.btn-icon:hover {
-  transform: translateY(-3px) scale(1.1);
-  filter: brightness(1.2);
-}
-
-/* --- FORMS & FILTERS --- */
-.filter-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-.search-group {
-  position: relative;
-  flex: 1;
-  max-width: 400px;
-}
-.search-group i {
-  position: absolute;
-  left: 15px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #ffca28;
-}
-.search-group input {
-  width: 100%;
-  padding: 12px 12px 12px 45px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid #555;
-  color: #fff;
-  border-radius: 30px;
-  outline: none;
-  font-family: inherit;
-}
-.search-group input:focus {
-  border-color: #ffca28;
-  box-shadow: 0 0 10px rgba(255, 202, 40, 0.2);
-}
-select {
-  background: #222;
-  color: #fff;
-  border: 1px solid #555;
-  padding: 10px 15px;
-  border-radius: 4px;
-  outline: none;
-}
-
-.simple-form input,
-.simple-form textarea {
-  width: 100%;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid #555;
-  color: #fff;
-  border-radius: 4px;
-  box-sizing: border-box;
-  margin-bottom: 10px;
-  font-family: inherit;
-}
-.btn-action {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  font-weight: bold;
-  cursor: pointer;
-  border-radius: 4px;
-  text-transform: uppercase;
-  transition: 0.3s;
-  font-family: "Cinzel", serif;
-  letter-spacing: 1px;
-}
-.btn-action.gold {
-  background: linear-gradient(45deg, #ffd700, #ffa000);
-  color: #000;
-}
-.btn-action.cyan {
-  background: linear-gradient(45deg, #26c6da, #00acc1);
-  color: #fff;
-}
-.btn-action.blue {
-  background: linear-gradient(45deg, #42a5f5, #1976d2);
-  color: #fff;
-}
-.btn-action.red {
-  background: linear-gradient(45deg, #ef5350, #c62828);
-  color: #fff;
-}
-
-.btn-create {
-  background: transparent;
-  border: 1px solid #ffca28;
-  color: #ffca28;
-  padding: 10px 25px;
-  border-radius: 30px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: 0.3s;
-  text-transform: uppercase;
-}
-.btn-create:hover {
-  background: #ffca28;
-  color: #000;
-  box-shadow: 0 0 15px #ffca28;
-}
-
-.grid-2-col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 30px;
-}
-.divider-line {
-  height: 1px;
-  background: #444;
-  margin: 20px 0;
-}
-
-/* --- MODAL PHÁN QUYẾT --- */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(5px);
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.modal-content.ban-theme {
-  background: #1a0505;
-  border: 2px solid #ef5350;
-  width: 450px;
-  box-shadow: 0 0 50px rgba(239, 83, 80, 0.4);
-  overflow: hidden;
-}
-.modal-header-danger {
-  background: #c62828;
-  color: #fff;
-  padding: 15px;
-  text-align: center;
-  font-weight: bold;
-  font-size: 1.2rem;
-  text-transform: uppercase;
-}
-.modal-body {
-  padding: 25px;
-}
-.target-name {
-  color: #ef5350;
-  font-size: 1.2rem;
-  margin-left: 5px;
-}
-.modal-content textarea {
-  width: 100%;
-  height: 100px;
-  margin-top: 15px;
-  background: #000;
-  border: 1px solid #555;
-  color: #fff;
-  padding: 10px;
-}
-.modal-btns {
-  display: flex;
-  justify-content: flex-end;
-  padding: 15px;
-  gap: 10px;
-  background: rgba(0, 0, 0, 0.2);
-}
-.btn-cancel {
-  background: transparent;
-  color: #aaa;
-  border: 1px solid #555;
-  padding: 8px 20px;
-  cursor: pointer;
-}
-.btn-confirm-ban {
-  background: #ef5350;
-  color: #fff;
-  border: none;
-  padding: 8px 25px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-/* --- RARITY COLORS --- */
-.rarity-COMMON {
-  color: #bdbdbd;
-}
-.rarity-UNCOMMON {
-  color: #4caf50;
-}
-.rarity-RARE {
-  color: #42a5f5;
-}
-.rarity-EPIC {
-  color: #ab47bc;
-}
-.rarity-LEGENDARY {
-  color: #ffca28;
-  text-shadow: 0 0 5px #ffca28;
-}
-.rarity-MYTHIC {
-  color: #ef5350;
-  text-shadow: 0 0 8px #ef5350;
-  font-weight: bold;
-}
-
-.mini-icon {
-  width: 24px;
-  height: 24px;
-  vertical-align: middle;
-  margin-right: 5px;
-}
-
-/* --- WIZARD STYLES (NEW) --- */
-.wizard-container {
-  background: rgba(15, 10, 8, 0.95);
-  border: 1px solid #5d4037;
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-  border-radius: 12px;
-  padding: 30px;
-  min-height: 500px;
-  display: flex;
-  flex-direction: column;
-}
-
-.wizard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-.panel-title-small {
-  font-family: "Cinzel", serif;
-  color: #ffca28;
-  font-size: 1.4rem;
-  margin: 0;
-}
-.step-counter {
-  color: #888;
-  font-family: monospace;
-}
-
-.progress-container {
-  height: 4px;
-  background: #333;
-  border-radius: 2px;
-  margin-bottom: 30px;
-  overflow: hidden;
-}
-.progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #ff6f00, #ffca28);
-  transition: width 0.4s ease;
-  box-shadow: 0 0 10px #ffca28;
-}
-
-/* Steps Animation */
-.wizard-step {
-  animation: fadeInUp 0.4s ease;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-.step-label {
-  font-size: 1.2rem;
-  color: #e0e0e0;
-  margin-bottom: 20px;
-  border-left: 3px solid #ffca28;
-  padding-left: 10px;
-  font-weight: bold;
-}
-
-/* TYPE GRID */
-.type-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-}
-.type-card {
-  background: #1a1a1a;
-  padding: 25px;
-  text-align: center;
-  border-radius: 8px;
-  border: 1px solid #444;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s;
-}
-.type-card:hover,
-.type-card.selected {
-  border-color: #ffca28;
-  transform: translateY(-5px);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
-}
-.type-card.selected i,
-.type-card.selected span {
-  color: #ffca28;
-}
-.type-card i {
-  font-size: 2.5rem;
-  margin-bottom: 10px;
-  color: #888;
-  transition: 0.3s;
-}
-.card-glow {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle, rgba(255, 202, 40, 0.1), transparent);
-  opacity: 0;
-  transition: 0.3s;
-}
-.type-card:hover .card-glow {
-  opacity: 1;
-}
-
-/* INPUTS */
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-.full-width {
-  grid-column: span 2;
-  width: 100%;
-}
-.input-group label {
-  display: block;
-  color: #aaa;
-  margin-bottom: 8px;
-  font-size: 0.9rem;
-}
-.input-group input,
-.input-group textarea {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid #444;
-  color: #fff;
-  padding: 12px;
-  border-radius: 4px;
-  font-family: inherit;
-  transition: 0.3s;
-  box-sizing: border-box;
-}
-.input-group input:focus,
-.input-group textarea:focus {
-  border-color: #ffca28;
-  box-shadow: 0 0 10px rgba(255, 202, 40, 0.1);
-  outline: none;
-}
-
-/* ASSETS */
-.assets-wrapper {
-  padding-bottom: 10px;
-  overflow-x: auto;
-}
-.assets-grid {
-  display: flex;
-  gap: 15px;
-}
-.asset-item {
-  min-width: 90px;
-  height: 90px;
-  border: 2px solid #333;
-  border-radius: 8px;
-  background: #000;
-  cursor: pointer;
-  position: relative;
-  transition: 0.3s;
-}
-.asset-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 5px;
-  box-sizing: border-box;
-}
-.asset-item.selected {
-  border-color: #00e676;
-  box-shadow: 0 0 15px rgba(0, 230, 118, 0.3);
-}
-.asset-check {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: #00e676;
-  color: #000;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transform: scale(0);
-  transition: 0.3s;
-}
-.asset-item.selected .asset-check {
-  opacity: 1;
-  transform: scale(1);
-}
-
-/* RARITY */
-.rarity-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-}
-.rarity-card {
-  padding: 15px;
-  border: 1px solid #444;
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: center;
-  background: #181818;
-  transition: 0.2s;
-}
-.rarity-card span {
-  display: block;
-  font-weight: bold;
-  margin-bottom: 5px;
-}
-.rarity-card small {
-  color: #666;
-  font-size: 0.8rem;
-}
-.rarity-card.COMMON.selected {
-  border-color: #bdbdbd;
-  box-shadow: 0 0 10px #bdbdbd;
-}
-.rarity-card.UNCOMMON.selected {
-  border-color: #4caf50;
-  box-shadow: 0 0 10px #4caf50;
-}
-.rarity-card.RARE.selected {
-  border-color: #42a5f5;
-  box-shadow: 0 0 10px #42a5f5;
-}
-.rarity-card.EPIC.selected {
-  border-color: #ab47bc;
-  box-shadow: 0 0 10px #ab47bc;
-}
-.rarity-card.LEGENDARY.selected {
-  border-color: #ffca28;
-  box-shadow: 0 0 10px #ffca28;
-}
-.rarity-card.MYTHIC.selected {
-  border-color: #ef5350;
-  box-shadow: 0 0 10px #ef5350;
-}
-
-/* STATS */
-.stat-type-selector {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-.stat-chip {
-  padding: 8px 15px;
-  background: #333;
-  border-radius: 20px;
-  cursor: pointer;
-  border: 1px solid #555;
-  transition: 0.2s;
-  color: #aaa;
-}
-.stat-chip.active {
-  background: #ffca28;
-  color: #000;
-  border-color: #ffca28;
-  font-weight: bold;
-  box-shadow: 0 0 10px rgba(255, 202, 40, 0.3);
-}
-.big-input {
-  font-size: 1.5rem;
-  color: #00e676 !important;
-  font-weight: bold;
-  text-align: center;
-}
-.sub-stats-container {
-  margin-top: 15px;
-}
-.sub-stat-row {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 10px;
-}
-.row-index {
-  color: #555;
-  font-family: monospace;
-}
-.sub-stat-select {
-  width: 150px;
-}
-
-/* DISTRIBUTION */
-.distribution-box {
-  margin-bottom: 20px;
-}
-.dist-options {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-  margin-top: 10px;
-}
-.dist-card {
-  background: #1a1a1a;
-  border: 1px solid #444;
-  border-radius: 8px;
-  padding: 15px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: 0.3s;
-}
-.dist-card:hover {
-  background: #222;
-  transform: translateY(-2px);
-}
-.dist-card.active {
-  border-color: #00e676;
-  background: rgba(0, 230, 118, 0.1);
-}
-.dist-card.active i {
-  color: #00e676;
-}
-.dist-card.limited.active {
-  border-color: #ffca28;
-  background: rgba(255, 202, 40, 0.1);
-}
-.dist-card.limited.active i {
-  color: #ffca28;
-}
-.dist-card i {
-  font-size: 1.5rem;
-  color: #666;
-}
-.dist-card strong {
-  display: block;
-  color: #eee;
-}
-.dist-card small {
-  color: #888;
-  font-size: 0.8rem;
-}
-
-/* ACTIONS */
-.wizard-actions {
-  margin-top: auto;
-  padding-top: 20px;
-  border-top: 1px solid #333;
-  display: flex;
-  justify-content: space-between;
-}
-.btn-next,
-.btn-submit-final {
-  background: linear-gradient(45deg, #ffd700, #ffa000);
-  color: #000;
-  border: none;
-  padding: 10px 30px;
-  border-radius: 30px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 4px 15px rgba(255, 160, 0, 0.3);
-  transition: 0.3s;
-}
-.btn-next:disabled {
-  background: #444;
-  color: #888;
-  box-shadow: none;
-  cursor: not-allowed;
-}
-.btn-next:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 160, 0, 0.5);
-}
-.btn-back {
-  background: transparent;
-  border: 1px solid #555;
-  color: #aaa;
-  padding: 8px 20px;
-  border-radius: 30px;
-  cursor: pointer;
-  transition: 0.3s;
-}
-.btn-back:hover {
-  border-color: #fff;
-  color: #fff;
-}
-
-/* CHECKBOX & PREVIEW */
-.checkbox-container {
-  display: flex;
-  gap: 15px;
-  background: #222;
-  padding: 15px;
-  border-radius: 8px;
-  margin-top: 20px;
-  cursor: pointer;
-  border: 1px solid #444;
-}
-.checkbox-container input {
-  width: 20px;
-  height: 20px;
-  accent-color: #ffca28;
-  margin-top: 3px;
-}
-.label-content strong {
-  color: #fff;
-}
-.label-content p {
-  color: #888;
-  margin: 5px 0 0;
-  font-size: 0.9rem;
-}
-.warning-text {
-  color: #ef5350 !important;
-}
-
-.summary-card {
-  background: #121212;
-  padding: 15px;
-  border-radius: 8px;
-  border: 1px solid #333;
-  margin-bottom: 20px;
-}
-.item-preview {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-}
-.preview-img {
-  width: 64px;
-  height: 64px;
-  border: 1px solid #444;
-  border-radius: 4px;
-  background: #000;
-  object-fit: contain;
-}
-.preview-info h4 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-.preview-info p {
-  margin: 5px 0;
-  color: #888;
-  font-size: 0.9rem;
-}
-.preview-stats {
-  color: #00e676;
-  font-family: monospace;
-}
-.pricing-box {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #1a1a1a;
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  border-left: 4px solid #ffca28;
-}
-.suggested-price {
-  color: #00e676;
-  font-size: 1.5rem;
-  margin-left: 10px;
-}
-.price-input {
-  width: 150px !important;
-  text-align: right;
-  color: #ffca28 !important;
-  font-weight: bold;
-}
-
-/* --- ANIMATIONS --- */
-.fade-in {
-  animation: fadeIn 0.5s ease;
-}
-.fade-in-down {
-  animation: fadeInDown 0.6s ease;
-}
-.fade-in-up {
-  animation: fadeInUp 0.6s ease;
-}
-.zoom-in {
-  animation: zoomIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes zoomIn {
-  from {
-    transform: scale(0.8);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
+.admin-page { min-height: 100vh; background-color: #0a0a0a; color: #e0e0e0; font-family: "Noto Serif TC", serif; position: relative; overflow-x: hidden; }
+.bg-layer { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.bg-layer.base { background: radial-gradient(circle at top, #1a100e, #000000); }
+.bg-layer.overlay { background-image: url("https://www.transparenttextures.com/patterns/black-scales.png"); opacity: 0.3; }
+.admin-container { position: relative; z-index: 10; max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+.btn-interactive { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; }
+.btn-interactive:not(:disabled):hover { filter: brightness(1.2); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); }
+.btn-interactive:not(:disabled):active { transform: translateY(1px) scale(0.98); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); }
+.btn-interactive:disabled { opacity: 0.7; cursor: not-allowed; filter: grayscale(0.5); transform: none; box-shadow: none; }
+.admin-header { text-align: center; margin-bottom: 40px; position: relative; }
+.glow-text { font-family: "Cinzel", serif; font-size: 3.5rem; color: #ffca28; text-transform: uppercase; margin: 0; text-shadow: 0 0 10px rgba(255, 202, 40, 0.5), 0 0 20px rgba(255, 0, 0, 0.3); letter-spacing: 5px; background: -webkit-linear-gradient(#ffd700, #ff8c00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.subtitle { color: #aaa; font-size: 1.1rem; font-style: italic; margin-top: 10px; letter-spacing: 1px; }
+.header-decor { height: 2px; background: linear-gradient(90deg, transparent, #ffca28, transparent); width: 50%; margin: 20px auto 0; }
+.admin-nav { display: flex; justify-content: center; gap: 20px; margin-bottom: 40px; flex-wrap: wrap; }
+.nav-item { background: rgba(20, 20, 20, 0.8); border: 1px solid #444; color: #bbb; padding: 12px 25px; font-size: 1.2rem; cursor: pointer; position: relative; transition: all 0.4s ease; display: flex; align-items: center; gap: 10px; font-family: "Noto Serif TC", serif; text-transform: uppercase; clip-path: polygon(10% 0, 100% 0, 100% 100%, 0 100%, 0 20%); }
+.nav-item:hover, .nav-item.active { background: rgba(62, 39, 35, 0.9); color: #ffca28; border-color: #ffca28; box-shadow: 0 0 15px rgba(255, 202, 40, 0.2); transform: translateY(-2px); }
+.nav-item.active i { color: #ffca28; }
+.glass-panel { background: rgba(20, 20, 20, 0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255, 215, 0, 0.15); border-radius: 8px; padding: 25px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); transition: transform 0.3s ease, box-shadow 0.3s ease; margin-bottom: 20px; }
+.table-wrapper { max-height: 70vh; overflow-y: auto; position: relative; padding: 0; }
+.custom-scroll-panel::-webkit-scrollbar { width: 8px; height: 8px; }
+.custom-scroll-panel::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.3); border-radius: 4px; }
+.custom-scroll-panel::-webkit-scrollbar-thumb { background: #5d4037; border-radius: 4px; border: 1px solid #3e2723; }
+.custom-scroll-panel::-webkit-scrollbar-thumb:hover { background: #ffca28; }
+.wuxia-table { width: 100%; border-collapse: collapse; }
+.wuxia-table th { position: sticky; top: 0; z-index: 2; text-align: left; padding: 15px; color: #ffca28; font-family: "Cinzel", serif; border-bottom: 2px solid rgba(255, 215, 0, 0.5); text-transform: uppercase; letter-spacing: 1px; background: rgba(30, 20, 15, 0.98); box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5); }
+.wuxia-table td { padding: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); vertical-align: middle; color: #ccc; transition: background 0.2s; }
+.wuxia-table tr:hover td { background: linear-gradient(90deg, rgba(255, 202, 40, 0.05), transparent); color: #fff; }
+.id-col { font-family: monospace; color: #666; }
+.name-col { font-weight: bold; color: #fff; font-size: 1.1rem; }
+.gold-val { color: #ffca28; font-weight: bold; }
+.stats-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px; margin-bottom: 40px; }
+.stat-card { display: flex; align-items: center; gap: 25px; border-left: 4px solid #444; }
+.stat-card.highlight { border-left-color: #ffca28; }
+.stat-card.highlight-echo { border-left-color: #26c6da; }
+.icon-box { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; background: rgba(0, 0, 0, 0.4); }
+.user { color: #42a5f5; text-shadow: 0 0 10px #42a5f5; }
+.item { color: #ab47bc; text-shadow: 0 0 10px #ab47bc; }
+.gold { color: #ffca28; text-shadow: 0 0 10px #ffca28; }
+.echo { color: #26c6da; text-shadow: 0 0 10px #26c6da; }
+.info h3 { margin: 0; color: #888; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
+.info .number { font-size: 2.5rem; font-weight: bold; color: #eee; font-family: "Cinzel", serif; }
+.echo-text { color: #26c6da; }
+.badge { padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; }
+.badge.user { background: rgba(33, 150, 243, 0.15); color: #64b5f6; border: 1px solid #1e88e5; }
+.badge.admin { background: rgba(255, 167, 38, 0.15); color: #ffb74d; border: 1px solid #fb8c00; }
+.badge.active { color: #00e676; border: 1px solid #00e676; }
+.badge.drop { color: #29b6f6; border: 1px solid #29b6f6; }
+.badge.limited { color: #ffca28; border: 1px solid #ffca28; font-weight: bold; text-shadow: 0 0 5px #ffca28; }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; }
+.status-dot.active { background: #00e676; box-shadow: 0 0 8px #00e676; }
+.status-dot.banned { background: #ff1744; box-shadow: 0 0 8px #ff1744; }
+.actions-cell { display: flex; gap: 8px; }
+.btn-icon { width: 40px; height: 40px; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s; color: #fff; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); }
+.chat { background: linear-gradient(135deg, #42a5f5, #1565c0); }
+.ban { background: linear-gradient(135deg, #ef5350, #c62828); }
+.unban { background: linear-gradient(135deg, #66bb6a, #2e7d32); }
+.delete { background: linear-gradient(135deg, #757575, #424242); }
+.btn-icon:hover { transform: translateY(-3px) scale(1.1); filter: brightness(1.2); }
+.filter-bar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+.search-group { position: relative; flex: 1; max-width: 400px; }
+.search-group i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: #ffca28; }
+.search-group input { width: 100%; padding: 12px 12px 12px 45px; background: rgba(0, 0, 0, 0.3); border: 1px solid #555; color: #fff; border-radius: 30px; outline: none; font-family: inherit; }
+.search-group input:focus { border-color: #ffca28; box-shadow: 0 0 10px rgba(255, 202, 40, 0.2); }
+select { background: #222; color: #fff; border: 1px solid #555; padding: 10px 15px; border-radius: 4px; outline: none; }
+.simple-form input, .simple-form textarea { width: 100%; padding: 12px; background: rgba(0, 0, 0, 0.4); border: 1px solid #555; color: #fff; border-radius: 4px; box-sizing: border-box; margin-bottom: 10px; font-family: inherit; }
+.btn-action { width: 100%; padding: 12px; border: none; font-weight: bold; cursor: pointer; border-radius: 4px; text-transform: uppercase; transition: 0.3s; font-family: "Cinzel", serif; letter-spacing: 1px; }
+.btn-action.gold { background: linear-gradient(45deg, #ffd700, #ffa000); color: #000; }
+.btn-action.cyan { background: linear-gradient(45deg, #26c6da, #00acc1); color: #fff; }
+.btn-action.blue { background: linear-gradient(45deg, #42a5f5, #1976d2); color: #fff; }
+.btn-action.red { background: linear-gradient(45deg, #ef5350, #c62828); color: #fff; }
+.btn-create { background: transparent; border: 1px solid #ffca28; color: #ffca28; padding: 10px 25px; border-radius: 30px; cursor: pointer; font-weight: bold; transition: 0.3s; text-transform: uppercase; }
+.btn-create:hover { background: #ffca28; color: #000; box-shadow: 0 0 15px #ffca28; }
+.grid-2-col { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+.divider-line { height: 1px; background: #444; margin: 20px 0; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+.modal-content.ban-theme { background: #1a0505; border: 2px solid #ef5350; width: 450px; box-shadow: 0 0 50px rgba(239, 83, 80, 0.4); overflow: hidden; }
+.modal-header-danger { background: #c62828; color: #fff; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; text-transform: uppercase; }
+.modal-body { padding: 25px; }
+.target-name { color: #ef5350; font-size: 1.2rem; margin-left: 5px; }
+.modal-content textarea { width: 100%; height: 100px; margin-top: 15px; background: #000; border: 1px solid #555; color: #fff; padding: 10px; }
+.modal-btns { display: flex; justify-content: flex-end; padding: 15px; gap: 10px; background: rgba(0, 0, 0, 0.2); }
+.btn-cancel { background: transparent; color: #aaa; border: 1px solid #555; padding: 8px 20px; cursor: pointer; }
+.btn-confirm-ban { background: #ef5350; color: #fff; border: none; padding: 8px 25px; cursor: pointer; font-weight: bold; }
+.rarity-COMMON { color: #bdbdbd; }
+.rarity-UNCOMMON { color: #4caf50; }
+.rarity-RARE { color: #42a5f5; }
+.rarity-EPIC { color: #ab47bc; }
+.rarity-LEGENDARY { color: #ffca28; text-shadow: 0 0 5px #ffca28; }
+.rarity-MYTHIC { color: #ef5350; text-shadow: 0 0 8px #ef5350; font-weight: bold; }
+.mini-icon { width: 24px; height: 24px; vertical-align: middle; margin-right: 5px; }
+.wizard-container { background: rgba(15, 10, 8, 0.95); border: 1px solid #5d4037; box-shadow: 0 0 30px rgba(0, 0, 0, 0.8); border-radius: 12px; padding: 30px; min-height: 500px; display: flex; flex-direction: column; }
+.wizard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.panel-title-small { font-family: "Cinzel", serif; color: #ffca28; font-size: 1.4rem; margin: 0; }
+.step-counter { color: #888; font-family: monospace; }
+.progress-container { height: 4px; background: #333; border-radius: 2px; margin-bottom: 30px; overflow: hidden; }
+.progress-bar { height: 100%; background: linear-gradient(90deg, #ff6f00, #ffca28); transition: width 0.4s ease; box-shadow: 0 0 10px #ffca28; }
+.wizard-step { animation: fadeInUp 0.4s ease; flex: 1; display: flex; flex-direction: column; }
+.step-label { font-size: 1.2rem; color: #e0e0e0; margin-bottom: 20px; border-left: 3px solid #ffca28; padding-left: 10px; font-weight: bold; }
+.type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.type-card { background: #1a1a1a; padding: 25px; text-align: center; border-radius: 8px; border: 1px solid #444; cursor: pointer; position: relative; overflow: hidden; transition: all 0.3s; }
+.type-card:hover, .type-card.selected { border-color: #ffca28; transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5); }
+.type-card.selected i, .type-card.selected span { color: #ffca28; }
+.type-card i { font-size: 2.5rem; margin-bottom: 10px; color: #888; transition: 0.3s; }
+.card-glow { position: absolute; inset: 0; background: radial-gradient(circle, rgba(255, 202, 40, 0.1), transparent); opacity: 0; transition: 0.3s; }
+.type-card:hover .card-glow { opacity: 1; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.full-width { grid-column: span 2; width: 100%; }
+.input-group label { display: block; color: #aaa; margin-bottom: 8px; font-size: 0.9rem; }
+.input-group input, .input-group textarea { width: 100%; background: rgba(0, 0, 0, 0.3); border: 1px solid #444; color: #fff; padding: 12px; border-radius: 4px; font-family: inherit; transition: 0.3s; box-sizing: border-box; }
+.input-group input:focus, .input-group textarea:focus { border-color: #ffca28; box-shadow: 0 0 10px rgba(255, 202, 40, 0.1); outline: none; }
+.assets-wrapper { padding-bottom: 10px; overflow-x: auto; }
+.assets-grid { display: flex; gap: 15px; }
+.asset-item { min-width: 90px; height: 90px; border: 2px solid #333; border-radius: 8px; background: #000; cursor: pointer; position: relative; transition: 0.3s; }
+.asset-item img { width: 100%; height: 100%; object-fit: contain; padding: 5px; box-sizing: border-box; }
+.asset-item.selected { border-color: #00e676; box-shadow: 0 0 15px rgba(0, 230, 118, 0.3); }
+.asset-check { position: absolute; top: -8px; right: -8px; background: #00e676; color: #000; width: 20px; height: 20px; border-radius: 50%; font-size: 12px; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0); transition: 0.3s; }
+.asset-item.selected .asset-check { opacity: 1; transform: scale(1); }
+.rarity-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+.rarity-card { padding: 15px; border: 1px solid #444; border-radius: 6px; cursor: pointer; text-align: center; background: #181818; transition: 0.2s; }
+.rarity-card span { display: block; font-weight: bold; margin-bottom: 5px; }
+.rarity-card small { color: #666; font-size: 0.8rem; }
+.rarity-card.COMMON.selected { border-color: #bdbdbd; box-shadow: 0 0 10px #bdbdbd; }
+.rarity-card.UNCOMMON.selected { border-color: #4caf50; box-shadow: 0 0 10px #4caf50; }
+.rarity-card.RARE.selected { border-color: #42a5f5; box-shadow: 0 0 10px #42a5f5; }
+.rarity-card.EPIC.selected { border-color: #ab47bc; box-shadow: 0 0 10px #ab47bc; }
+.rarity-card.LEGENDARY.selected { border-color: #ffca28; box-shadow: 0 0 10px #ffca28; }
+.rarity-card.MYTHIC.selected { border-color: #ef5350; box-shadow: 0 0 10px #ef5350; }
+.stat-type-selector { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.stat-chip { padding: 8px 15px; background: #333; border-radius: 20px; cursor: pointer; border: 1px solid #555; transition: 0.2s; color: #aaa; }
+.stat-chip.active { background: #ffca28; color: #000; border-color: #ffca28; font-weight: bold; box-shadow: 0 0 10px rgba(255, 202, 40, 0.3); }
+.big-input { font-size: 1.5rem; color: #00e676 !important; font-weight: bold; text-align: center; }
+.sub-stats-container { margin-top: 15px; }
+.sub-stat-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.row-index { color: #555; font-family: monospace; }
+.sub-stat-select { width: 150px; }
+.main-stat-select { width: 200px; }
+.distribution-box { margin-bottom: 20px; }
+.dist-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 10px; }
+.dist-card { background: #1a1a1a; border: 1px solid #444; border-radius: 8px; padding: 15px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.3s; }
+.dist-card:hover { background: #222; transform: translateY(-2px); }
+.dist-card.active { border-color: #00e676; background: rgba(0, 230, 118, 0.1); }
+.dist-card.active i { color: #00e676; }
+.dist-card.limited.active { border-color: #ffca28; background: rgba(255, 202, 40, 0.1); }
+.dist-card.limited.active i { color: #ffca28; }
+.dist-card i { font-size: 1.5rem; color: #666; }
+.dist-card strong { display: block; color: #eee; }
+.dist-card small { color: #888; font-size: 0.8rem; }
+.wizard-actions { margin-top: auto; padding-top: 20px; border-top: 1px solid #333; display: flex; justify-content: space-between; }
+.btn-next, .btn-submit-final { background: linear-gradient(45deg, #ffd700, #ffa000); color: #000; border: none; padding: 10px 30px; border-radius: 30px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(255, 160, 0, 0.3); transition: 0.3s; }
+.btn-next:disabled { background: #444; color: #888; box-shadow: none; cursor: not-allowed; }
+.btn-next:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 160, 0, 0.5); }
+.btn-back { background: transparent; border: 1px solid #555; color: #aaa; padding: 8px 20px; border-radius: 30px; cursor: pointer; transition: 0.3s; }
+.btn-back:hover { border-color: #fff; color: #fff; }
+.summary-card { background: #121212; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px; }
+.item-preview { display: flex; gap: 15px; align-items: center; }
+.preview-img { width: 64px; height: 64px; border: 1px solid #444; border-radius: 4px; background: #000; object-fit: contain; }
+.preview-info h4 { margin: 0; font-size: 1.2rem; }
+.preview-info p { margin: 5px 0; color: #888; font-size: 0.9rem; }
+.preview-stats { color: #00e676; font-family: monospace; }
+.pricing-box { display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ffca28; }
+.suggested-price { color: #00e676; font-size: 1.5rem; margin-left: 10px; }
+.price-input { width: 150px !important; text-align: right; color: #ffca28 !important; font-weight: bold; }
+.fade-in { animation: fadeIn 0.5s ease; }
+.fade-in-down { animation: fadeInDown 0.6s ease; }
+.fade-in-up { animation: fadeInUp 0.6s ease; }
+.zoom-in { animation: zoomIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes zoomIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.unit-label { font-size: 1.2rem; color: #888; font-weight: bold; }
+.sub-stats-preview { margin-top: 5px; display: flex; flex-direction: column; gap: 2px; }
+.preview-sub { color: #a5d6a7; font-family: monospace; }
 </style>

@@ -36,155 +36,25 @@
 
             <div class="divider"></div>
 
-            <div class="base-stat-row">
-              <span class="stat-name text-red"
-                ><i class="fas fa-dumbbell"></i> Sức Mạnh</span
-              >
+            <div class="base-stat-row" v-for="(cfg, key) in statConfigs" :key="key">
+              <span class="stat-name" :class="cfg.colorClass">
+                <i :class="['fas', cfg.icon]"></i> {{ cfg.label }}
+              </span>
               <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat("str") }}</span>
-                <span v-if="pendingStats.str > 0" class="added-val"
-                  >+{{ pendingStats.str }}</span
+                <span class="base-val">{{ getBaseStat(key) }}</span>
+                <span v-if="pendingStats[key] > 0" class="added-val"
+                  >+{{ pendingStats[key] }}</span
                 >
                 <button
                   v-if="availablePoints > 0"
-                  @click="increaseStat('str')"
+                  @click="increaseStat(key)"
                   class="btn-plus"
                 >
                   <i class="fas fa-plus"></i>
                 </button>
                 <button
-                  v-if="pendingStats.str > 0"
-                  @click="decreaseStat('str')"
-                  class="btn-minus"
-                >
-                  <i class="fas fa-minus"></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="base-stat-row">
-              <span class="stat-name text-green"
-                ><i class="fas fa-heartbeat"></i> Thể Lực</span
-              >
-              <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat("vit") }}</span>
-                <span v-if="pendingStats.vit > 0" class="added-val"
-                  >+{{ pendingStats.vit }}</span
-                >
-                <button
-                  v-if="availablePoints > 0"
-                  @click="increaseStat('vit')"
-                  class="btn-plus"
-                >
-                  <i class="fas fa-plus"></i>
-                </button>
-                <button
-                  v-if="pendingStats.vit > 0"
-                  @click="decreaseStat('vit')"
-                  class="btn-minus"
-                >
-                  <i class="fas fa-minus"></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="base-stat-row">
-              <span class="stat-name text-blue"
-                ><i class="fas fa-wind"></i> Thân Pháp</span
-              >
-              <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat("agi") }}</span>
-                <span v-if="pendingStats.agi > 0" class="added-val"
-                  >+{{ pendingStats.agi }}</span
-                >
-                <button
-                  v-if="availablePoints > 0"
-                  @click="increaseStat('agi')"
-                  class="btn-plus"
-                >
-                  <i class="fas fa-plus"></i>
-                </button>
-                <button
-                  v-if="pendingStats.agi > 0"
-                  @click="decreaseStat('agi')"
-                  class="btn-minus"
-                >
-                  <i class="fas fa-minus"></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="base-stat-row">
-              <span class="stat-name text-yellow"
-                ><i class="fas fa-crosshairs"></i> Khéo Léo</span
-              >
-              <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat("dex") }}</span>
-                <span v-if="pendingStats.dex > 0" class="added-val"
-                  >+{{ pendingStats.dex }}</span
-                >
-                <button
-                  v-if="availablePoints > 0"
-                  @click="increaseStat('dex')"
-                  class="btn-plus"
-                >
-                  <i class="fas fa-plus"></i>
-                </button>
-                <button
-                  v-if="pendingStats.dex > 0"
-                  @click="decreaseStat('dex')"
-                  class="btn-minus"
-                >
-                  <i class="fas fa-minus"></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="base-stat-row">
-              <span class="stat-name text-purple"
-                ><i class="fas fa-brain"></i> Trí Tuệ</span
-              >
-              <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat("intelligence") }}</span>
-                <span v-if="pendingStats.int > 0" class="added-val"
-                  >+{{ pendingStats.int }}</span
-                >
-                <button
-                  v-if="availablePoints > 0"
-                  @click="increaseStat('int')"
-                  class="btn-plus"
-                >
-                  <i class="fas fa-plus"></i>
-                </button>
-                <button
-                  v-if="pendingStats.int > 0"
-                  @click="decreaseStat('int')"
-                  class="btn-minus"
-                >
-                  <i class="fas fa-minus"></i>
-                </button>
-              </div>
-            </div>
-
-            <div class="base-stat-row">
-              <span class="stat-name text-gold"
-                ><i class="fas fa-star"></i> Vận Khí</span
-              >
-              <div class="stat-ctrl">
-                <span class="base-val">{{ getBaseStat("luck") }}</span>
-                <span v-if="pendingStats.luck > 0" class="added-val"
-                  >+{{ pendingStats.luck }}</span
-                >
-                <button
-                  v-if="availablePoints > 0"
-                  @click="increaseStat('luck')"
-                  class="btn-plus"
-                >
-                  <i class="fas fa-plus"></i>
-                </button>
-                <button
-                  v-if="pendingStats.luck > 0"
-                  @click="decreaseStat('luck')"
+                  v-if="pendingStats[key] > 0"
+                  @click="decreaseStat(key)"
                   class="btn-minus"
                 >
                   <i class="fas fa-minus"></i>
@@ -221,6 +91,7 @@
               :class="{
                 filled: equipment[key],
                 'target-glow': hoveredType === key,
+                'broken-item': equipment[key] && getDurabilityPercent(equipment[key]) <= 0
               }"
               @mousedown.left="unequipSlow(key)"
               :title="SLOT_CONFIG[key].label"
@@ -243,7 +114,7 @@
                   class="slot-level-tag"
                   :class="
                     getLevelClass(
-                      equipment[key].enhanceLevel || equipment[key].level,
+                      equipment[key].enhanceLevel || equipment[key].level
                     )
                   "
                 >
@@ -270,7 +141,7 @@
                     filled: equipment[key],
                     'target-glow': hoveredType === key,
                     broken:
-                      equipment[key] && equipment[key].currentDurability <= 0,
+                      equipment[key] && getDurabilityPercent(equipment[key]) <= 0,
                   }"
                   @mousedown.left="unequipSlow(key)"
                   :title="SLOT_CONFIG[key].label"
@@ -303,6 +174,7 @@
               :class="{
                 filled: equipment[key],
                 'target-glow': hoveredType === key,
+                'broken-item': equipment[key] && getDurabilityPercent(equipment[key]) <= 0
               }"
               @mousedown.left="unequipSlow(key)"
               :title="SLOT_CONFIG[key].label"
@@ -325,7 +197,7 @@
                   class="slot-level-tag"
                   :class="
                     getLevelClass(
-                      equipment[key].enhanceLevel || equipment[key].level,
+                      equipment[key].enhanceLevel || equipment[key].level
                     )
                   "
                 >
@@ -458,44 +330,55 @@ const authStore = useAuthStore();
 
 const bgImage = "https://htkhang111.github.io/background/b_doanhtrai.png";
 const isNight = ref(false);
+
+const statConfigs = {
+  str: { label: "Sức Mạnh", icon: "fa-dumbbell", colorClass: "text-red" },
+  vit: { label: "Thể Lực", icon: "fa-heartbeat", colorClass: "text-green" },
+  agi: { label: "Thân Pháp", icon: "fa-wind", colorClass: "text-blue" },
+  dex: { label: "Khéo Léo", icon: "fa-crosshairs", colorClass: "text-yellow" },
+  int: { label: "Trí Tuệ", icon: "fa-brain", colorClass: "text-purple" },
+  luck: { label: "Vận Khí", icon: "fa-star", colorClass: "text-gold" }
+};
+
 const updateDayNight = () => {
   const h = new Date().getHours();
   isNight.value = h >= 18 || h < 6;
 };
 
-// Logic cộng điểm tiềm năng
+// --- LOGIC CONG DIEM ---
 const pendingStats = reactive({
-  str: 0,
-  vit: 0,
-  agi: 0,
-  dex: 0,
-  int: 0,
-  luck: 0,
+  str: 0, vit: 0, agi: 0, dex: 0, int: 0, luck: 0,
 });
-const getBaseStat = (key) => charStore.character?.[key] || 0;
+
+const getBaseStat = (key) => {
+  const char = charStore.character || {};
+  if (key === 'int') return char.intelligence || char.int_stat || 0;
+  return char[key] || 0;
+};
+
 const availablePoints = computed(() => {
   const currentPoints = charStore.character?.statPoints || 0;
   const used = Object.values(pendingStats).reduce((a, b) => a + b, 0);
   return Math.max(0, currentPoints - used);
 });
-const isPendingChanges = computed(() =>
-  Object.values(pendingStats).some((v) => v > 0),
-);
-const increaseStat = (key) => {
-  if (availablePoints.value > 0) pendingStats[key]++;
-};
-const decreaseStat = (key) => {
-  if (pendingStats[key] > 0) pendingStats[key]--;
-};
-const resetPending = () => {
-  Object.keys(pendingStats).forEach((k) => (pendingStats[k] = 0));
-};
+
+const isPendingChanges = computed(() => Object.values(pendingStats).some((v) => v > 0));
+
+const increaseStat = (key) => { if (availablePoints.value > 0) pendingStats[key]++; };
+const decreaseStat = (key) => { if (pendingStats[key] > 0) pendingStats[key]--; };
+const resetPending = () => { Object.keys(pendingStats).forEach((k) => (pendingStats[k] = 0)); };
+
 const confirmAddStats = async () => {
-  const success = await charStore.addStats(pendingStats);
+  const payload = { ...pendingStats };
+  if(payload.int) {
+    payload.intelligence = payload.int;
+    delete payload.int;
+  }
+  const success = await charStore.addStats(payload);
   if (success) resetPending();
 };
 
-// Config Slot
+// --- CONFIG SLOT ---
 const SLOT_CONFIG = {
   NECKLACE: { label: "Dây Chuyền", icon: "fa-gem" },
   WEAPON: { label: "Vũ Khí", icon: "fa-gavel" },
@@ -516,7 +399,7 @@ const determineSlot = (item) => {
   return null;
 };
 
-// Computed
+// --- COMPUTED: EQUIPMENT & BAG ---
 const equipment = computed(() => {
   const mapped = {};
   const allItems = inventoryStore.items || [];
@@ -546,36 +429,99 @@ const userSkinImg = computed(() => {
 
 const hoveredType = ref(null);
 
+// --- [CORE FIX] TINH TOAN CHI SO TOTAL (DONG BO BACKEND & FIX FALLBACK) ---
 const totalStats = computed(() => {
   const char = charStore.character || {};
-  let stats = {
-    atk: char.baseAtk || 0,
-    def: char.baseDef || 0,
-    speed: char.baseSpeed || 0,
-    crit: char.baseCritRate || 0,
+  
+  // 1. Chỉ số thuộc tính tổng (Gốc + Pending)
+  let totalAttr = {
+    str: (char.str || 0) + pendingStats.str,
+    vit: (char.vit || 0) + pendingStats.vit,
+    agi: (char.agi || 0) + pendingStats.agi,
+    dex: (char.dex || 0) + pendingStats.dex,
+    int: (char.intelligence || char.int_stat || 0) + pendingStats.int,
+    luck: (char.luck || 0) + pendingStats.luck,
   };
 
-  Object.values(equipment.value).forEach((slotItem) => {
-    if (slotItem && slotItem.item) {
-      stats.atk += slotItem.item.atkBonus || slotItem.item.atk || 0;
-      stats.def += slotItem.item.defBonus || slotItem.item.def || 0;
-      stats.speed += slotItem.item.speedBonus || slotItem.item.speed || 0;
-      const lv = slotItem.enhanceLevel || slotItem.level || 0;
-      if (lv > 0) {
-        stats.atk += lv * 2;
-        stats.def += lv * 2;
-      }
+  // 2. Tính chỉ số cơ bản theo công thức Nerf (1 STR = 2 ATK)
+  let combat = {
+    atk: 5 + (totalAttr.str * 2),
+    def: 2 + Math.floor(totalAttr.vit / 3),
+    hp: 100 + (totalAttr.vit * 15),
+    speed: 10 + totalAttr.agi,
+    crit: 1 + (totalAttr.luck / 10),
+  };
+  let critDmg = 150 + (totalAttr.dex / 5);
+
+  // 3. Duyệt trang bị
+  Object.values(equipment.value).forEach((ui) => {
+    if (!ui || !ui.item) return;
+
+    // QUAN TRỌNG: Check độ bền. 
+    // Nếu undefined thì coi là 100 (đồ cũ không bị lỗi). Chỉ <= 0 mới bỏ qua.
+    const dur = ui.currentDurability !== undefined ? ui.currentDurability : 100;
+    if (dur <= 0) return;
+
+    // A. Main Stat (Ưu tiên lấy từ UserItem)
+    let hasMainStat = false;
+
+    if (ui.mainStatType && ui.mainStatValue && Number(ui.mainStatValue) > 0) {
+        hasMainStat = true;
+        const type = ui.mainStatType.toUpperCase();
+        const val = Number(ui.mainStatValue);
+        
+        if (['ATK', 'ATK_FLAT'].includes(type)) combat.atk += val;
+        else if (['DEF', 'DEF_FLAT'].includes(type)) combat.def += val;
+        else if (['HP', 'HP_FLAT'].includes(type)) combat.hp += val;
+        else if (type === 'SPEED') combat.speed += val;
+        else if (type === 'CRIT_RATE') combat.crit += val;
+        else if (type === 'CRIT_DMG') critDmg += val;
+        
+        // Percent logic
+        else if (type === 'ATK_PERCENT') combat.atk += (5 + totalAttr.str * 2) * (val / 100);
+        else if (type === 'HP_PERCENT') combat.hp += (100 + totalAttr.vit * 15) * (val / 100);
+    }
+
+    // [FIX HERE] B. Fallback: Nếu không có MainStat thì lấy từ Item Gốc (Hỗ trợ đồ cũ)
+    if (!hasMainStat) {
+        combat.atk += (ui.item.atkBonus || 0);
+        combat.def += (ui.item.defBonus || 0);
+        combat.hp += (ui.item.hpBonus || 0);
+        combat.speed += (ui.item.speedBonus || 0);
+    }
+
+    // C. Sub Stats
+    if (ui.subStats) {
+        let subs = [];
+        try { subs = typeof ui.subStats === 'string' ? JSON.parse(ui.subStats) : ui.subStats; } catch (e) {}
+
+        if (Array.isArray(subs)) {
+            subs.forEach(stat => {
+                const type = (stat.code || stat.type || '').toUpperCase();
+                const val = Number(stat.value || 0);
+                
+                if (['ATK', 'ATK_FLAT'].includes(type)) combat.atk += val;
+                else if (['DEF', 'DEF_FLAT'].includes(type)) combat.def += val;
+                else if (['HP', 'HP_FLAT'].includes(type)) combat.hp += val;
+                else if (type === 'SPEED') combat.speed += val;
+                else if (type === 'CRIT_RATE') combat.crit += val;
+                else if (type === 'ATK_PERCENT') combat.atk += (5 + totalAttr.str * 2) * (val / 100);
+            });
+        }
     }
   });
 
   return {
-    atk: Math.floor(stats.atk),
-    def: Math.floor(stats.def),
-    speed: Math.floor(stats.speed),
-    crit: parseFloat(stats.crit.toFixed(2)),
+    atk: Math.floor(combat.atk),
+    def: Math.floor(combat.def),
+    speed: Math.floor(combat.speed),
+    crit: parseFloat(combat.crit.toFixed(2)),
+    hp: Math.floor(combat.hp),
+    attributes: totalAttr 
   };
 });
 
+// Helper class màu sắc Level
 const getLevelClass = (lv) => {
   if (!lv) return "";
   if (lv >= 15) return "lvl-red";
@@ -584,10 +530,12 @@ const getLevelClass = (lv) => {
   return "lvl-white";
 };
 
-// --- [NEW] HELPER ĐỘ BỀN ---
+// Helper Độ Bền
 const getDurabilityPercent = (item) => {
-  if (!item.maxDurability) return 100;
-  return Math.max(0, (item.currentDurability / item.maxDurability) * 100);
+  if (!item.maxDurability && !item.max_durability) return 100;
+  const max = item.maxDurability || item.max_durability;
+  const cur = item.currentDurability !== undefined ? item.currentDurability : item.current_durability;
+  return Math.max(0, (cur / max) * 100);
 };
 
 const getDurabilityColor = (item) => {
@@ -597,7 +545,7 @@ const getDurabilityColor = (item) => {
   return "bg-green-500";
 };
 
-// --- ACTION ---
+// --- ACTIONS ---
 const equip = async (userItem) => {
   if (!userItem || !userItem.item) return;
   const slot = determineSlot(userItem.item);
@@ -1089,10 +1037,17 @@ onMounted(async () => {
   background: rgba(255, 236, 179, 0.1);
 }
 
-.mini-tool-slot.broken {
-  border-color: #f44336;
-  box-shadow: 0 0 5px #f44336;
-  opacity: 0.7;
+/* HIEN THI DO HONG */
+.mini-tool-slot.broken,
+.equip-slot.broken-item .slot-frame {
+  border-color: #d32f2f;
+  box-shadow: 0 0 5px #d32f2f;
+  background: rgba(211, 47, 47, 0.1);
+  filter: grayscale(100%);
+}
+
+.equip-slot.broken-item .slot-level-tag {
+  background: #d32f2f;
 }
 
 .mini-tool-slot img {

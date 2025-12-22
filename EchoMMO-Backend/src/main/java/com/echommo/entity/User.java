@@ -46,9 +46,9 @@ public class User {
     private Role role = Role.USER;
 
     // [NEW] Logic mở rộng kho đồ
-    @Column(name = "inventory_slots")
     @Builder.Default
-    private Integer inventorySlots = 50;
+    @Column(name = "inventory_slots")
+    private Integer inventorySlots = 49;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JsonIgnoreProperties("user")
@@ -92,3 +92,5 @@ public class User {
         this.createdAt = LocalDateTime.now();
     }
 }
+
+

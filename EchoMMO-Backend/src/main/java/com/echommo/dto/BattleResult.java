@@ -1,15 +1,9 @@
 package com.echommo.dto;
 
-import com.echommo.entity.BattleSession;
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.List;
 
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class BattleResult {
     private String enemyName;
     private Integer enemyHp;
@@ -17,19 +11,12 @@ public class BattleResult {
     private Integer playerHp;
     private Integer playerMaxHp;
     private List<String> combatLog;
-    private String status; // ONGOING, VICTORY, DEFEAT
+    private String status; // "ONGOING", "VICTORY", "DEFEAT"
 
-    // [FIX] Constructor này giúp map từ Session mới sang Result nhanh gọn
-    public BattleResult(BattleSession session, String status, List<String> logs) {
-        // Map các trường "phẳng" từ BattleSession
-        this.enemyName = session.getEnemyName();
-        this.enemyHp = session.getEnemyCurrentHp();
-        this.enemyMaxHp = session.getEnemyMaxHp();
-
-        this.playerHp = session.getPlayerCurrentHp();
-        this.playerMaxHp = session.getPlayerMaxHp();
-
-        this.status = status;
-        this.combatLog = logs;
-    }
+    // [MỚI] Các trường phục vụ tính năng Drop Item
+    private boolean hasDrop;        // Có rơi đồ không
+    private String dropName;        // Tên vật phẩm
+    private String dropRarity;      // Phẩm chất: COMMON, RARE, EPIC...
+    private String dropImage;       // URL ảnh vật phẩm
+    private boolean inventoryFull;  // Cờ báo túi đầy (để Frontend xử lý hỏi user)
 }

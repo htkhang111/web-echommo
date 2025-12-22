@@ -36,13 +36,10 @@ public class CharacterService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private BigDecimal safe(BigDecimal val) {
-        return val == null ? BigDecimal.ZERO : val;
-    }
-
-    private int safeInt(Integer val) {
-        return val == null ? 0 : val;
-    }
+    // --- HELPER METHODS ---
+    private BigDecimal safe(BigDecimal val) { return val == null ? BigDecimal.ZERO : val; }
+    private int safeInt(Integer val) { return val == null ? 0 : val; }
+    private BigDecimal safeIntToBig(Integer val) { return val == null ? BigDecimal.ZERO : BigDecimal.valueOf(val); }
 
     public Character getMyCharacter() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -51,7 +48,6 @@ public class CharacterService {
 
         Character c = characterRepo.findByUser(user).orElse(null);
         if (c != null) {
-            ensureNoNullStats(c);
             recalculateStats(c);
         }
         return c;
@@ -82,135 +78,135 @@ public class CharacterService {
         c.setCurrentExp(0L);
         c.setStatus(CharacterStatus.IDLE);
         c.setMonsterKills(0);
+
+        // Stats khởi đầu
         c.setStr(5); c.setVit(5); c.setAgi(5);
         c.setDex(5); c.setIntelligence(5); c.setLuck(5);
         c.setStatPoints(0);
 
+        c = characterRepo.save(c);
+        grantStarterPack(c);
         recalculateStats(c);
-        Character savedChar = characterRepo.save(c);
-        grantStarterPack(savedChar);
-        return savedChar;
+        return characterRepo.save(c);
     }
 
     /**
-     * TÍNH TOÁN LẠI TẤT CẢ CHỈ SỐ
-     * Fix: Chỉ cộng chỉ số từ UserItem (Túi đồ) để tránh nhân đôi
+     * TÍNH TOÁN LẠI TẤT CẢ CHỈ SỐ (FULL FIX: HỖ TRỢ ĐỒ CŨ & ĐỘ BỀN)
      */
     @Transactional
     public void recalculateStats(Character c) {
         ensureNoNullStats(c);
         int lvl = safeInt(c.getLevel());
 
-        // 1. Chỉ số gốc từ điểm tiềm năng
-        int rawMaxHp = 200 + (safeInt(c.getVit()) * 20);
-        int rawAtk = 10 + (safeInt(c.getStr()) * 2);
-        int rawDef = 5 + (safeInt(c.getVit()) / 5);
+        // 1. CÔNG THỨC CHỈ SỐ CƠ BẢN (BASE STATS)
+        int rawMaxHp = 100 + (safeInt(c.getVit()) * 15);
+        int rawAtk = 5 + (safeInt(c.getStr()) * 2);
+        int rawDef = 2 + (safeInt(c.getVit()) / 3);
         int rawSpeed = 10 + safeInt(c.getAgi());
-        int rawCritRate = 5 + (safeInt(c.getLuck()) / 5);
-        int rawCritDmg = 150 + (safeInt(c.getDex()) / 2);
 
-        // 2. Quét trang bị đang mặc
+        double totalCritRate = 1.0 + (safeInt(c.getLuck()) / 10.0);
+        double totalCritDmg = 150.0 + (safeInt(c.getDex()) / 5.0);
+        double totalSpeed = rawSpeed;
+
+        // 2. QUÉT TRANG BỊ
         List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(c.getCharId());
 
         BigDecimal equipAtk = BigDecimal.ZERO;
         BigDecimal equipDef = BigDecimal.ZERO;
         BigDecimal equipHp = BigDecimal.ZERO;
 
-        double bonusCritRate = 0;
-        double bonusCritDmg = 0;
-        double bonusSpeed = 0;
-
-        for (UserItem item : equippedItems) {
-            BigDecimal mainVal = safe(item.getMainStatValue());
-            String type = item.getMainStatType();
-
-            // Nếu type lỗi, gán mặc định để xử lý ở switch
-            if (type == null || type.equals("NONE") || type.isEmpty()) {
-                type = "UNKNOWN";
+        for (UserItem uItem : equippedItems) {
+            // [LOGIC] Kiểm tra độ bền.
+            // Lưu ý: Nếu null thì coi như bền (cho đồ cũ), chỉ <= 0 mới bỏ qua.
+            Integer currentDur = uItem.getCurrentDurability();
+            if (currentDur != null && currentDur <= 0) {
+                continue;
             }
 
-            // --- XỬ LÝ CHỈ SỐ CHÍNH (MAIN STAT) ---
-            switch (type) {
-                case "ATK_FLAT":
-                case "ATK":
-                    equipAtk = equipAtk.add(mainVal);
-                    break;
-                case "DEF_FLAT":
-                case "DEF":
-                    equipDef = equipDef.add(mainVal);
-                    break;
-                case "HP_FLAT":
-                case "HP":
-                    equipHp = equipHp.add(mainVal);
-                    break;
-                case "ATK_PERCENT":
-                    equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk).multiply(mainVal.divide(BigDecimal.valueOf(100))));
-                    break;
-                case "DEF_PERCENT":
-                    equipDef = equipDef.add(BigDecimal.valueOf(rawDef).multiply(mainVal.divide(BigDecimal.valueOf(100))));
-                    break;
-                case "HP_PERCENT":
-                    equipHp = equipHp.add(BigDecimal.valueOf(rawMaxHp).multiply(mainVal.divide(BigDecimal.valueOf(100))));
-                    break;
-                case "CRIT_RATE": bonusCritRate += mainVal.doubleValue(); break;
-                case "CRIT_DMG": bonusCritDmg += mainVal.doubleValue(); break;
-                case "SPEED": bonusSpeed += mainVal.doubleValue(); break;
+            boolean hasUserStat = false;
 
-                // [FALLBACK] Nếu không rõ loại chỉ số, tự động cộng dựa trên Slot
-                case "UNKNOWN":
-                default:
-                    SlotType slot = item.getItem().getSlotType();
-                    if (slot == SlotType.WEAPON || slot == SlotType.RING) {
-                        equipAtk = equipAtk.add(mainVal); // Kiếm/Nhẫn -> Cộng Công
-                    } else if (slot == SlotType.ARMOR || slot == SlotType.HELMET ||
-                            slot == SlotType.BOOTS || slot == SlotType.NECKLACE) {
-                        equipDef = equipDef.add(mainVal); // Áo/Mũ/Giày -> Cộng Thủ
-                    }
-                    break;
+            // [LOGIC A] ƯU TIÊN: Lấy chỉ số từ UserItem (Đồ mới/Đồ chế tạo)
+            BigDecimal val = safe(uItem.getMainStatValue());
+            String type = uItem.getMainStatType();
+
+            if (val.compareTo(BigDecimal.ZERO) > 0 && type != null) {
+                hasUserStat = true; // Đánh dấu là đã dùng chỉ số riêng
+                switch (type.toUpperCase()) {
+                    case "ATK", "ATK_FLAT" -> equipAtk = equipAtk.add(val);
+                    case "DEF", "DEF_FLAT" -> equipDef = equipDef.add(val);
+                    case "HP", "HP_FLAT"   -> equipHp = equipHp.add(val);
+                    case "SPEED"           -> totalSpeed += val.doubleValue();
+                    case "CRIT_RATE"       -> totalCritRate += val.doubleValue();
+                    case "CRIT_DMG"        -> totalCritDmg += val.doubleValue();
+
+                    // Percent Stats
+                    case "ATK_PERCENT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+                    case "DEF_PERCENT" -> equipDef = equipDef.add(BigDecimal.valueOf(rawDef).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+                    case "HP_PERCENT"  -> equipHp  = equipHp.add(BigDecimal.valueOf(rawMaxHp).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+                }
             }
 
-            // --- XỬ LÝ DÒNG ẨN (SUBSTATS) ---
+            // [LOGIC B - QUAN TRỌNG] DỰ PHÒNG: Nếu UserItem không có chỉ số -> Lấy từ Item Template (Đồ cũ)
+            // Đây là đoạn code đã được thêm vào để sửa lỗi của bạn
+            if (!hasUserStat && uItem.getItem() != null) {
+                Item tpl = uItem.getItem();
+                if (tpl.getAtkBonus() != null) equipAtk = equipAtk.add(BigDecimal.valueOf(tpl.getAtkBonus()));
+                if (tpl.getDefBonus() != null) equipDef = equipDef.add(BigDecimal.valueOf(tpl.getDefBonus()));
+                if (tpl.getHpBonus() != null) equipHp = equipHp.add(BigDecimal.valueOf(tpl.getHpBonus()));
+                if (tpl.getSpeedBonus() != null) totalSpeed += tpl.getSpeedBonus();
+            }
+
+            // [LOGIC C] DÒNG ẨN (Substats)
             try {
-                if (item.getSubStats() != null && !item.getSubStats().equals("[]") && !item.getSubStats().isEmpty()) {
-                    List<SubStatDTO> subs = objectMapper.readValue(item.getSubStats(), new TypeReference<List<SubStatDTO>>() {});
+                if (uItem.getSubStats() != null && !uItem.getSubStats().equals("[]") && uItem.getSubStats().length() > 2) {
+                    List<SubStatDTO> subs = objectMapper.readValue(uItem.getSubStats(), new TypeReference<List<SubStatDTO>>() {});
                     for (SubStatDTO sub : subs) {
-                        double val = sub.getValue();
-                        switch (sub.getCode()) {
-                            case "ATK_FLAT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(val));
-                            case "DEF_FLAT" -> equipDef = equipDef.add(BigDecimal.valueOf(val));
-                            case "HP_FLAT" -> equipHp = equipHp.add(BigDecimal.valueOf(val));
-                            case "SPEED" -> bonusSpeed += val;
-                            case "CRIT_RATE" -> bonusCritRate += val;
-                            case "CRIT_DMG" -> bonusCritDmg += val;
-                            case "ATK_PERCENT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk * (val / 100.0)));
-                            case "DEF_PERCENT" -> equipDef = equipDef.add(BigDecimal.valueOf(rawDef * (val / 100.0)));
-                            case "HP_PERCENT" -> equipHp = equipHp.add(BigDecimal.valueOf(rawMaxHp * (val / 100.0)));
+                        double subVal = sub.getValue();
+                        String subCode = sub.getCode() != null ? sub.getCode().toUpperCase() : "";
+
+                        switch (subCode) {
+                            case "ATK", "ATK_FLAT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(subVal));
+                            case "DEF", "DEF_FLAT" -> equipDef = equipDef.add(BigDecimal.valueOf(subVal));
+                            case "HP", "HP_FLAT"   -> equipHp  = equipHp.add(BigDecimal.valueOf(subVal));
+                            case "SPEED"    -> totalSpeed += subVal;
+                            case "CRIT_RATE"-> totalCritRate += subVal;
+                            case "CRIT_DMG" -> totalCritDmg += subVal;
+
+                            case "ATK_PERCENT" -> equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk * (subVal / 100.0)));
+                            case "DEF_PERCENT" -> equipDef = equipDef.add(BigDecimal.valueOf(rawDef * (subVal / 100.0)));
+                            case "HP_PERCENT"  -> equipHp  = equipHp.add(BigDecimal.valueOf(rawMaxHp * (subVal / 100.0)));
                         }
                     }
                 }
-            } catch (Exception ignored) {}
-
-            // Debug Log để kiểm tra
-            System.out.println("SCAN ITEM: " + item.getItem().getName() + " | Type: " + type + " | Value: " + mainVal);
+            } catch (Exception e) {
+                // Log silent
+            }
         }
 
-        // 3. Tổng hợp và lưu (Làm tròn HALF_UP)
+        // 3. TỔNG HỢP VÀ LƯU
         c.setBaseAtk(rawAtk + equipAtk.setScale(0, RoundingMode.HALF_UP).intValue());
         c.setBaseDef(rawDef + equipDef.setScale(0, RoundingMode.HALF_UP).intValue());
         c.setMaxHp(rawMaxHp + equipHp.setScale(0, RoundingMode.HALF_UP).intValue());
-        c.setBaseSpeed(rawSpeed + (int) Math.round(bonusSpeed));
-        c.setBaseCritRate(rawCritRate + (int) Math.round(bonusCritRate));
-        c.setBaseCritDmg(rawCritDmg + (int) Math.round(bonusCritDmg));
+
+        c.setBaseSpeed((int) Math.round(totalSpeed));
+        c.setBaseCritRate((int) Math.round(totalCritRate));
+        c.setBaseCritDmg((int) Math.round(totalCritDmg));
 
         // Tính lực chiến
-        int power = (c.getMaxHp() / 10) + (c.getBaseAtk() * 5) + (c.getBaseDef() * 8) + (lvl * 20);
+        int power = (c.getMaxHp() / 5)
+                + (c.getBaseAtk() * 2)
+                + (c.getBaseDef() * 4)
+                + (c.getBaseSpeed() * 2)
+                + ((int)c.getBaseCritRate() * 5)
+                + ((int)c.getBaseCritDmg() * 2)
+                + (lvl * 10);
+
         c.setTotalPower(power);
 
         if (c.getCurrentHp() == null || c.getCurrentHp() > c.getMaxHp()) {
             c.setCurrentHp(c.getMaxHp());
         }
 
-        System.out.println("FINAL STATS for " + c.getName() + ": ATK=" + c.getBaseAtk() + " (Raw:" + rawAtk + " + Equip:" + equipAtk + ")");
         characterRepo.saveAndFlush(c);
     }
 
@@ -242,10 +238,10 @@ public class CharacterService {
         c.setLuck(safeInt(c.getLuck()) + addLuck);
 
         c = characterRepo.save(c);
-        recalculateStats(c);
         recalculateStatPoints(c);
+        recalculateStats(c);
 
-        return characterRepo.save(c);
+        return c;
     }
 
     private void recalculateStatPoints(Character c) {
@@ -284,19 +280,27 @@ public class CharacterService {
         ui.setIsEquipped(equip);
         ui.setRarity(Rarity.COMMON);
         ui.setEnhanceLevel(0);
-        ui.setMainStatValue(BigDecimal.valueOf(5));
-        ui.setOriginalMainStatValue(BigDecimal.valueOf(5));
 
+        // Gán Base Stat sang MainStatValue
         if (item.getSlotType() == SlotType.WEAPON) {
             ui.setMainStatType("ATK_FLAT");
+            BigDecimal val = safeIntToBig(item.getAtkBonus());
+            ui.setMainStatValue(val.compareTo(BigDecimal.ZERO) > 0 ? val : BigDecimal.valueOf(5));
         } else if (item.getSlotType() == SlotType.ARMOR) {
             ui.setMainStatType("DEF_FLAT");
+            BigDecimal val = safeIntToBig(item.getDefBonus());
+            ui.setMainStatValue(val.compareTo(BigDecimal.ZERO) > 0 ? val : BigDecimal.valueOf(2));
         } else {
-            ui.setMainStatType("NONE");
+            ui.setMainStatType("HP_FLAT");
+            ui.setMainStatValue(BigDecimal.valueOf(10));
         }
 
+        ui.setOriginalMainStatValue(ui.getMainStatValue());
         ui.setSubStats("[]");
         ui.setAcquiredAt(LocalDateTime.now());
+        ui.setCurrentDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100);
+        ui.setMaxDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100);
+
         userItemRepo.save(ui);
     }
 }
