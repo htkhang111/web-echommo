@@ -7,11 +7,9 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     proxy: {
-      '/api': {
-        // [FIX] Trỏ về 127.0.0.1 thay vì localhost
-        target: 'http://127.0.0.1:8080',
-        changeOrigin: true,
-      }
+      '/api': { target: 'http://127.0.0.1:8080',changeOrigin: true,
+      }}
+      
     }
   },
   resolve: {

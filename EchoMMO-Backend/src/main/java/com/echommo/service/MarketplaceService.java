@@ -63,7 +63,6 @@ public class MarketplaceService {
     }
 
     @Transactional
-    // [FIXED] userItemId -> Long
     public String sellItem(Long userItemId, Integer qty) {
         Character myChar = getMyChar();
 
@@ -95,7 +94,8 @@ public class MarketplaceService {
     // --- PLAYER MARKET ---
     @Transactional(readOnly = true)
     public List<MarketListing> getPlayerListings() {
-        return listingRepo.findByStatusOrderByCreatedAtDesc("ACTIVE");
+        // [FIX] Gọi hàm mới ListedAt
+        return listingRepo.findByStatusOrderByListedAtDesc("ACTIVE");
     }
 
     public List<MarketListing> getMyListings() {
@@ -103,7 +103,6 @@ public class MarketplaceService {
     }
 
     @Transactional
-    // [FIXED] CreateListingRequest đã dùng Long
     public String createListing(CreateListingRequest req) {
         User u = getCurrentUser();
         Character myChar = getMyChar();
@@ -119,17 +118,14 @@ public class MarketplaceService {
 
         UserItem itemToSell;
 
-        // Logic tách vật phẩm (Split)
         if (ui.getQuantity() > qtyToSell) {
-            // 1. Trừ số lượng ở vật phẩm gốc
             ui.setQuantity(ui.getQuantity() - qtyToSell);
             uiRepo.save(ui);
 
-            // 2. Tạo vật phẩm mới đại diện cho phần đem bán (Clone)
             itemToSell = UserItem.builder()
                     .item(ui.getItem())
                     .quantity(qtyToSell)
-                    .character(null) // [OK] UserItem đã cho phép null
+                    .character(null)
                     .isEquipped(false)
                     .enhanceLevel(ui.getEnhanceLevel())
                     .rarity(ui.getRarity())
@@ -145,17 +141,15 @@ public class MarketplaceService {
                     .build();
             itemToSell = uiRepo.save(itemToSell);
         } else {
-            // Bán tất cả -> Dùng chính vật phẩm đó và ẩn đi
             itemToSell = ui;
-            itemToSell.setCharacter(null); // [OK] UserItem đã cho phép null
+            itemToSell.setCharacter(null);
             uiRepo.save(itemToSell);
         }
 
-        // 3. Tạo tin đăng bán
         MarketListing ml = new MarketListing();
         ml.setSeller(u);
         ml.setItem(itemToSell.getItem());
-        ml.setUserItem(itemToSell); // Link tới vật phẩm đã ẩn
+        ml.setUserItem(itemToSell);
         ml.setQuantity(qtyToSell);
         ml.setPrice(req.getPrice());
         ml.setStatus("ACTIVE");
@@ -166,7 +160,7 @@ public class MarketplaceService {
     }
 
     @Transactional
-    public String buyPlayerListing(Integer listingId, Integer qty) {
+    public String buyPlayerListing(Long listingId, Integer qty) { // [FIX] Integer -> Long
         User buyer = getCurrentUser();
         Character buyerChar = getMyChar();
 
@@ -183,23 +177,21 @@ public class MarketplaceService {
             throw new RuntimeException("Không đủ vàng");
         }
 
-        // Trừ tiền người mua
         buyer.getWallet().setGold(buyer.getWallet().getGold().subtract(total));
         walletRepo.save(buyer.getWallet());
 
-        // Cộng tiền người bán (có trừ thuế 5%)
         User seller = l.getSeller();
         if (seller.getWallet().getGold() == null) seller.getWallet().setGold(BigDecimal.ZERO);
         BigDecimal receive = total.multiply(new BigDecimal("0.95"));
         seller.getWallet().setGold(seller.getWallet().getGold().add(receive));
         walletRepo.save(seller.getWallet());
 
-        // Chuyển hàng cho người mua
         UserItem itemBeingSold = l.getUserItem();
         if (itemBeingSold != null) {
             boolean merged = false;
             if (isStackable(itemBeingSold.getItem())) {
-                Optional<UserItem> existing = uiRepo.findByCharacter_CharIdAndItem_ItemId(buyerChar.getCharId(), itemBeingSold.getItem().getItemId());
+                Optional<UserItem> existing = uiRepo.findByCharacter_CharIdAndItem_ItemIdAndIsLockedFalse(buyerChar.getCharId(), itemBeingSold.getItem().getItemId())
+                        .stream().findFirst();
                 if (existing.isPresent()) {
                     UserItem exist = existing.get();
                     exist.setQuantity(exist.getQuantity() + itemBeingSold.getQuantity());
@@ -213,7 +205,6 @@ public class MarketplaceService {
             }
 
             if (!merged) {
-                // Nếu không gộp được thì chuyển chủ sở hữu
                 itemBeingSold.setCharacter(buyerChar);
                 itemBeingSold.setIsEquipped(false);
                 uiRepo.save(itemBeingSold);
@@ -228,7 +219,7 @@ public class MarketplaceService {
     }
 
     @Transactional
-    public String cancelListing(Integer id) {
+    public String cancelListing(Long id) { // [FIX] Integer -> Long
         User u = getCurrentUser();
         Character myChar = getMyChar();
 
@@ -240,9 +231,9 @@ public class MarketplaceService {
 
         if (ui != null) {
             boolean merged = false;
-            // Nếu là vật phẩm chồng được (Máu, Nguyên liệu...), thử tìm trong túi để gộp lại
             if (isStackable(ui.getItem())) {
-                Optional<UserItem> existingStack = uiRepo.findByCharacter_CharIdAndItem_ItemId(myChar.getCharId(), ui.getItem().getItemId());
+                Optional<UserItem> existingStack = uiRepo.findByCharacter_CharIdAndItem_ItemIdAndIsLockedFalse(myChar.getCharId(), ui.getItem().getItemId())
+                        .stream().findFirst();
                 if (existingStack.isPresent()) {
                     UserItem exist = existingStack.get();
                     exist.setQuantity(exist.getQuantity() + ui.getQuantity());
@@ -255,7 +246,6 @@ public class MarketplaceService {
                 }
             }
 
-            // Nếu không gộp được (hoặc là trang bị), thì trả về chủ cũ
             if (!merged) {
                 ui.setCharacter(myChar);
                 uiRepo.save(ui);
@@ -271,7 +261,9 @@ public class MarketplaceService {
         boolean isStackable = isStackable(item);
 
         if (isStackable) {
-            UserItem ui = uiRepo.findByCharacter_CharIdAndItem_ItemId(c.getCharId(), item.getItemId())
+            // [FIX] Dùng hàm find mới
+            UserItem ui = uiRepo.findByCharacter_CharIdAndItem_ItemIdAndIsLockedFalse(c.getCharId(), item.getItemId())
+                    .stream().findFirst()
                     .orElse(UserItem.builder()
                             .character(c)
                             .item(item)

@@ -3,7 +3,7 @@ import axios from "axios";
 // [FIX 1] Cấu hình baseURL động
 // Sử dụng biến môi trường hoặc để "/api" để Vite tự Proxy sang port 8080
 const axiosClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "/api", 
+  baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
   headers: {
     "Content-Type": "application/json",
   },

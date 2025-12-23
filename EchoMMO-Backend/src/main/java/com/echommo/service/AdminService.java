@@ -1,5 +1,3 @@
-// File: EchoMMO-Backend/src/main/java/com/echommo/service/AdminService.java
-
 package com.echommo.service;
 
 import com.echommo.entity.*;
@@ -170,20 +168,13 @@ public class AdminService {
     @Transactional
     public Item createItem(Item item) { return itemRepository.save(item); }
 
-    /**
-     * [FIXED] Xử lý xóa vật phẩm với ID hỗn hợp (Integer/Long)
-     */
     @Transactional
     public void deleteItem(Integer itemId) {
-        // 1. Xóa vật phẩm này khỏi Chợ (Marketplace)
-        // MarketListingRepository vẫn dùng Long cho itemId, nên cần ép kiểu
-        marketListingRepository.deleteAllByItemId(itemId.longValue());
+        // [FIXED] Không ép kiểu longValue() nữa vì Item ID là Integer
+        marketListingRepository.deleteAllByItemId(itemId);
 
-        // 2. Xóa vật phẩm này khỏi Túi đồ của TẤT CẢ người chơi (UserItem)
-        // UserItemRepository đã được sửa để nhận Integer
         userItemRepository.deleteAllByItemId(itemId);
 
-        // 3. Cuối cùng mới xóa Item gốc
         if (itemRepository.existsById(itemId)) {
             itemRepository.deleteById(itemId);
         } else {

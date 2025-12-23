@@ -9,16 +9,16 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface MarketListingRepository extends JpaRepository<MarketListing, Integer> {
+public interface MarketListingRepository extends JpaRepository<MarketListing, Long> {
 
-    // Tìm các tin đăng đang ACTIVE, sắp xếp mới nhất
-    List<MarketListing> findByStatusOrderByCreatedAtDesc(String status);
+    // [FIX] listedAt (đã sửa từ trước)
+    List<MarketListing> findByStatusOrderByListedAtDesc(String status);
 
-    // Tìm tin đăng của user cụ thể (Seller ID là Integer)
+    // [FIX QUAN TRỌNG] Đổi Long userId -> Integer userId
     List<MarketListing> findBySeller_UserIdAndStatus(Integer userId, String status);
+
     @Modifying
     @Transactional
     @Query("DELETE FROM MarketListing m WHERE m.item.itemId = :itemId")
-    void deleteAllByItemId(Long itemId);
-
+    void deleteAllByItemId(Integer itemId);
 }

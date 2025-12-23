@@ -41,7 +41,8 @@ public class PlayerMarketController {
             if (req.get("listingId") == null || req.get("quantity") == null) {
                 return ResponseEntity.badRequest().body("Thiếu thông tin listingId");
             }
-            Integer listingId = Integer.parseInt(req.get("listingId").toString());
+            // [FIXED] Đổi Integer.parseInt -> Long.parseLong để khớp với Service
+            Long listingId = Long.parseLong(req.get("listingId").toString());
             Integer qty = Integer.parseInt(req.get("quantity").toString());
 
             return ResponseEntity.ok(service.buyPlayerListing(listingId, qty));
@@ -52,7 +53,8 @@ public class PlayerMarketController {
     }
 
     @PostMapping("/cancel/{id}")
-    public ResponseEntity<?> cancel(@PathVariable Integer id) {
+    // [FIXED] Đổi @PathVariable Integer -> Long
+    public ResponseEntity<?> cancel(@PathVariable Long id) {
         try {
             return ResponseEntity.ok(service.cancelListing(id));
         } catch (Exception e) {
