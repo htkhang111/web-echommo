@@ -103,3 +103,5 @@ const notificationStore = useNotificationStore();
   transform: translate(-50%, -30px) scale(0.9);
 }
 </style>
+
+

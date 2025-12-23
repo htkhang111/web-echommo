@@ -1,6 +1,9 @@
+// File: EchoMMO-Backend/src/main/java/com/echommo/controller/ShopController.java
+
 package com.echommo.controller;
 
 import com.echommo.dto.BuyItemRequest;
+import com.echommo.dto.SellItemRequest;
 import com.echommo.entity.Character;
 import com.echommo.entity.Item;
 import com.echommo.entity.User;
@@ -12,6 +15,7 @@ import com.echommo.repository.UserItemRepository;
 import com.echommo.repository.UserRepository;
 import com.echommo.repository.WalletRepository;
 import com.echommo.security.JwtUtils;
+import com.echommo.service.MarketplaceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,16 +36,14 @@ public class ShopController extends BaseController {
     @Autowired private UserRepository userRepository;
     @Autowired private CharacterRepository characterRepository;
     @Autowired private JwtUtils jwtUtils;
+    @Autowired private MarketplaceService marketplaceService;
 
     @GetMapping("/items")
     public ResponseEntity<?> getShopItems() {
-        // 1. Lấy tất cả vật phẩm hệ thống (isSystemItem = true)
         List<Item> allItems = itemRepository.findByIsSystemItemTrue();
 
-        // 2. [LOGIC MỚI] Lọc bỏ Tool Tier 5 (Hàng Drop/Craft, không bán shop)
         List<Item> filteredItems = allItems.stream()
                 .filter(item -> {
-                    // Nếu là TOOL và Tier >= 5 -> Ẩn khỏi shop
                     if ("TOOL".equals(item.getType()) && item.getTier() != null && item.getTier() >= 5) {
                         return false;
                     }
@@ -65,12 +67,10 @@ public class ShopController extends BaseController {
         Item item = itemRepository.findById(request.getItemId().intValue())
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
-        // Check 1: Chặn mua nếu là hàng Drop/Limited
         if (Boolean.FALSE.equals(item.getIsSystemItem())) {
             return ResponseEntity.badRequest().body(Map.of("message", "Vật phẩm này không được bán trong Shop (Limited/Drop only)."));
         }
 
-        // Check 2: Chặn mua Tool Tier 5 (Đề phòng hack request API)
         if ("TOOL".equals(item.getType()) && item.getTier() != null && item.getTier() >= 5) {
             return ResponseEntity.badRequest().body(Map.of("message", "Vật phẩm Huyền Thoại không thể mua bằng tiền thường!"));
         }
@@ -85,11 +85,9 @@ public class ShopController extends BaseController {
             return ResponseEntity.badRequest().body(Map.of("message", "Không đủ ngân lượng!"));
         }
 
-        // Trừ tiền
         wallet.setGold(wallet.getGold().subtract(totalCost));
         walletRepository.save(wallet);
 
-        // Cộng đồ (Logic Stack: Nếu có rồi thì cộng số lượng, chưa có thì tạo mới)
         UserItem userItem = userItemRepository.findByCharacterAndItem(character, item)
                 .orElse(new UserItem());
 
@@ -97,8 +95,6 @@ public class ShopController extends BaseController {
             userItem.setCharacter(character);
             userItem.setItem(item);
             userItem.setQuantity(0);
-
-            // [QUAN TRỌNG] Khởi tạo độ bền từ Template khi mua mới
             userItem.setMaxDurability(item.getMaxDurability() != null ? item.getMaxDurability() : 100);
             userItem.setCurrentDurability(userItem.getMaxDurability());
         }
@@ -107,5 +103,23 @@ public class ShopController extends BaseController {
         userItemRepository.save(userItem);
 
         return ResponseEntity.ok(Map.of("message", "Giao dịch thành công!", "goldBalance", wallet.getGold()));
+    }
+
+    @PostMapping("/sell")
+    @Transactional
+    public ResponseEntity<?> sellItem(@RequestBody SellItemRequest request) {
+        try {
+            if (request.getQuantity() <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("message", "Số lượng bán phải lớn hơn 0"));
+            }
+
+            // Gọi Service với tham số Integer (đã khớp)
+            String resultMessage = marketplaceService.sellItem(request.getUserItemId(), request.getQuantity());
+
+            return ResponseEntity.ok(Map.of("message", resultMessage));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 }

@@ -17,6 +17,7 @@ public class PlayerMarketController {
 
     @GetMapping("/active")
     public ResponseEntity<?> getActiveListings() {
+        // [NOTE] Jackson sẽ tự động serialize UserItem lồng bên trong Listing
         return ResponseEntity.ok(service.getPlayerListings());
     }
 

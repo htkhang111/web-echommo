@@ -1,3 +1,5 @@
+// File: EchoMMO-Backend/src/main/java/com/echommo/repository/UserItemRepository.java
+
 package com.echommo.repository;
 
 import com.echommo.entity.Character;
@@ -25,9 +27,11 @@ public interface UserItemRepository extends JpaRepository<UserItem, Long> {
     Optional<UserItem> findEquippedItemBySlot(@Param("charId") Integer charId, @Param("slotType") SlotType slotType);
 
     Optional<UserItem> findByCharacter_CharIdAndItem_ItemId(Integer charId, Integer itemId);
+
+    // [BẮT BUỘC] Phải là Long userItemId vì DB lưu BigInt. Service sẽ lo phần convert.
     Optional<UserItem> findByUserItemIdAndCharacter_CharId(Long userItemId, Integer charId);
+
     Optional<UserItem> findByCharacter_CharIdAndItem_Name(Integer charId, String name);
 
-    // [FIX] Thêm method này để ShopController tìm item trong túi của nhân vật
     Optional<UserItem> findByCharacterAndItem(Character character, Item item);
 }

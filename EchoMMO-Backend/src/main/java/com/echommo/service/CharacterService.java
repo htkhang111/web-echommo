@@ -48,6 +48,7 @@ public class CharacterService {
 
         Character c = characterRepo.findByUser(user).orElse(null);
         if (c != null) {
+            // [SAFEGUARD] Nếu tính toán lỗi, vẫn trả về nhân vật để không crash game
             recalculateStats(c);
         }
         return c;
@@ -92,100 +93,114 @@ public class CharacterService {
 
     /**
      * [FIXED] Tự động tính lại cả Điểm Tiềm Năng khi gọi hàm này
+     * [SAFEGUARD] Bọc try-catch để tránh crash API /me nếu dữ liệu lỗi
      */
     @Transactional
     public void recalculateStats(Character c) {
-        ensureNoNullStats(c);
+        try {
+            ensureNoNullStats(c);
 
-        // [FIX QUAN TRỌNG] Gọi hàm này để cập nhật điểm tiềm năng dựa trên Level hiện tại
-        recalculateStatPoints(c);
+            // [FIX QUAN TRỌNG] Gọi hàm này để cập nhật điểm tiềm năng dựa trên Level hiện tại
+            recalculateStatPoints(c);
 
-        int lvl = safeInt(c.getLevel());
+            int lvl = safeInt(c.getLevel());
 
-        // 1. CHỈ SỐ CƠ BẢN TỪ THUỘC TÍNH (STR, VIT...)
-        int rawMaxHp = 100 + (safeInt(c.getVit()) * 15);
-        int rawAtk = 5 + (safeInt(c.getStr()) * 2);
-        int rawDef = 2 + (safeInt(c.getVit()) / 3);
-        int rawSpeed = 10 + safeInt(c.getAgi());
+            // 1. CHỈ SỐ CƠ BẢN TỪ THUỘC TÍNH (STR, VIT...)
+            int rawMaxHp = 100 + (safeInt(c.getVit()) * 15);
+            int rawAtk = 5 + (safeInt(c.getStr()) * 2);
+            int rawDef = 2 + (safeInt(c.getVit()) / 3);
+            int rawSpeed = 10 + safeInt(c.getAgi());
 
-        double totalCritRate = 1.0 + (safeInt(c.getLuck()) / 10.0);
-        double totalCritDmg = 150.0 + (safeInt(c.getDex()) / 5.0);
-        double totalSpeed = rawSpeed;
+            double totalCritRate = 1.0 + (safeInt(c.getLuck()) / 10.0);
+            double totalCritDmg = 150.0 + (safeInt(c.getDex()) / 5.0);
+            double totalSpeed = rawSpeed;
 
-        // 2. CỘNG DỒN TỪ TRANG BỊ
-        List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(c.getCharId());
+            // 2. CỘNG DỒN TỪ TRANG BỊ
+            List<UserItem> equippedItems = userItemRepo.findByCharacter_CharIdAndIsEquippedTrue(c.getCharId());
 
-        BigDecimal equipAtk = BigDecimal.ZERO;
-        BigDecimal equipDef = BigDecimal.ZERO;
-        BigDecimal equipHp = BigDecimal.ZERO;
+            BigDecimal equipAtk = BigDecimal.ZERO;
+            BigDecimal equipDef = BigDecimal.ZERO;
+            BigDecimal equipHp = BigDecimal.ZERO;
 
-        for (UserItem uItem : equippedItems) {
-            // [Check] Độ bền
-            Integer currentDur = uItem.getCurrentDurability();
-            if (currentDur != null && currentDur <= 0) continue;
+            for (UserItem uItem : equippedItems) {
+                // [Check] Độ bền (Handle Null Safety)
+                Integer currentDur = uItem.getCurrentDurability();
+                if (currentDur != null && currentDur <= 0) continue;
 
-            // --- A. MAIN STAT (Dòng chính) ---
-            BigDecimal val = safe(uItem.getMainStatValue());
-            String type = uItem.getMainStatType();
-            String typeUpper = (type != null) ? type.toUpperCase() : "";
+                // --- A. MAIN STAT (Dòng chính) ---
+                BigDecimal val = safe(uItem.getMainStatValue());
+                String type = uItem.getMainStatType();
+                String typeUpper = (type != null) ? type.toUpperCase() : "";
 
-            if (val.compareTo(BigDecimal.ZERO) > 0 && !typeUpper.isEmpty()) {
-                if (typeUpper.contains("ATK")) equipAtk = equipAtk.add(val);
-                else if (typeUpper.contains("DEF")) equipDef = equipDef.add(val);
-                else if (typeUpper.contains("HP")) equipHp = equipHp.add(val);
-                else if (typeUpper.contains("SPEED")) totalSpeed += val.doubleValue();
-                else if (typeUpper.contains("CRIT")) totalCritRate += val.doubleValue();
+                if (val.compareTo(BigDecimal.ZERO) > 0 && !typeUpper.isEmpty()) {
+                    if (typeUpper.contains("ATK")) equipAtk = equipAtk.add(val);
+                    else if (typeUpper.contains("DEF")) equipDef = equipDef.add(val);
+                    else if (typeUpper.contains("HP")) equipHp = equipHp.add(val);
+                    else if (typeUpper.contains("SPEED")) totalSpeed += val.doubleValue();
+                    else if (typeUpper.contains("CRIT")) totalCritRate += val.doubleValue();
 
-                // Xử lý % nếu có
-                if (typeUpper.equals("ATK_PERCENT")) equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
-                if (typeUpper.equals("HP_PERCENT")) equipHp = equipHp.add(BigDecimal.valueOf(rawMaxHp).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
-            }
-
-            // --- B. BASE STAT FALLBACK (Chỉ số gốc của Item) ---
-            if (uItem.getItem() != null) {
-                Item tpl = uItem.getItem();
-                if (tpl.getAtkBonus() != null && !typeUpper.contains("ATK")) equipAtk = equipAtk.add(BigDecimal.valueOf(tpl.getAtkBonus()));
-                if (tpl.getDefBonus() != null && !typeUpper.contains("DEF")) equipDef = equipDef.add(BigDecimal.valueOf(tpl.getDefBonus()));
-                if (tpl.getHpBonus() != null && !typeUpper.contains("HP")) equipHp = equipHp.add(BigDecimal.valueOf(tpl.getHpBonus()));
-                if (tpl.getSpeedBonus() != null && !typeUpper.contains("SPEED")) totalSpeed += tpl.getSpeedBonus();
-            }
-
-            // --- C. SUBSTATS (Dòng ẩn) ---
-            try {
-                if (uItem.getSubStats() != null && uItem.getSubStats().length() > 2) {
-                    List<SubStatDTO> subs = objectMapper.readValue(uItem.getSubStats(), new TypeReference<List<SubStatDTO>>() {});
-                    for (SubStatDTO sub : subs) {
-                        double subVal = sub.getValue();
-                        String subCode = (sub.getCode() != null) ? sub.getCode().toUpperCase() : "";
-
-                        if (subCode.contains("ATK")) equipAtk = equipAtk.add(BigDecimal.valueOf(subVal));
-                        else if (subCode.contains("DEF")) equipDef = equipDef.add(BigDecimal.valueOf(subVal));
-                        else if (subCode.contains("HP")) equipHp = equipHp.add(BigDecimal.valueOf(subVal));
-                        else if (subCode.contains("SPEED")) totalSpeed += subVal;
-                        else if (subCode.contains("CRIT")) totalCritRate += subVal;
-                    }
+                    // Xử lý % nếu có
+                    if (typeUpper.equals("ATK_PERCENT"))
+                        equipAtk = equipAtk.add(BigDecimal.valueOf(rawAtk).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+                    if (typeUpper.equals("HP_PERCENT"))
+                        equipHp = equipHp.add(BigDecimal.valueOf(rawMaxHp).multiply(val).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
                 }
-            } catch (Exception ignored) {}
+
+                // --- B. BASE STAT FALLBACK (Chỉ số gốc của Item) ---
+                if (uItem.getItem() != null) {
+                    Item tpl = uItem.getItem();
+                    if (tpl.getAtkBonus() != null && !typeUpper.contains("ATK"))
+                        equipAtk = equipAtk.add(BigDecimal.valueOf(tpl.getAtkBonus()));
+                    if (tpl.getDefBonus() != null && !typeUpper.contains("DEF"))
+                        equipDef = equipDef.add(BigDecimal.valueOf(tpl.getDefBonus()));
+                    if (tpl.getHpBonus() != null && !typeUpper.contains("HP"))
+                        equipHp = equipHp.add(BigDecimal.valueOf(tpl.getHpBonus()));
+                    if (tpl.getSpeedBonus() != null && !typeUpper.contains("SPEED"))
+                        totalSpeed += tpl.getSpeedBonus();
+                }
+
+                // --- C. SUBSTATS (Dòng ẩn) ---
+                try {
+                    if (uItem.getSubStats() != null && uItem.getSubStats().length() > 2) {
+                        List<SubStatDTO> subs = objectMapper.readValue(uItem.getSubStats(), new TypeReference<List<SubStatDTO>>() {});
+                        for (SubStatDTO sub : subs) {
+                            double subVal = sub.getValue();
+                            String subCode = (sub.getCode() != null) ? sub.getCode().toUpperCase() : "";
+
+                            if (subCode.contains("ATK")) equipAtk = equipAtk.add(BigDecimal.valueOf(subVal));
+                            else if (subCode.contains("DEF")) equipDef = equipDef.add(BigDecimal.valueOf(subVal));
+                            else if (subCode.contains("HP")) equipHp = equipHp.add(BigDecimal.valueOf(subVal));
+                            else if (subCode.contains("SPEED")) totalSpeed += subVal;
+                            else if (subCode.contains("CRIT")) totalCritRate += subVal;
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+
+            // 3. LƯU VÀO DATABASE
+            c.setBaseAtk(rawAtk + equipAtk.setScale(0, RoundingMode.HALF_UP).intValue());
+            c.setBaseDef(rawDef + equipDef.setScale(0, RoundingMode.HALF_UP).intValue());
+            c.setMaxHp(rawMaxHp + equipHp.setScale(0, RoundingMode.HALF_UP).intValue());
+
+            c.setBaseSpeed((int) Math.round(totalSpeed));
+            c.setBaseCritRate((int) Math.round(totalCritRate));
+            c.setBaseCritDmg((int) Math.round(totalCritDmg));
+
+            // Tính lực chiến (Combat Power)
+            int power = (c.getMaxHp() / 5) + (c.getBaseAtk() * 2) + (c.getBaseDef() * 3) + (c.getBaseSpeed() * 2) + (lvl * 10);
+            c.setTotalPower(power);
+
+            if (c.getCurrentHp() == null || c.getCurrentHp() > c.getMaxHp()) {
+                c.setCurrentHp(c.getMaxHp());
+            }
+
+            characterRepo.saveAndFlush(c);
+        } catch (Exception e) {
+            // [IMPORTANT] Log lỗi nhưng KHÔNG throw exception để client vẫn nhận được data character
+            System.err.println("⚠️ Lỗi recalculateStats (Có thể do DB lệch Schema hoặc Item rác): " + e.getMessage());
+            // e.printStackTrace();
         }
-
-        // 3. LƯU VÀO DATABASE
-        c.setBaseAtk(rawAtk + equipAtk.setScale(0, RoundingMode.HALF_UP).intValue());
-        c.setBaseDef(rawDef + equipDef.setScale(0, RoundingMode.HALF_UP).intValue());
-        c.setMaxHp(rawMaxHp + equipHp.setScale(0, RoundingMode.HALF_UP).intValue());
-
-        c.setBaseSpeed((int) Math.round(totalSpeed));
-        c.setBaseCritRate((int) Math.round(totalCritRate));
-        c.setBaseCritDmg((int) Math.round(totalCritDmg));
-
-        // Tính lực chiến (Combat Power)
-        int power = (c.getMaxHp() / 5) + (c.getBaseAtk() * 2) + (c.getBaseDef() * 3) + (c.getBaseSpeed() * 2) + (lvl * 10);
-        c.setTotalPower(power);
-
-        if (c.getCurrentHp() == null || c.getCurrentHp() > c.getMaxHp()) {
-            c.setCurrentHp(c.getMaxHp());
-        }
-
-        characterRepo.saveAndFlush(c);
     }
 
     @Transactional

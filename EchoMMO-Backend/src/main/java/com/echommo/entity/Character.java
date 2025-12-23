@@ -11,13 +11,21 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "characters")
+@Table(name = "characters", indexes = {
+        @Index(name = "idx_char_name", columnList = "name"),
+        @Index(name = "idx_user_id", columnList = "user_id")
+})
 public class Character {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "char_id")
     private Integer charId;
+
+    // --- OPTIMISTIC LOCKING ---
+    // Cái này cực quan trọng để tránh bug "hack" đồ hoặc sai lệch chỉ số khi mạng lag
+    @Version
+    private Long version;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
@@ -29,19 +37,20 @@ public class Character {
     @Column(nullable = false, unique = true)
     private String name;
 
-    @Column(name = "avatar_url")
+    @Column(name = "avatar_url", length = 500)
     @Builder.Default
     private String avatarUrl = "https://i.imgur.com/7Y7t5Xp.png";
 
     @Builder.Default private Integer level = 1;
     @Builder.Default private Long currentExp = 0L;
+
     @Column(name = "character_class")
     @Builder.Default private String characterClass = "Nhà Thám Hiểm";
 
     @Enumerated(EnumType.STRING)
     @Builder.Default private CharacterStatus status = CharacterStatus.IDLE;
 
-    // --- MAIN STATS ---
+    // --- MAIN STATS (Tiềm năng) ---
     @Builder.Default private Integer statPoints = 0;
     @Builder.Default private Integer str = 5;
     @Builder.Default private Integer vit = 5;
@@ -50,7 +59,7 @@ public class Character {
     @Builder.Default private Integer intelligence = 5;
     @Builder.Default private Integer luck = 5;
 
-    // --- COMPUTED STATS ---
+    // --- COMPUTED STATS (Chỉ số chiến đấu) ---
     @Builder.Default private Integer currentHp = 200;
     @Builder.Default private Integer maxHp = 200;
     @Builder.Default private Integer currentEnergy = 100;
@@ -61,12 +70,23 @@ public class Character {
     @Builder.Default private Integer baseCritRate = 50;
     @Builder.Default private Integer baseCritDmg = 150;
 
-    // --- PVP ---
+    // --- PVP & DANH VỌNG SYSTEM ---
     @Column(name = "total_power")
     @Builder.Default private Integer totalPower = 0;
 
-    @Column(name = "pvp_points")
-    @Builder.Default private Integer pvpPoints = 1000;
+    // Đổi pvpPoints thành reputation (Danh Vọng)
+    @Column(name = "reputation")
+    @Builder.Default private Integer reputation = 0;
+
+    @Column(name = "rank_title")
+    @Builder.Default private String rankTitle = "Vô Danh";
+
+    // Hai biến quan trọng để tính logic cộng trừ điểm ông yêu cầu
+    @Column(name = "win_streak")
+    @Builder.Default private Integer winStreak = 0;
+
+    @Column(name = "lose_streak")
+    @Builder.Default private Integer loseStreak = 0;
 
     @Column(name = "pvp_wins")
     @Builder.Default private Integer pvpWins = 0;
@@ -87,7 +107,6 @@ public class Character {
     @Column(name = "spa_end_time") private LocalDateTime spaEndTime;
     @Column(name = "spa_package_type") private String spaPackageType;
 
-    // [UPDATED] Theo dõi lần dùng Spa miễn phí cuối cùng và số lần dùng trong ngày
     @Column(name = "last_free_spa_use")
     private LocalDateTime lastFreeSpaUse;
 
@@ -109,12 +128,18 @@ public class Character {
     @Column(name = "gathering_expiry") private LocalDateTime gatheringExpiry;
 
     // --- TIME ---
+    @Column(updatable = false)
     private LocalDateTime createdAt;
     private LocalDateTime lastActive;
 
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = LocalDateTime.now();
+        lastActive = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
         lastActive = LocalDateTime.now();
     }
 }

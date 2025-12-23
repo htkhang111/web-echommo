@@ -9,7 +9,7 @@ import com.echommo.repository.CharacterRepository;
 import com.echommo.repository.PvpMatchRepository;
 import com.echommo.repository.PvpQueueRepository;
 import com.echommo.repository.UserRepository;
-import com.echommo.service.CharacterService; // [THÊM]
+import com.echommo.service.CharacterService;
 import com.echommo.service.PvpService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -28,41 +28,44 @@ import java.util.stream.Collectors;
 public class PvpController {
 
     @Autowired private PvpService pvpService;
-    @Autowired private CharacterService charService; // [THÊM] Inject service này
+    @Autowired private CharacterService charService;
     @Autowired private UserRepository userRepo;
     @Autowired private CharacterRepository charRepo;
     @Autowired private PvpMatchRepository matchRepo;
     @Autowired private PvpQueueRepository queueRepo;
 
-    // --- 1. LẤY TRẠNG THÁI ---
+    // ================= 1. LẤY TRẠNG THÁI (POLLING) =================
     @GetMapping("/status")
     public ResponseEntity<?> getMatchStatus(@AuthenticationPrincipal UserDetails userDetails) {
+        // [QUAN TRỌNG] Gọi hàm này để xử lý ai AFK quá 30s sẽ bị xử thua/mất lượt
+        pvpService.checkTimeouts();
+
         Character myChar = getCharacterFromUser(userDetails);
         if (myChar == null) return ResponseEntity.badRequest().body("Character not found");
 
         MatchResponse response = new MatchResponse();
         response.setMyId(myChar.getCharId());
 
-        // Lấy trận đấu mới nhất
+        // 1. Kiểm tra xem đang có trận nào active không
         PvpMatch match = pvpService.getLatestMatchForUser(myChar.getCharId());
-
         if (match != null) {
             mapMatchToResponse(match, myChar.getCharId(), response);
             return ResponseEntity.ok(response);
         }
 
-        // Kiểm tra hàng đợi
+        // 2. Nếu không có trận, kiểm tra xem có đang tìm trận (Hàng chờ) không
         Optional<PvpQueue> queueOpt = queueRepo.findByCharId(myChar.getCharId());
         if (queueOpt.isPresent()) {
             response.setStatus("SEARCHING");
             return ResponseEntity.ok(response);
         }
 
+        // 3. Không có gì cả -> Đang ở sảnh
         response.setStatus("LOBBY");
         return ResponseEntity.ok(response);
     }
 
-    // --- 2. TÌM TRẬN ---
+    // ================= 2. TÌM TRẬN =================
     @PostMapping("/find")
     public ResponseEntity<?> findMatch(@AuthenticationPrincipal UserDetails userDetails) {
         Character myChar = getCharacterFromUser(userDetails);
@@ -70,13 +73,13 @@ public class PvpController {
 
         try {
             pvpService.findOrCreateMatch(myChar.getCharId());
-            return ResponseEntity.ok("Started searching");
+            return ResponseEntity.ok(Map.of("message", "Started searching", "status", "SEARCHING"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // --- 3. CHẤP NHẬN TRẬN ---
+    // ================= 3. CHẤP NHẬN TRẬN ĐẤU =================
     @PostMapping("/accept")
     public ResponseEntity<?> acceptMatch(@AuthenticationPrincipal UserDetails userDetails,
                                          @RequestBody Map<String, Long> payload) {
@@ -87,13 +90,13 @@ public class PvpController {
 
         try {
             pvpService.acceptMatch(matchId, myChar.getCharId());
-            return ResponseEntity.ok("Accepted");
+            return ResponseEntity.ok(Map.of("message", "Accepted"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // --- 4. RA CHIÊU ---
+    // ================= 4. RA CHIÊU (ROCK/PAPER/SCISSORS) =================
     @PostMapping("/move")
     public ResponseEntity<?> submitMove(@AuthenticationPrincipal UserDetails userDetails,
                                         @RequestBody PvpMoveRequest request) {
@@ -109,14 +112,13 @@ public class PvpController {
             }
 
             pvpService.submitMove(request.getMatchId(), myChar.getCharId(), request.getMove());
-            return ResponseEntity.ok("Move submitted");
+            return ResponseEntity.ok(Map.of("message", "Move submitted"));
         } catch (Exception e) {
-            System.out.println("Move Error: " + e.getMessage());
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // --- 5. CHAT ---
+    // ================= 5. CHAT TRONG TRẬN =================
     @PostMapping("/chat")
     public ResponseEntity<?> sendChat(@AuthenticationPrincipal UserDetails userDetails,
                                       @RequestBody Map<String, Object> payload) {
@@ -130,57 +132,46 @@ public class PvpController {
 
         try {
             pvpService.saveChatMessage(matchId, myChar.getCharId(), message);
-            return ResponseEntity.ok("Chat sent");
+            return ResponseEntity.ok(Map.of("message", "Chat sent"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // --- 6. ĐẦU HÀNG ---
+    // ================= 6. ĐẦU HÀNG =================
     @PostMapping("/surrender")
     public ResponseEntity<?> surrender(@AuthenticationPrincipal UserDetails userDetails,
                                        @RequestBody Map<String, Long> payload) {
         Character myChar = getCharacterFromUser(userDetails);
-        if (myChar == null) return ResponseEntity.badRequest().body("Character not found");
-
         Long matchId = payload.get("matchId");
-        if (matchId == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Match ID is required"));
-        }
+
+        if (matchId == null) return ResponseEntity.badRequest().body("Match ID is required");
 
         try {
-            PvpMatch match = matchRepo.findById(matchId).orElse(null);
-
-            if (match != null) {
-                if (!"FINISHED".equals(match.getStatus())) {
-                    pvpService.surrenderMatch(matchId, myChar.getCharId());
-                }
-                return ResponseEntity.ok(Map.of("message", "Surrender accepted"));
-            } else {
-                return ResponseEntity.ok(Map.of("message", "Match not found"));
-            }
+            pvpService.surrenderMatch(matchId, myChar.getCharId());
+            return ResponseEntity.ok(Map.of("message", "Surrender accepted"));
         } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.ok(Map.of("message", "Error processing surrender"));
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // --- 7. HỦY TÌM ---
+    // ================= 7. HỦY TÌM TRẬN =================
     @PostMapping("/cancel")
     public ResponseEntity<?> cancelSearch(@AuthenticationPrincipal UserDetails userDetails) {
         Character myChar = getCharacterFromUser(userDetails);
         if (myChar == null) return ResponseEntity.badRequest().body("Character not found");
         try {
             pvpService.cancelQueue(myChar.getCharId());
-            return ResponseEntity.ok("Search canceled");
+            return ResponseEntity.ok(Map.of("message", "Search canceled"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // --- 8. BẢNG XẾP HẠNG ---
+    // ================= 8. BẢNG XẾP HẠNG PVP =================
     @GetMapping("/leaderboard")
     public ResponseEntity<List<CharacterDTO>> getLeaderboard() {
+        // Lấy top 10 người thắng nhiều nhất
         List<Character> topPlayers = charRepo.findTop10ByOrderByPvpWinsDesc();
 
         List<CharacterDTO> result = topPlayers.stream().map(c -> {
@@ -188,6 +179,8 @@ public class PvpController {
             dto.setName(c.getName());
             dto.setLevel(c.getLevel());
             dto.setPvpWins(c.getPvpWins());
+            dto.setReputation(c.getReputation()); // Thêm hiển thị danh vọng
+            dto.setRankTitle(c.getRankTitle());   // Thêm hiển thị danh hiệu
             dto.setAvatarUrl(c.getAvatarUrl());
             return dto;
         }).collect(Collectors.toList());
@@ -197,11 +190,6 @@ public class PvpController {
 
     // ================= HELPER METHODS =================
 
-    /**
-     * [FIX QUAN TRỌNG]
-     * Hàm này lấy nhân vật từ User, đồng thời TÍNH LẠI CHỈ SỐ (recalculateStats).
-     * Điều này đảm bảo HP, ATK, DEF trong PvP luôn chính xác với đồ đang mặc.
-     */
     private Character getCharacterFromUser(UserDetails userDetails) {
         if (userDetails == null) return null;
         User user = userRepo.findByUsername(userDetails.getUsername()).orElse(null);
@@ -209,11 +197,11 @@ public class PvpController {
 
         Character c = charRepo.findByUser_UserId(user.getUserId()).orElse(null);
 
+        // TÍNH TOÁN LẠI STATS TỪ ĐỒ MỖI KHI GỌI API PVP
+        // Để đảm bảo máu/damage luôn đúng với set đồ hiện tại
         if (c != null) {
-            // Tính toán lại chỉ số từ trang bị ngay khi lấy nhân vật
             charService.recalculateStats(c);
         }
-
         return c;
     }
 
@@ -223,9 +211,12 @@ public class PvpController {
         res.setTurnCount(match.getTurnCount());
         res.setLastLog(match.getLastLog());
         res.setWinnerId(match.getWinnerId() != null ? match.getWinnerId().intValue() : null);
+
+        // Map lịch sử move
         res.setLastP1Move(match.getLastP1Move());
         res.setLastP2Move(match.getLastP2Move());
 
+        // Map Chat
         if (match.getChats() != null) {
             List<ChatMessageDTO> chatDtos = match.getChats().stream()
                     .map(chat -> new ChatMessageDTO(chat.getSender().getName(), chat.getSender().getCharId(), chat.getMessage()))
@@ -237,35 +228,44 @@ public class PvpController {
 
         boolean isP1 = match.getPlayer1().getCharId().equals(myCharId);
 
+        // Thông tin Player 1
         res.setP1Id(match.getPlayer1().getCharId());
         res.setP1Name(match.getPlayer1().getName());
         res.setP1Level(match.getPlayer1().getLevel());
         res.setP1Hp(match.getP1CurrentHp());
-        res.setP1MaxHp(match.getPlayer1().getMaxHp());
+        res.setP1MaxHp(match.getPlayer1().getMaxHp()); // Max HP đã tính đồ
         res.setP1AvatarUrl(match.getPlayer1().getAvatarUrl());
 
+        // Thông tin Player 2
         res.setP2Id(match.getPlayer2().getCharId());
         res.setP2Name(match.getPlayer2().getName());
         res.setP2Level(match.getPlayer2().getLevel());
         res.setP2Hp(match.getP2CurrentHp());
-        res.setP2MaxHp(match.getPlayer2().getMaxHp());
+        res.setP2MaxHp(match.getPlayer2().getMaxHp()); // Max HP đã tính đồ
         res.setP2AvatarUrl(match.getPlayer2().getAvatarUrl());
 
+        // Logic ẩn/hiện nước đi
         String p1Move = match.getP1Move();
         String p2Move = match.getP2Move();
+
+        // Nếu trận đấu đã kết thúc hoặc cả 2 đã ra đòn -> Show hết
+        boolean showAll = "FINISHED".equals(match.getStatus());
         boolean bothMoved = (p1Move != null && p2Move != null);
-        if ("FINISHED".equals(match.getStatus())) bothMoved = true;
 
         if (isP1) {
+            // Mình là P1: Thấy move của mình. Move của địch chỉ thấy khi nó đã đánh xong turn hoặc game over
             res.setP1Move(p1Move);
-            res.setP2Move(bothMoved ? p2Move : (p2Move != null ? "HIDDEN" : null));
+            res.setP2Move((showAll || bothMoved) ? p2Move : (p2Move != null ? "HIDDEN" : null));
         } else {
+            // Mình là P2
             res.setP2Move(p2Move);
-            res.setP1Move(bothMoved ? p1Move : (p1Move != null ? "HIDDEN" : null));
+            res.setP1Move((showAll || bothMoved) ? p1Move : (p1Move != null ? "HIDDEN" : null));
         }
     }
 
-    // --- DTO CLASSES ---
+    // ================= DTO STATIC CLASSES =================
+    // Để chung trong Controller cho gọn, hoặc tách ra file riêng tùy ông
+
     public static class ChatMessageDTO {
         public String senderName; public Integer senderId; public String content;
         public ChatMessageDTO(String s, Integer id, String c) { this.senderName = s; this.senderId = id; this.content = c; }
@@ -275,11 +275,16 @@ public class PvpController {
         private String name;
         private Integer level;
         private Integer pvpWins;
+        private Integer reputation; // Danh vọng
+        private String rankTitle;   // Danh hiệu
         private String avatarUrl;
 
+        // Getters Setters
         public String getName() { return name; } public void setName(String name) { this.name = name; }
         public Integer getLevel() { return level; } public void setLevel(Integer level) { this.level = level; }
         public Integer getPvpWins() { return pvpWins; } public void setPvpWins(Integer pvpWins) { this.pvpWins = pvpWins; }
+        public Integer getReputation() { return reputation; } public void setReputation(Integer reputation) { this.reputation = reputation; }
+        public String getRankTitle() { return rankTitle; } public void setRankTitle(String rankTitle) { this.rankTitle = rankTitle; }
         public String getAvatarUrl() { return avatarUrl; } public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
     }
 
@@ -304,7 +309,7 @@ public class PvpController {
 
         private List<ChatMessageDTO> messages;
 
-        // Getters and Setters (Giữ nguyên)
+        // Getters and Setters
         public String getStatus() { return status; } public void setStatus(String status) { this.status = status; }
         public Long getMatchId() { return matchId; } public void setMatchId(Long matchId) { this.matchId = matchId; }
         public Integer getMyId() { return myId; } public void setMyId(Integer myId) { this.myId = myId; }

@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 public class UserItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long userItemId;
+    private Integer userItemId; // [REVERT] Dùng Integer theo yêu cầu
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "char_id", nullable = false)
@@ -65,7 +65,6 @@ public class UserItem {
     @Column(name = "mythic_stars")
     private Integer mythicStars = 0;
 
-    // [NEW] ĐỘ BỀN HIỆN TẠI
     @Column(name = "current_durability")
     @Builder.Default
     private Integer currentDurability = 100;
@@ -80,7 +79,6 @@ public class UserItem {
     @PrePersist
     protected void onCreate() { if (acquiredAt == null) acquiredAt = LocalDateTime.now(); }
 
-    // [FIX] Thêm @JsonIgnore để tránh lỗi ByteBuddyInterceptor khi serialize JSON trả về Controller
     @JsonIgnore
     public User getUser() {
         return this.character != null ? this.character.getUser() : null;

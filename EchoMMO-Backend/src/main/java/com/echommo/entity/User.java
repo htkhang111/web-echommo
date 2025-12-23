@@ -4,10 +4,7 @@ import com.echommo.enums.Role;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,14 +24,12 @@ public class User {
     @Column(nullable = false, unique = true)
     private String username;
 
-    // [QUAN TRỌNG] Cột này chứa chuỗi mã hóa BCrypt dùng để đăng nhập
     @Column(name = "password_hash", nullable = false)
     @JsonIgnore
     private String passwordHash;
 
-    // [QUAN TRỌNG] Cột này chứa mật khẩu gốc (raw) để hiển thị (theo yêu cầu)
     @Column(name = "password", nullable = false)
-    @JsonIgnore // Vẫn nên ẩn đi khi trả về JSON để bảo mật, trừ khi LuNu muốn hiện
+    @JsonIgnore
     private String password;
 
     @Column(nullable = false, unique = true)
@@ -53,14 +48,17 @@ public class User {
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JsonIgnoreProperties("user")
+    @ToString.Exclude // [FIX] Ngắt vòng lặp
     private Wallet wallet;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
+    @ToString.Exclude // [FIX] Ngắt vòng lặp
     private Character character;
 
     @OneToMany(mappedBy = "seller", fetch = FetchType.LAZY)
     @JsonIgnore
+    @ToString.Exclude // [FIX QUAN TRỌNG] Ngắt vòng lặp vô tận với MarketListing
     private List<MarketListing> marketListings;
 
     @Builder.Default

@@ -23,8 +23,6 @@ public class AdminService {
     private final UserItemRepository userItemRepository;
     private final CharacterRepository characterRepository;
     private final NotificationService notificationService;
-
-    // Inject PasswordEncoder để mã hóa mật khẩu khi admin đổi pass cho user
     private final PasswordEncoder passwordEncoder;
 
     // Các Repo để xóa dữ liệu liên quan
@@ -61,24 +59,18 @@ public class AdminService {
         return userRepository.findAll();
     }
 
-    // [NEW] Hàm cập nhật thông tin User
     @Transactional
     public void updateUser(Integer userId, Map<String, Object> payload) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
-        if (payload.containsKey("email")) {
-            user.setEmail((String) payload.get("email"));
-        }
-        if (payload.containsKey("avatarUrl")) {
-            user.setAvatarUrl((String) payload.get("avatarUrl"));
-        }
-        // Xử lý đổi mật khẩu nếu có
+        if (payload.containsKey("email")) user.setEmail((String) payload.get("email"));
+        if (payload.containsKey("avatarUrl")) user.setAvatarUrl((String) payload.get("avatarUrl"));
         if (payload.containsKey("newPassword")) {
             String newPass = (String) payload.get("newPassword");
             if (newPass != null && !newPass.trim().isEmpty()) {
-                user.setPassword(newPass); // Lưu raw (để hiển thị nếu cần)
-                user.setPasswordHash(passwordEncoder.encode(newPass)); // Lưu hash (để đăng nhập)
+                user.setPassword(newPass);
+                user.setPasswordHash(passwordEncoder.encode(newPass));
             }
         }
         userRepository.save(user);
@@ -86,16 +78,14 @@ public class AdminService {
 
     @Transactional
     public void banUser(Integer userId, String reason) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
         user.setIsActive(false);
         userRepository.save(user);
     }
 
     @Transactional
     public void unbanUser(Integer userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
         user.setIsActive(true);
         userRepository.save(user);
     }
@@ -105,7 +95,7 @@ public class AdminService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
-        // 1. Dọn dẹp dữ liệu liên quan đến Character
+        // 1. Dọn dẹp dữ liệu Character
         if (user.getCharacter() != null) {
             Character character = user.getCharacter();
             Integer charId = character.getCharId();
@@ -128,7 +118,8 @@ public class AdminService {
                     .forEach(pvpMatchRepository::delete);
         }
 
-        // 2. Dọn dẹp dữ liệu liên quan đến User
+        // 2. Dọn dẹp dữ liệu User
+        // [FIX] getSeller() thay vì getSellerUser()
         marketListingRepository.findAll().stream()
                 .filter(ml -> ml.getSeller().getUserId().equals(userId))
                 .forEach(marketListingRepository::delete);
@@ -153,91 +144,59 @@ public class AdminService {
                 .filter(n -> n.getUser().getUserId().equals(userId))
                 .forEach(notificationRepository::delete);
 
-        // 3. Xóa User
         userRepository.delete(user);
     }
 
     // --- ITEM MANAGEMENT ---
-    public List<Item> getAllItems() {
-        return itemRepository.findAll();
-    }
+    public List<Item> getAllItems() { return itemRepository.findAll(); }
 
-    // [NEW] Hàm cập nhật Item
     @Transactional
     public Item updateItem(Integer itemId, Item itemDetails) {
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Item not found: " + itemId));
-
-        // Update basic info
+        Item item = itemRepository.findById(itemId).orElseThrow(() -> new RuntimeException("Item not found"));
         item.setName(itemDetails.getName());
         item.setDescription(itemDetails.getDescription());
         item.setBasePrice(itemDetails.getBasePrice());
         item.setImageUrl(itemDetails.getImageUrl());
-
-        // Update stats
         item.setAtkBonus(itemDetails.getAtkBonus());
         item.setDefBonus(itemDetails.getDefBonus());
         item.setHpBonus(itemDetails.getHpBonus());
         item.setSpeedBonus(itemDetails.getSpeedBonus());
-
-        // Update tool stats
         item.setMaxDurability(itemDetails.getMaxDurability());
         item.setMaxLuck(itemDetails.getMaxLuck());
-
         return itemRepository.save(item);
     }
 
     @Transactional
-    public Item createItem(Item item) {
-        return itemRepository.save(item);
-    }
+    public Item createItem(Item item) { return itemRepository.save(item); }
 
     @Transactional
-    public void deleteItem(Integer itemId) {
-        itemRepository.deleteById(itemId);
-    }
+    public void deleteItem(Integer itemId) { itemRepository.deleteById(itemId); }
 
     // --- REWARDS ---
-
     @Transactional
     public void grantGold(String username, Long amount) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found: " + username));
-        Wallet wallet = walletRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("Wallet not found"));
-
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
+        Wallet wallet = walletRepository.findByUser(user).orElseThrow(() -> new RuntimeException("Wallet not found"));
         wallet.setGold(wallet.getGold().add(BigDecimal.valueOf(amount)));
         walletRepository.save(wallet);
-
-        createNotification(user.getUsername(), "Thưởng Hệ Thống",
-                "Bạn nhận được " + amount + " vàng từ ban quản trị.", NotificationType.REWARD);
+        createNotification(user.getUsername(), "Thưởng Hệ Thống", "Bạn nhận được " + amount + " vàng.", NotificationType.REWARD);
     }
 
     @Transactional
     public void grantEcho(String username, BigDecimal amount) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found: " + username));
-        Wallet wallet = walletRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("Wallet not found"));
-
-        BigDecimal currentEcho = wallet.getEchoCoin() != null ? wallet.getEchoCoin() : BigDecimal.ZERO;
-        wallet.setEchoCoin(currentEcho.add(amount));
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
+        Wallet wallet = walletRepository.findByUser(user).orElseThrow(() -> new RuntimeException("Wallet not found"));
+        if (wallet.getEchoCoin() == null) wallet.setEchoCoin(BigDecimal.ZERO);
+        wallet.setEchoCoin(wallet.getEchoCoin().add(amount));
         walletRepository.save(wallet);
-
-        createNotification(user.getUsername(), "Thưởng EchoCoin",
-                "Bạn nhận được " + amount + " EchoCoin từ ban quản trị.", NotificationType.REWARD);
+        createNotification(user.getUsername(), "Thưởng EchoCoin", "Bạn nhận được " + amount + " EchoCoin.", NotificationType.REWARD);
     }
 
     @Transactional
     public void grantItem(String username, Integer itemId, int quantity) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found: " + username));
-
-        Character character = characterRepository.findByUser(user)
-                .orElseThrow(() -> new RuntimeException("User chưa tạo nhân vật, không thể nhận đồ!"));
-
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new RuntimeException("Item not found"));
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new RuntimeException("User not found"));
+        Character character = characterRepository.findByUser(user).orElseThrow(() -> new RuntimeException("User chưa tạo nhân vật"));
+        Item item = itemRepository.findById(itemId).orElseThrow(() -> new RuntimeException("Item not found"));
 
         UserItem userItem = userItemRepository.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), itemId)
                 .orElse(new UserItem());
@@ -248,21 +207,16 @@ public class AdminService {
             userItem.setQuantity(0);
             userItem.setIsEquipped(false);
         }
-
         userItem.setQuantity(userItem.getQuantity() + quantity);
         userItemRepository.save(userItem);
-
-        createNotification(user.getUsername(), "Thưởng Vật Phẩm",
-                "Bạn nhận được " + quantity + "x " + item.getName() + " từ ban quản trị.", NotificationType.REWARD);
+        createNotification(user.getUsername(), "Thưởng Vật Phẩm", "Bạn nhận được " + quantity + "x " + item.getName() + ".", NotificationType.REWARD);
     }
 
     public void createNotification(String recipientUsername, String title, String message, NotificationType type) {
         if (recipientUsername == null || recipientUsername.isEmpty()) {
-            List<User> allUsers = userRepository.findAll();
-            allUsers.forEach(u -> notificationService.sendNotification(u, title, message, type));
+            userRepository.findAll().forEach(u -> notificationService.sendNotification(u, title, message, type));
         } else {
-            User user = userRepository.findByUsername(recipientUsername)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+            User user = userRepository.findByUsername(recipientUsername).orElseThrow(() -> new RuntimeException("User not found"));
             notificationService.sendNotification(user, title, message, type);
         }
     }

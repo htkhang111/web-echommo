@@ -8,6 +8,7 @@ import com.echommo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,7 +34,6 @@ public class NotificationService {
     public void markAsRead(Integer id) {
         Notification noti = notificationRepository.findById(id).orElseThrow();
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        // Check quyền sở hữu
         if(noti.getUser().getUsername().equals(username)) {
             noti.setIsRead(true);
             notificationRepository.save(noti);
@@ -52,7 +52,8 @@ public class NotificationService {
         }
     }
 
-    // [FIX] Cập nhật tham số type thành Enum NotificationType
+    // [FIX] Sử dụng Enum NotificationType
+    @Transactional
     public void sendNotification(User user, String title, String message, NotificationType type) {
         Notification n = new Notification();
         n.setUser(user);

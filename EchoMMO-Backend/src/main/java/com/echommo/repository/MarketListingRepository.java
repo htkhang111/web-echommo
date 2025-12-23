@@ -7,8 +7,10 @@ import java.util.List;
 
 @Repository
 public interface MarketListingRepository extends JpaRepository<MarketListing, Integer> {
-    // Dùng hàm chuẩn JPA, không dùng @Query để tránh lỗi SQL
+
+    // Tìm các tin đăng đang ACTIVE, sắp xếp mới nhất
     List<MarketListing> findByStatusOrderByCreatedAtDesc(String status);
 
+    // Tìm tin đăng của user cụ thể (Seller ID là Integer)
     List<MarketListing> findBySeller_UserIdAndStatus(Integer userId, String status);
 }

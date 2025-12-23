@@ -484,3 +484,21 @@ VALUES
  'tool/fishing-rod/fr-4-timelostfishingrod.png', true);
 
 TRUNCATE TABLE messages;
+
+-- Xóa mã gộp cũ nếu có
+DELETE FROM gift_codes WHERE code = 'TEST_DEPLOY_VIP';
+
+-- 1. Mã Test Vàng (Type NORMAL: Chỉ cộng tiền theo database)
+INSERT INTO gift_codes (code, type, gold_reward, coin_reward, max_usages, is_active)
+VALUES ('TEST_GOLD', 'NORMAL', 999999999, 0, 1000000, TRUE)
+ON DUPLICATE KEY UPDATE gold_reward = 999999, coin_reward = 0;
+
+-- 2. Mã Test Echo Coin (Type NORMAL: Chỉ cộng tiền theo database)
+INSERT INTO gift_codes (code, type, gold_reward, coin_reward, max_usages, is_active)
+VALUES ('TEST_COIN', 'NORMAL', 0, 999999, 1000000, TRUE)
+ON DUPLICATE KEY UPDATE gold_reward = 0, coin_reward = 999999;
+
+-- 3. Mã Test Vật Phẩm (Type DEV_TOOL: Kích hoạt logic add item, tiền set = 0)
+INSERT INTO gift_codes (code, type, gold_reward, coin_reward, max_usages, is_active)
+VALUES ('TEST_ITEM', 'DEV_TOOL', 0, 0, 1000000, TRUE)
+ON DUPLICATE KEY UPDATE type = 'DEV_TOOL';

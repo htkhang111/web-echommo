@@ -3,49 +3,69 @@ package com.echommo.controller;
 import com.echommo.entity.User;
 import com.echommo.service.EquipmentService;
 import com.echommo.service.UserService;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/equipment")
-@RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class EquipmentController {
 
-    private final EquipmentService equipmentService;
-    private final UserService userService;
+    @Autowired
+    private EquipmentService equipmentService;
 
-    // Enhance thường (+1 -> +30)
-    @PostMapping("/enhance/{userItemId}")
-    public ResponseEntity<?> enhance(@PathVariable Long userItemId) {
+    @Autowired
+    private UserService userService;
+
+    @PostMapping("/enhance")
+    public ResponseEntity<?> enhance(@RequestBody Map<String, Object> req) {
         try {
+            if (req.get("userItemId") == null) {
+                return ResponseEntity.badRequest().body("Thiếu userItemId");
+            }
+            // [FIX] Chuyển đổi an toàn sang Integer
+            Integer userItemId = Integer.parseInt(req.get("userItemId").toString());
+
             return ResponseEntity.ok(equipmentService.enhanceItem(userItemId));
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // Đột phá lên Mythic (Lv 30 -> Mythic 1 Sao)
-    @PostMapping("/evolve-mythic/{userItemId}")
-    public ResponseEntity<?> evolve(@PathVariable Long userItemId) {
+    @PostMapping("/evolve")
+    public ResponseEntity<?> evolve(@RequestBody Map<String, Object> req) {
         try {
+            if (req.get("userItemId") == null) {
+                return ResponseEntity.badRequest().body("Thiếu userItemId");
+            }
+            // [FIX] Chuyển đổi an toàn sang Integer
+            Integer userItemId = Integer.parseInt(req.get("userItemId").toString());
+
             return ResponseEntity.ok(equipmentService.evolveToMythic(userItemId));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // [NEW] Nâng cấp sao Mythic (1 Sao -> 10 Sao)
-    @PostMapping("/enhance-mythic-star/{userItemId}")
-    public ResponseEntity<?> enhanceMythicStar(@PathVariable Long userItemId, Authentication auth) {
-        User user = userService.getUserFromAuth(auth);
+    @PostMapping("/enhance-stars")
+    public ResponseEntity<?> enhanceStars(@RequestBody Map<String, Object> req, Authentication auth) {
         try {
-            // Truyền UserId để check chính chủ
+            if (req.get("userItemId") == null) {
+                return ResponseEntity.badRequest().body("Thiếu userItemId");
+            }
+
+            User user = userService.getUserFromAuth(auth);
+
+            // [FIX] Chuyển đổi an toàn sang Integer
+            Integer userItemId = Integer.parseInt(req.get("userItemId").toString());
+
             return ResponseEntity.ok(equipmentService.enhanceMythicStars(userItemId, user.getUserId()));
-        } catch (RuntimeException e) {
-            // Frontend cần check message này để hiện popup đặc biệt
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }

@@ -1,3 +1,5 @@
+// File: EchoMMO-Backend/src/main/java/com/echommo/service/MarketplaceService.java
+
 package com.echommo.service;
 
 import com.echommo.dto.CreateListingRequest;
@@ -47,16 +49,12 @@ public class MarketplaceService {
         BigDecimal cost = i.getBasePrice().multiply(BigDecimal.valueOf(qty));
 
         if (u.getWallet() == null) throw new RuntimeException("Lỗi dữ liệu ví tiền");
-
-        // [FIX] Khởi tạo BigDecimal.ZERO nếu null
         if (u.getWallet().getGold() == null) u.getWallet().setGold(BigDecimal.ZERO);
 
-        // [FIX] So sánh BigDecimal
         if (u.getWallet().getGold().compareTo(cost) < 0) {
             throw new RuntimeException("Không đủ vàng (Cần: " + cost + ")");
         }
 
-        // [FIX] Trừ tiền bằng subtract
         u.getWallet().setGold(u.getWallet().getGold().subtract(cost));
         walletRepo.save(u.getWallet());
 
@@ -64,10 +62,15 @@ public class MarketplaceService {
         return "Mua thành công!";
     }
 
+    // [FIX] Nhận Integer userItemId theo yêu cầu
     @Transactional
-    public String sellItem(Long userItemId, Integer qty) {
+    public String sellItem(Integer userItemId, Integer qty) {
         Character myChar = getMyChar();
-        UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(userItemId, myChar.getCharId())
+
+        // [FIX] Tự động ép kiểu Integer -> Long để tìm trong DB (Tránh lỗi type)
+        Long idLong = userItemId != null ? userItemId.longValue() : null;
+
+        UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(idLong, myChar.getCharId())
                 .orElseThrow(() -> new RuntimeException("Vật phẩm không tồn tại hoặc không phải của bạn"));
 
         if (Boolean.TRUE.equals(ui.getIsEquipped())) throw new RuntimeException("Không thể bán đồ đang mặc");
@@ -81,7 +84,6 @@ public class MarketplaceService {
         if (u.getWallet() == null) throw new RuntimeException("Lỗi ví tiền");
         if (u.getWallet().getGold() == null) u.getWallet().setGold(BigDecimal.ZERO);
 
-        // [FIX] Cộng tiền bằng add
         u.getWallet().setGold(u.getWallet().getGold().add(earn));
         walletRepo.save(u.getWallet());
 
@@ -108,7 +110,10 @@ public class MarketplaceService {
         User u = getCurrentUser();
         Character myChar = getMyChar();
 
-        UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(req.getUserItemId(), myChar.getCharId())
+        // Listing request dùng Long hay Integer tùy ông, ở đây tôi cast cho chắc
+        Long itemIdLong = req.getUserItemId();
+
+        UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(itemIdLong, myChar.getCharId())
                 .orElseThrow(() -> new RuntimeException("Vật phẩm lỗi"));
 
         if (Boolean.TRUE.equals(ui.getIsEquipped())) throw new RuntimeException("Phải tháo đồ trước khi bán");
@@ -141,20 +146,16 @@ public class MarketplaceService {
         BigDecimal total = l.getPrice();
 
         if (buyer.getWallet().getGold() == null) buyer.getWallet().setGold(BigDecimal.ZERO);
-
-        // [FIX] Check tiền BigDecimal
         if (buyer.getWallet().getGold().compareTo(total) < 0) {
             throw new RuntimeException("Không đủ vàng");
         }
 
-        // [FIX] Trừ tiền BigDecimal
         buyer.getWallet().setGold(buyer.getWallet().getGold().subtract(total));
         walletRepo.save(buyer.getWallet());
 
         User seller = l.getSeller();
         if (seller.getWallet().getGold() == null) seller.getWallet().setGold(BigDecimal.ZERO);
 
-        // [FIX] Cộng tiền BigDecimal
         BigDecimal receive = total.multiply(new BigDecimal("0.95"));
         seller.getWallet().setGold(seller.getWallet().getGold().add(receive));
         walletRepo.save(seller.getWallet());
@@ -194,7 +195,6 @@ public class MarketplaceService {
                             .item(item)
                             .quantity(0)
                             .isEquipped(false)
-                            // [FIX] Đổi tên field cho đúng với Entity
                             .enhanceLevel(0)
                             .build());
             ui.setQuantity(ui.getQuantity() + qty);
@@ -206,7 +206,6 @@ public class MarketplaceService {
                         .item(item)
                         .quantity(1)
                         .isEquipped(false)
-                        // [FIX] Đổi tên field cho đúng với Entity
                         .enhanceLevel(0)
                         .build();
                 uiRepo.save(ui);

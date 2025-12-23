@@ -1,3 +1,5 @@
+// File: EchoMMO-Frontend/src/stores/marketStore.js
+
 import { defineStore } from "pinia";
 import axiosClient from "../api/axiosClient";
 import { useInventoryStore } from "./inventoryStore";
@@ -26,7 +28,6 @@ export const useMarketStore = defineStore("market", {
 
     // --- GIAO DỊCH SHOP ---
     async buyItem(id, qty) {
-      // Backend: ShopController chờ { itemId, quantity }
       await axiosClient.post("/shop/buy", {
         itemId: id,
         quantity: qty,
@@ -35,17 +36,17 @@ export const useMarketStore = defineStore("market", {
     },
 
     async sellItem(id, qty) {
-      // Backend: ShopController chờ { userItemId, quantity }
-      await axiosClient.post("/shop/sell", {
+      // [FIX] Return response data để hiển thị message
+      const res = await axiosClient.post("/shop/sell", {
         userItemId: id,
         quantity: qty,
       });
       await this.refresh();
+      return res.data; 
     },
 
     // --- GIAO DỊCH CHỢ TRỜI ---
     async buyPlayerListing(id, qty) {
-      // Backend: PlayerMarketController chờ { listingId, quantity }
       await axiosClient.post("/market/player/buy", {
         listingId: id,
         quantity: qty,
@@ -68,7 +69,6 @@ export const useMarketStore = defineStore("market", {
     },
 
     async refresh() {
-      // Load lại tất cả để cập nhật tiền và túi đồ
       await Promise.all([
         this.fetchShopItems(),
         this.fetchPlayerListings(),

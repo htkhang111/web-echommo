@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "market_listings")
-@Data // [QUAN TRỌNG] Tự sinh getter/setter (setStatus, setPrice...)
+@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -21,6 +21,7 @@ public class MarketListing {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer listingId;
 
+    // Quan hệ với người bán
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "seller_id", nullable = false)
     @JsonIgnoreProperties({
@@ -30,34 +31,29 @@ public class MarketListing {
     })
     private User seller;
 
+    // Quan hệ với vật phẩm cụ thể (đang chứa stats, rarity, durability...)
     @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_item_id")
     @JsonIgnoreProperties({"character", "user", "hibernateLazyInitializer", "handler"})
     private UserItem userItem;
 
+    // Quan hệ với định nghĩa Item gốc
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "item_id", nullable = false)
     private Item item;
 
     private Integer quantity;
 
-    // [FIX] Dùng BigDecimal để tránh lỗi incompatible types
     private BigDecimal price;
 
-    // [FIX] Dùng String cho status (ACTIVE, SOLD, CANCELLED)
-    private String status;
+    private String status; // ACTIVE, SOLD, CANCELLED
 
-    // [FIX] Thêm trường này để phân loại tiền tệ (GOLD/ECHO)
     @Builder.Default
     @Column(name = "currency_type")
     private String currencyType = "GOLD";
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
-
-    // Trường ảo để tránh lỗi code cũ nếu lỡ gọi
-    @Transient
-    private Integer enhanceLevel;
 
     @PrePersist
     protected void onCreate() {

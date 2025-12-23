@@ -336,194 +336,210 @@ CREATE TABLE pvp_matches
 
 Use echommo_db;
 -- 1. Bảng Users
-CREATE TABLE IF NOT EXISTS users (
-                                     user_id SERIAL PRIMARY KEY,
-                                     username VARCHAR(50) UNIQUE NOT NULL,
-                                     password VARCHAR(255) NOT NULL,
-                                     email VARCHAR(100),
-                                     role VARCHAR(20) DEFAULT 'USER',
-                                     is_locked BOOLEAN DEFAULT FALSE,
-                                     lock_reason TEXT,
-                                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS users
+(
+    user_id     SERIAL PRIMARY KEY,
+    username    VARCHAR(50) UNIQUE NOT NULL,
+    password    VARCHAR(255)       NOT NULL,
+    email       VARCHAR(100),
+    role        VARCHAR(20) DEFAULT 'USER',
+    is_locked   BOOLEAN     DEFAULT FALSE,
+    lock_reason TEXT,
+    created_at  TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. Bảng Characters
-CREATE TABLE IF NOT EXISTS characters (
-                                          char_id SERIAL PRIMARY KEY,
-                                          user_id INT UNIQUE NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-                                          name VARCHAR(50) UNIQUE NOT NULL,
-                                          level INT DEFAULT 1,
-                                          current_exp BIGINT DEFAULT 0,
-                                          character_class VARCHAR(50) DEFAULT 'Nhà Thám Hiểm',
-                                          status VARCHAR(20) DEFAULT 'IDLE',
+CREATE TABLE IF NOT EXISTS characters
+(
+    char_id                    SERIAL PRIMARY KEY,
+    user_id                    INT UNIQUE         NOT NULL REFERENCES users (user_id) ON DELETE CASCADE,
+    name                       VARCHAR(50) UNIQUE NOT NULL,
+    level                      INT          DEFAULT 1,
+    current_exp                BIGINT       DEFAULT 0,
+    character_class            VARCHAR(50)  DEFAULT 'Nhà Thám Hiểm',
+    status                     VARCHAR(20)  DEFAULT 'IDLE',
 
     -- Stats
-                                          stat_points INT DEFAULT 0,
-                                          str INT DEFAULT 5,
-                                          vit INT DEFAULT 5,
-                                          agi INT DEFAULT 5,
-                                          dex INT DEFAULT 5,
-                                          intelligence INT DEFAULT 5,
-                                          luck INT DEFAULT 5,
+    stat_points                INT          DEFAULT 0,
+    str                        INT          DEFAULT 5,
+    vit                        INT          DEFAULT 5,
+    agi                        INT          DEFAULT 5,
+    dex                        INT          DEFAULT 5,
+    intelligence               INT          DEFAULT 5,
+    luck                       INT          DEFAULT 5,
 
-                                          current_hp INT DEFAULT 100,
-                                          max_hp INT DEFAULT 100,
-                                          current_energy INT DEFAULT 50,
-                                          max_energy INT DEFAULT 50,
-                                          base_atk INT DEFAULT 10,
-                                          base_def INT DEFAULT 2,
-                                          base_speed INT DEFAULT 10,
-                                          base_crit_rate INT DEFAULT 50,
-                                          base_crit_dmg INT DEFAULT 1500,
+    current_hp                 INT          DEFAULT 100,
+    max_hp                     INT          DEFAULT 100,
+    current_energy             INT          DEFAULT 50,
+    max_energy                 INT          DEFAULT 50,
+    base_atk                   INT          DEFAULT 10,
+    base_def                   INT          DEFAULT 2,
+    base_speed                 INT          DEFAULT 10,
+    base_crit_rate             INT          DEFAULT 50,
+    base_crit_dmg              INT          DEFAULT 1500,
 
-                                          current_map_id VARCHAR(20) DEFAULT 'MAP_01',
-                                          current_location VARCHAR(100) DEFAULT 'Làng Tân Thủ',
-                                          monster_kills INT DEFAULT 0,
+    current_map_id             VARCHAR(20)  DEFAULT 'MAP_01',
+    current_location           VARCHAR(100) DEFAULT 'Làng Tân Thủ',
+    monster_kills              INT          DEFAULT 0,
 
     -- Gathering
-                                          gathering_item_id INT,
-                                          gathering_remaining_amount INT DEFAULT 0,
-                                          gathering_expiry TIMESTAMP,
+    gathering_item_id          INT,
+    gathering_remaining_amount INT          DEFAULT 0,
+    gathering_expiry           TIMESTAMP,
 
     -- Spa
-                                          spa_start_time TIMESTAMP,
-                                          spa_end_time TIMESTAMP,
-                                          spa_package_type VARCHAR(20),
+    spa_start_time             TIMESTAMP,
+    spa_end_time               TIMESTAMP,
+    spa_package_type           VARCHAR(20),
 
-                                          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                          last_active TIMESTAMP
+    created_at                 TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    last_active                TIMESTAMP
 );
 
 -- 3. Bảng Wallet (Cập nhật Echo Coin Decimal)
-CREATE TABLE IF NOT EXISTS wallets (
-                                       wallet_id SERIAL PRIMARY KEY,
-                                       user_id INT UNIQUE NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
-                                       gold DECIMAL(20, 2) DEFAULT 0,
+CREATE TABLE IF NOT EXISTS wallets
+(
+    wallet_id        SERIAL PRIMARY KEY,
+    user_id          INT UNIQUE NOT NULL REFERENCES users (user_id) ON DELETE CASCADE,
+    gold             DECIMAL(20, 2) DEFAULT 0,
 
     -- [NEW] Echo Coin hỗ trợ 4 số lẻ (ví dụ: 0.0015)
-                                       echo_coin DECIMAL(20, 4) DEFAULT 0,
+    echo_coin        DECIMAL(20, 4) DEFAULT 0,
 
     -- Storage
-                                       wood INT DEFAULT 0,
-                                       dried_wood INT DEFAULT 0,
-                                       cold_wood INT DEFAULT 0,
-                                       strange_wood INT DEFAULT 0, -- Gỗ Lạ/Đen
+    wood             INT            DEFAULT 0,
+    dried_wood       INT            DEFAULT 0,
+    cold_wood        INT            DEFAULT 0,
+    strange_wood     INT            DEFAULT 0, -- Gỗ Lạ/Đen
 
-                                       stone INT DEFAULT 0, -- Than/Đá
-                                       copper_ore INT DEFAULT 0,
-                                       iron_ore INT DEFAULT 0,
-                                       platinum INT DEFAULT 0,
+    stone            INT            DEFAULT 0, -- Than/Đá
+    copper_ore       INT            DEFAULT 0,
+    iron_ore         INT            DEFAULT 0,
+    platinum         INT            DEFAULT 0,
 
-                                       fish INT DEFAULT 0,
-                                       shark INT DEFAULT 0,
+    fish             INT            DEFAULT 0,
+    shark            INT            DEFAULT 0,
 
-                                       unknown_material INT DEFAULT 0
+    unknown_material INT            DEFAULT 0
 );
 
 -- 4. Bảng Items (Định nghĩa vật phẩm)
-CREATE TABLE IF NOT EXISTS items (
-                                     item_id SERIAL PRIMARY KEY,
-                                     name VARCHAR(100) NOT NULL,
-                                     type VARCHAR(20) NOT NULL, -- WEAPON, ARMOR, MATERIAL, CONSUMABLE
-                                     rarity VARCHAR(20) DEFAULT 'COMMON',
-                                     description TEXT,
-                                     image_path VARCHAR(255), -- Đường dẫn ảnh gốc
-                                     slot_type VARCHAR(20),
-                                     tier INT DEFAULT 1,
-                                     base_stats TEXT, -- JSON base stats range
-                                     is_tradable BOOLEAN DEFAULT TRUE
+CREATE TABLE IF NOT EXISTS items
+(
+    item_id     SERIAL PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,
+    type        VARCHAR(20)  NOT NULL, -- WEAPON, ARMOR, MATERIAL, CONSUMABLE
+    rarity      VARCHAR(20) DEFAULT 'COMMON',
+    description TEXT,
+    image_path  VARCHAR(255),          -- Đường dẫn ảnh gốc
+    slot_type   VARCHAR(20),
+    tier        INT         DEFAULT 1,
+    base_stats  TEXT,                  -- JSON base stats range
+    is_tradable BOOLEAN     DEFAULT TRUE
 );
 
 -- 5. Bảng User Items (Túi đồ)
-CREATE TABLE IF NOT EXISTS user_items (
-                                          user_item_id SERIAL PRIMARY KEY,
-                                          char_id INT NOT NULL REFERENCES characters(char_id) ON DELETE CASCADE,
-                                          item_id INT NOT NULL REFERENCES items(item_id),
+CREATE TABLE IF NOT EXISTS user_items
+(
+    user_item_id             SERIAL PRIMARY KEY,
+    char_id                  INT NOT NULL REFERENCES characters (char_id) ON DELETE CASCADE,
+    item_id                  INT NOT NULL REFERENCES items (item_id),
 
-                                          is_equipped BOOLEAN DEFAULT FALSE,
-                                          quantity INT DEFAULT 1,
-                                          acquired_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_equipped              BOOLEAN   DEFAULT FALSE,
+    quantity                 INT       DEFAULT 1,
+    acquired_at              TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     -- Cường hóa & Chỉ số riêng
-                                          enhance_level INT DEFAULT 0,
-                                          rarity VARCHAR(20),
-                                          main_stat_type VARCHAR(50),
-                                          main_stat_value DECIMAL(10, 2),
-                                          sub_stats TEXT, -- JSON array
+    enhance_level            INT       DEFAULT 0,
+    rarity                   VARCHAR(20),
+    main_stat_type           VARCHAR(50),
+    main_stat_value          DECIMAL(10, 2),
+    sub_stats                TEXT, -- JSON array
 
-                                          is_mythic BOOLEAN DEFAULT FALSE,
-                                          mythic_level INT DEFAULT 0,
-                                          original_main_stat_value DECIMAL(10, 2),
+    is_mythic                BOOLEAN   DEFAULT FALSE,
+    mythic_level             INT       DEFAULT 0,
+    original_main_stat_value DECIMAL(10, 2),
 
     -- [NEW] Biến thể hình ảnh (0-4)
-                                          visual_variant INT DEFAULT 0
+    visual_variant           INT       DEFAULT 0
 );
 
 -- Các bảng phụ khác (giữ nguyên)
-CREATE TABLE IF NOT EXISTS enemies (
-                                       enemy_id SERIAL PRIMARY KEY,
-                                       name VARCHAR(100) NOT NULL,
-                                       level INT DEFAULT 1,
-                                       hp INT DEFAULT 100,
-                                       atk INT DEFAULT 10,
-                                       def INT DEFAULT 5,
-                                       speed INT DEFAULT 10,
-                                       exp_reward INT DEFAULT 10,
-                                       gold_reward DECIMAL(10, 2) DEFAULT 0,
-                                       image_path VARCHAR(255)
+CREATE TABLE IF NOT EXISTS enemies
+(
+    enemy_id    SERIAL PRIMARY KEY,
+    name        VARCHAR(100) NOT NULL,
+    level       INT            DEFAULT 1,
+    hp          INT            DEFAULT 100,
+    atk         INT            DEFAULT 10,
+    def         INT            DEFAULT 5,
+    speed       INT            DEFAULT 10,
+    exp_reward  INT            DEFAULT 10,
+    gold_reward DECIMAL(10, 2) DEFAULT 0,
+    image_path  VARCHAR(255)
 );
 
-CREATE TABLE IF NOT EXISTS battle_sessions (
-                                               session_id SERIAL PRIMARY KEY,
-                                               char_id INT UNIQUE NOT NULL REFERENCES characters(char_id) ON DELETE CASCADE,
-                                               enemy_id INT,
-                                               enemy_name VARCHAR(100),
-                                               enemy_max_hp INT,
-                                               enemy_current_hp INT,
-                                               enemy_atk INT,
-                                               enemy_def INT,
-                                               enemy_speed INT,
-                                               player_max_hp INT,
-                                               player_current_hp INT,
-                                               player_current_energy INT,
-                                               current_turn INT DEFAULT 0,
-                                               log TEXT,
-                                               status VARCHAR(20) DEFAULT 'ONGOING',
-                                               is_qte_active BOOLEAN DEFAULT FALSE,
-                                               qte_expiry_time TIMESTAMP,
-                                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS battle_sessions
+(
+    session_id            SERIAL PRIMARY KEY,
+    char_id               INT UNIQUE NOT NULL REFERENCES characters (char_id) ON DELETE CASCADE,
+    enemy_id              INT,
+    enemy_name            VARCHAR(100),
+    enemy_max_hp          INT,
+    enemy_current_hp      INT,
+    enemy_atk             INT,
+    enemy_def             INT,
+    enemy_speed           INT,
+    player_max_hp         INT,
+    player_current_hp     INT,
+    player_current_energy INT,
+    current_turn          INT         DEFAULT 0,
+    log                   TEXT,
+    status                VARCHAR(20) DEFAULT 'ONGOING',
+    is_qte_active         BOOLEAN     DEFAULT FALSE,
+    qte_expiry_time       TIMESTAMP,
+    created_at            TIMESTAMP   DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS market_listings (
-                                               listing_id SERIAL PRIMARY KEY,
-                                               seller_id INT NOT NULL REFERENCES users(user_id),
-                                               user_item_id INT NOT NULL REFERENCES user_items(user_item_id), -- Item cụ thể đang bán
-                                               price DECIMAL(20, 2) NOT NULL,
-                                               quantity INT DEFAULT 1,
-                                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                               status VARCHAR(20) DEFAULT 'ACTIVE'
+CREATE TABLE IF NOT EXISTS market_listings
+(
+    listing_id   SERIAL PRIMARY KEY,
+    seller_id    INT            NOT NULL REFERENCES users (user_id),
+    user_item_id INT            NOT NULL REFERENCES user_items (user_item_id), -- Item cụ thể đang bán
+    price        DECIMAL(20, 2) NOT NULL,
+    quantity     INT         DEFAULT 1,
+    created_at   TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
+    status       VARCHAR(20) DEFAULT 'ACTIVE'
 );
 
 
 -- 1. Bảng Users: Thêm giới hạn kho đồ
-ALTER TABLE users ADD COLUMN inventory_slots INT DEFAULT 50;
+ALTER TABLE users
+    ADD COLUMN inventory_slots INT DEFAULT 50;
 
 -- 2. Bảng Characters: Thêm chỉ số Nghề & Spa
-ALTER TABLE characters ADD COLUMN gathering_level INT DEFAULT 1;
-ALTER TABLE characters ADD COLUMN gathering_exp BIGINT DEFAULT 0;
-ALTER TABLE characters ADD COLUMN last_free_spa_use DATETIME NULL; -- Theo dõi lượt Spa free
+ALTER TABLE characters
+    ADD COLUMN gathering_level INT DEFAULT 1;
+ALTER TABLE characters
+    ADD COLUMN gathering_exp BIGINT DEFAULT 0;
+ALTER TABLE characters
+    ADD COLUMN last_free_spa_use DATETIME NULL;
+-- Theo dõi lượt Spa free
 
 -- 3. Bảng UserItems: Thêm Sao Mythic & Độ bền
-ALTER TABLE user_items ADD COLUMN mythic_stars INT DEFAULT 0;
-ALTER TABLE user_items ADD COLUMN current_durability INT DEFAULT 100;
-ALTER TABLE user_items ADD COLUMN max_durability INT DEFAULT 100;
+ALTER TABLE user_items
+    ADD COLUMN mythic_stars INT DEFAULT 0;
+ALTER TABLE user_items
+    ADD COLUMN current_durability INT DEFAULT 100;
+ALTER TABLE user_items
+    ADD COLUMN max_durability INT DEFAULT 100;
 
 -- 4. Bảng Items: Thêm loại công cụ & cấp độ yêu cầu (nếu chưa có)
 -- (Nếu bạn dùng cột 'type' và 'tier' có sẵn thì không cần thêm, chỉ cần data seed chuẩn)
 
 -- Cập nhật ENUM cho bảng items để chấp nhận các Tool mới
 ALTER TABLE items
-    MODIFY COLUMN slot_type ENUM(
+    MODIFY COLUMN slot_type ENUM (
         'NONE',
         'WEAPON',
         'ARMOR',
@@ -543,17 +559,72 @@ SET SQL_SAFE_UPDATES = 0;
 
 -- Thêm các cột chỉ số mới
 ALTER TABLE items
-    ADD COLUMN max_durability INT DEFAULT 100 COMMENT 'Độ bền tối đa',
-    ADD COLUMN min_luck INT DEFAULT 0 COMMENT 'May mắn tối thiểu (Random)',
-    ADD COLUMN max_luck INT DEFAULT 0 COMMENT 'May mắn tối đa (Random)',
+    ADD COLUMN max_durability     INT    DEFAULT 100 COMMENT 'Độ bền tối đa',
+    ADD COLUMN min_luck           INT    DEFAULT 0 COMMENT 'May mắn tối thiểu (Random)',
+    ADD COLUMN max_luck           INT    DEFAULT 0 COMMENT 'May mắn tối đa (Random)',
     ADD COLUMN energy_save_chance DOUBLE DEFAULT 0.0 COMMENT 'Tỷ lệ không tốn Energy (0.01 = 1%)';
 
 SET SQL_SAFE_UPDATES = 1;
 
-ALTER TABLE items ADD COLUMN is_limited BOOLEAN DEFAULT FALSE;
+ALTER TABLE items
+    ADD COLUMN is_limited BOOLEAN DEFAULT FALSE;
 
 -- Thêm cột theo dõi số lần dùng Spa thường trong ngày
-ALTER TABLE characters ADD COLUMN daily_spa_usage INT DEFAULT 0;
+ALTER TABLE characters
+    ADD COLUMN daily_spa_usage INT DEFAULT 0;
 
 -- Thêm cột lưu ngày cuối cùng sử dụng Spa (để reset daily)
-ALTER TABLE characters ADD COLUMN last_spa_date DATE DEFAULT NULL;
+ALTER TABLE characters
+    ADD COLUMN last_spa_date DATE DEFAULT NULL;
+
+-- 1. Bảng lưu Giftcode
+CREATE TABLE IF NOT EXISTS gift_codes
+(
+    code            VARCHAR(50) PRIMARY KEY,
+    type            VARCHAR(20) NOT NULL DEFAULT 'NORMAL', -- 'NORMAL' hoặc 'DEV_TOOL'
+    gold_reward     BIGINT               DEFAULT 0,
+    coin_reward     BIGINT               DEFAULT 0,
+    max_usages      INT                  DEFAULT 1,        -- Số lần nhập tối đa của mã
+    expiration_date DATETIME,
+    is_active       BOOLEAN              DEFAULT TRUE
+);
+
+-- 2. Bảng lưu lịch sử nhập (để chặn 1 người nhập 2 lần)
+CREATE TABLE IF NOT EXISTS gift_code_usage
+(
+    id      BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT         NOT NULL,
+    code    VARCHAR(50) NOT NULL,
+    used_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users (user_id),
+    FOREIGN KEY (code) REFERENCES gift_codes (code)
+);
+
+USE echommo_db;
+
+-- 1. Thêm cột version (Bắt buộc để sửa lỗi Optimistic Locking trong code Java mới)
+ALTER TABLE characters ADD COLUMN version BIGINT DEFAULT 0;
+
+-- 2. Thêm các cột cho hệ thống Danh Vọng (Reputation)
+ALTER TABLE characters ADD COLUMN win_streak INT DEFAULT 0;
+ALTER TABLE characters ADD COLUMN lose_streak INT DEFAULT 0;
+ALTER TABLE characters ADD COLUMN rank_title VARCHAR(50) DEFAULT 'Vô Danh';
+
+-- 3. Xử lý điểm PvP cũ -> Thành Danh Vọng
+-- Lệnh này đổi tên cột 'pvp_points' thành 'reputation' để giữ lại điểm cũ
+-- Nếu bảng cũ ông chưa có cột pvp_points thì đổi lệnh này thành: ADD COLUMN reputation INT DEFAULT 0;
+ALTER TABLE characters CHANGE COLUMN pvp_points reputation INT DEFAULT 0;
+
+-- 4. Thêm Index tìm kiếm nhanh (cho mượt game)
+CREATE INDEX idx_char_reputation ON characters(reputation);
+
+-- 1. Thêm cột độ bền (nếu chưa có)
+ALTER TABLE user_items ADD COLUMN IF NOT EXISTS current_durability INT DEFAULT 100;
+ALTER TABLE user_items ADD COLUMN IF NOT EXISTS max_durability INT DEFAULT 100;
+
+-- 2. Xóa các vật phẩm "ma" (Ghost Items) - tham chiếu đến item ID không còn tồn tại
+DELETE FROM user_items WHERE item_id NOT IN (SELECT item_id FROM items);
+
+-- 3. Đảm bảo dữ liệu cũ không bị NULL
+UPDATE user_items SET current_durability = 100 WHERE current_durability IS NULL;
+UPDATE user_items SET max_durability = 100 WHERE max_durability IS NULL;

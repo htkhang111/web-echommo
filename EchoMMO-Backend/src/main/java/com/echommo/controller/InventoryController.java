@@ -56,7 +56,7 @@ public class InventoryController {
 
     @PostMapping("/equip/{userItemId}")
     @Transactional
-    public ResponseEntity<?> equipItem(@PathVariable Long userItemId) {
+    public ResponseEntity<?> equipItem(@PathVariable Integer userItemId) { // [FIX] Integer
         try {
             Character character = getCurrentCharacter();
             UserItem newItem = userItemRepo.findById(userItemId)
@@ -89,7 +89,7 @@ public class InventoryController {
 
     @PostMapping("/unequip/{userItemId}")
     @Transactional
-    public ResponseEntity<?> unequipItem(@PathVariable Long userItemId) {
+    public ResponseEntity<?> unequipItem(@PathVariable Integer userItemId) { // [FIX] Integer
         try {
             Character character = getCurrentCharacter();
             UserItem item = userItemRepo.findById(userItemId)
@@ -109,7 +109,7 @@ public class InventoryController {
 
     @PostMapping("/use/{userItemId}")
     @Transactional
-    public ResponseEntity<?> useItem(@PathVariable Long userItemId) {
+    public ResponseEntity<?> useItem(@PathVariable Integer userItemId) { // [FIX] Integer
         try {
             Character character = getCurrentCharacter();
             UserItem uItem = userItemRepo.findById(userItemId)
@@ -139,10 +139,9 @@ public class InventoryController {
         }
     }
 
-    // [NEW] API SỬA ĐỒ
     @PostMapping("/repair/{userItemId}")
     @Transactional
-    public ResponseEntity<?> repairItem(@PathVariable Long userItemId, Authentication auth) {
+    public ResponseEntity<?> repairItem(@PathVariable Integer userItemId, Authentication auth) { // [FIX] Integer
         User user = userService.getUserFromAuth(auth);
         try {
             UserItem repairedItem = inventoryService.repairItem(user, userItemId);

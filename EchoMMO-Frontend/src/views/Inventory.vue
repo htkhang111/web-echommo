@@ -128,7 +128,7 @@
           </div>
 
           <div class="stats-box">
-            <div v-if="selectedItem.mainStatValue > 0" class="stat-row main-stat">
+             <div v-if="selectedItem.mainStatValue > 0" class="stat-row main-stat">
               <span class="stat-label">
                 <i class="fas fa-khanda"></i> 
                 {{ getStatLabel(selectedItem.mainStatType, selectedItem.item.type) }}
@@ -187,7 +187,7 @@
             </button>
 
             <button v-if="!selectedItem.isEquipped" class="btn-action btn-sell" @click="openSellModal(selectedItem)">
-                <span><i class="fas fa-coins"></i> Treo Bán</span>
+                <span><i class="fas fa-coins"></i> Bán Shop</span>
             </button>
           </div>
         </div>
@@ -203,7 +203,7 @@
       <div v-if="showSellModal" class="modal-overlay">
         <div class="modal-content wood-panel">
           <div class="modal-header">
-            <h3>ĐỊNH GIÁ BÁN</h3>
+            <h3>BÁN VẬT PHẨM</h3>
             <button class="close-btn" @click="showSellModal = false"><i class="fas fa-times"></i></button>
           </div>
           
@@ -224,26 +224,30 @@
             </div>
 
             <div class="input-group">
-                <label>Đơn giá (Vàng):</label>
-                <input type="number" v-model.number="sellForm.price" min="1" placeholder="Nhập giá mong muốn..." />
+                <label>Đơn giá thu mua (Vàng):</label>
+                <div class="fixed-price-display">
+                    {{ formatNumber(sellItemData?.item.basePrice ? Math.ceil(sellItemData.item.basePrice * 0.5) : 0) }} 
+                    <i class="fas fa-coins gold-icon"></i>
+                </div>
             </div>
 
             <div class="price-summary">
-                <p>Tổng thu về: <span class="highlight-gold">{{ formatNumber(sellForm.price * sellForm.quantity) }}</span> <i class="fas fa-coins"></i></p>
+                <p>Tổng thu về: <span class="highlight-gold">{{ formatNumber((sellItemData?.item.basePrice ? Math.ceil(sellItemData.item.basePrice * 0.5) : 0) * sellForm.quantity) }}</span> <i class="fas fa-coins"></i></p>
+                <small class="hint-text">(Giá bán lại = 50% giá gốc)</small>
             </div>
           </div>
 
           <div class="modal-actions">
             <button class="btn-modal btn-cancel" @click="showSellModal = false">Hủy</button>
             <button class="btn-modal btn-confirm-sell" @click="confirmSell">
-                <i class="fas fa-gavel"></i> Đăng Bán
+                <i class="fas fa-check"></i> Xác Nhận Bán
             </button>
           </div>
         </div>
       </div>
     </transition>
 
-    <GameToast ref="toast" />
+    <GameToast />
   </div>
 </template>
 
@@ -251,14 +255,14 @@
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import { useAuthStore } from '@/stores/authStore';
-import { useMarketStore } from '@/stores/marketStore'; 
+import { useMarketStore } from '@/stores/marketStore';
+import { useNotificationStore } from '@/stores/notificationStore'; // [FIX] Import Store
 import { resolveItemImage } from '@/utils/assetHelper';
 import GameToast from '@/components/GameToast.vue';
 
 // --- CONFIG ---
 const ITEM_HEIGHT = 50; 
-// Giảm số lượng item hiển thị trong wheel để ngắn lại
-const VISIBLE_COUNT = 5; // Trước là 9
+const VISIBLE_COUNT = 5; 
 const scrollY = ref(0);
 const wheelContainer = ref(null);
 
@@ -273,8 +277,8 @@ let targetScrollY = null;
 
 const inventoryStore = useInventoryStore();
 const authStore = useAuthStore();
-const marketStore = useMarketStore(); 
-const toast = ref(null);
+const marketStore = useMarketStore();
+const notificationStore = useNotificationStore(); // [FIX] Init Store
 
 const currentTab = ref('ALL');
 const selectedItem = ref(null);
@@ -332,7 +336,7 @@ const renderedItems = computed(() => {
     const total = items.length;
     if (total === 0) return [];
 
-    const containerHeight = 250; // Hardcode chiều cao mới
+    const containerHeight = 250;
     const centerY = containerHeight / 2;
 
     const result = [];
@@ -353,7 +357,7 @@ const renderedItems = computed(() => {
         let zIndex = 10;
         let blurAmount = 0;
 
-        if (distSlots <= 2.5) { // Giảm range hiển thị
+        if (distSlots <= 2.5) { 
             if (distSlots < 0.5) {
                 scale = 1.05;
                 opacity = 1;
@@ -480,16 +484,114 @@ const getStatLabel = (mainStatType, itemType) => {
     return "Sức Mạnh";
 };
 const canEquip = (uItem) => ['WEAPON', 'ARMOR', 'HELMET', 'BOOTS', 'RING', 'NECKLACE', 'TOOL'].includes(uItem.item.type);
-const handleEquip = async () => { if (!selectedItem.value) return; try { if (selectedItem.value.isEquipped) { await inventoryStore.unequipItem(selectedItem.value.userItemId); toast.value?.show("Đã tháo trang bị!", "success"); } else { await inventoryStore.equipItem(selectedItem.value.userItemId); toast.value?.show("Đã trang bị thành công!", "success"); } const fresh = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId); if(fresh) selectedItem.value = fresh; } catch (err) { toast.value?.show(err, "error"); } };
-const handleUse = async () => { if(!selectedItem.value) return; try { const msg = await inventoryStore.useItem(selectedItem.value.userItemId); toast.value?.show(msg, "success"); } catch(e) { toast.value?.show(e, "error"); } };
-const openSellModal = (item) => { if(item.isEquipped) { toast.value?.show("Phải gỡ trang bị mới được bán!", "error"); return; } sellItemData.value = item; sellForm.value = { price: item.item.basePrice ? Math.ceil(item.item.basePrice * 1.5) : 100, quantity: 1 }; showSellModal.value = true; };
-const confirmSell = async () => { if(!sellItemData.value) return; if(sellForm.value.price <= 0) { toast.value?.show("Giá bán phải lớn hơn 0!", "error"); return; } if(sellForm.value.quantity > sellItemData.value.quantity) { toast.value?.show("Không đủ số lượng!", "error"); return; } try { await marketStore.createListing(sellItemData.value.userItemId, sellForm.value.price, sellForm.value.quantity); toast.value?.show("Đã treo bán thành công!", "success"); showSellModal.value = false; await inventoryStore.fetchInventory(); selectedItem.value = null; } catch (e) { toast.value?.show(typeof e === 'string' ? e : "Lỗi khi đăng bán", "error"); } };
-const expandSlots = async () => { const currentSlots = authStore.user?.inventorySlots || 49; if (currentSlots >= 210) { toast.value?.show("Đã đạt giới hạn tối đa!", "error"); return; } const cost = Math.floor((currentSlots - 49) / 7) + 1; if(!confirm(`Mở rộng thêm 7 ô chứa?\nChi phí: ${cost} Echo Coin`)) return; if (authStore.wallet.echoCoin < cost) { toast.value?.show(`Thiếu Echo Coin! Cần ${cost}.`, "error"); return; } try { const msg = await inventoryStore.expandInventory(); toast.value?.show(msg || "Mở rộng thành công!", "success"); } catch (e) { toast.value?.show(typeof e === 'string' ? e : "Lỗi", "error"); } };
+
+// [FIX] Dùng notificationStore thay vì toast.value?.show
+const handleEquip = async () => { 
+    if (!selectedItem.value) return; 
+    try { 
+        if (selectedItem.value.isEquipped) { 
+            await inventoryStore.unequipItem(selectedItem.value.userItemId); 
+            notificationStore.showToast("Đã tháo trang bị!", "success"); 
+        } else { 
+            await inventoryStore.equipItem(selectedItem.value.userItemId); 
+            notificationStore.showToast("Đã trang bị thành công!", "success"); 
+        } 
+        const fresh = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId); 
+        if(fresh) selectedItem.value = fresh; 
+    } catch (err) { 
+        notificationStore.showToast(err, "error"); 
+    } 
+};
+
+const handleUse = async () => { 
+    if(!selectedItem.value) return; 
+    try { 
+        const msg = await inventoryStore.useItem(selectedItem.value.userItemId); 
+        notificationStore.showToast(msg, "success"); 
+    } catch(e) { 
+        notificationStore.showToast(e, "error"); 
+    } 
+};
+
+// [FIX] Logic mở modal bán hàng (Bán Shop)
+const openSellModal = (item) => { 
+    if(item.isEquipped) { 
+        notificationStore.showToast("Phải gỡ trang bị mới được bán!", "error"); 
+        return; 
+    } 
+    sellItemData.value = item; 
+    // Giá mặc định là 50% giá gốc, số lượng 1
+    sellForm.value = { quantity: 1 }; 
+    showSellModal.value = true; 
+};
+
+// [FIX] Logic xác nhận bán (gọi marketStore.sellItem - Bán shop)
+const confirmSell = async () => { 
+    if(!sellItemData.value) return; 
+    
+    if(sellForm.value.quantity > sellItemData.value.quantity) { 
+        notificationStore.showToast("Không đủ số lượng!", "error"); 
+        return; 
+    } 
+    
+    try { 
+        // [FIX] Gọi API sellItem (Bán Shop)
+        const result = await marketStore.sellItem(sellItemData.value.userItemId, sellForm.value.quantity);
+        
+        // [FIX] Hiển thị message từ server
+        notificationStore.showToast(result.message || "Đã bán thành công!", "success"); 
+        
+        showSellModal.value = false; 
+        
+        // Cập nhật lại UI sau khi bán
+        await inventoryStore.fetchInventory(); 
+        selectedItem.value = null; 
+    } catch (e) { 
+        notificationStore.showToast(typeof e === 'string' ? e : "Lỗi khi bán vật phẩm", "error"); 
+    } 
+};
+
+const expandSlots = async () => { 
+    const currentSlots = authStore.user?.inventorySlots || 49; 
+    if (currentSlots >= 210) { 
+        notificationStore.showToast("Đã đạt giới hạn tối đa!", "error"); 
+        return; 
+    } 
+    const cost = Math.floor((currentSlots - 49) / 7) + 1; 
+    if(!confirm(`Mở rộng thêm 7 ô chứa?\nChi phí: ${cost} Echo Coin`)) return; 
+    if (authStore.wallet.echoCoin < cost) { 
+        notificationStore.showToast(`Thiếu Echo Coin! Cần ${cost}.`, "error"); 
+        return; 
+    } 
+    try { 
+        const msg = await inventoryStore.expandInventory(); 
+        notificationStore.showToast(msg || "Mở rộng thành công!", "success"); 
+    } catch (e) { 
+        notificationStore.showToast(typeof e === 'string' ? e : "Lỗi", "error"); 
+    } 
+};
+
 const getDurabilityPercent = (uItem) => (!uItem.maxDurability) ? 100 : Math.max(0, Math.min(100, (uItem.currentDurability / uItem.maxDurability) * 100));
 const getDurabilityColorClass = (uItem) => { const pct = getDurabilityPercent(uItem); return pct < 30 ? 'dur-low' : 'dur-high'; };
 const needsRepair = (uItem) => uItem.item.type === 'TOOL' && uItem.maxDurability && uItem.currentDurability < uItem.maxDurability;
 const getRepairCost = (uItem) => { if (!uItem.maxDurability || !uItem.currentDurability) return { gold: 0, coin: 0 }; const missing = uItem.maxDurability - uItem.currentDurability; if (missing <= 0) return { gold: 0, coin: 0 }; let goldPerPoint = 10; let coinPerPoint = 0; const rarity = uItem.isMythic ? 'MYTHIC' : (uItem.item.rarity || 'COMMON'); switch (rarity) { case 'COMMON': case 'UNCOMMON': goldPerPoint = 10; break; case 'RARE': goldPerPoint = 50; break; case 'EPIC': goldPerPoint = 200; coinPerPoint = 0.1; break; case 'LEGENDARY': case 'MYTHIC': goldPerPoint = 1000; coinPerPoint = 1.0; break; default: goldPerPoint = 10; } return { gold: missing * goldPerPoint, coin: parseFloat((missing * coinPerPoint).toFixed(1)) }; };
-const handleRepair = async () => { if (!selectedItem.value) return; const cost = getRepairCost(selectedItem.value); let confirmMsg = `Sửa chữa vật phẩm này?\nChi phí: ${formatNumber(cost.gold)} Vàng`; if (cost.coin > 0) confirmMsg += ` + ${cost.coin} Echo Coin`; if(!confirm(confirmMsg)) return; try { await inventoryStore.repairItem(selectedItem.value.userItemId); toast.value?.show("Đã sửa thành công!", "success"); const fresh = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId); if(fresh) selectedItem.value = fresh; } catch(e) { toast.value?.show(e, "error"); } };
+
+const handleRepair = async () => { 
+    if (!selectedItem.value) return; 
+    const cost = getRepairCost(selectedItem.value); 
+    let confirmMsg = `Sửa chữa vật phẩm này?\nChi phí: ${formatNumber(cost.gold)} Vàng`; 
+    if (cost.coin > 0) confirmMsg += ` + ${cost.coin} Echo Coin`; 
+    if(!confirm(confirmMsg)) return; 
+    try { 
+        await inventoryStore.repairItem(selectedItem.value.userItemId); 
+        notificationStore.showToast("Đã sửa thành công!", "success"); 
+        const fresh = inventoryStore.items.find(i => i.userItemId === selectedItem.value.userItemId); 
+        if(fresh) selectedItem.value = fresh; 
+    } catch(e) { 
+        notificationStore.showToast(e, "error"); 
+    } 
+};
+
 const getRarityClass = (item) => item.isMythic ? "mythic" : (item.item.rarity ? item.item.rarity.toLowerCase() : "common");
 const formatNumber = (num) => new Intl.NumberFormat().format(num || 0);
 
@@ -498,7 +600,8 @@ onUnmounted(() => { cancelAnimationFrame(animationFrameId); window.removeEventLi
 </script>
 
 <style scoped>
-/* --- BASE THEME (WUXIA) --- */
+/* (Giữ nguyên CSS cũ và thêm/sửa một chút cho Modal Bán Shop) */
+/* ... (Code CSS cũ) ... */
 .wuxia-theme {
   background-color: #050505;
   background-image: radial-gradient(circle at 50% 30%, #1a100d 0%, #000000 90%);
@@ -521,7 +624,7 @@ onUnmounted(() => { cancelAnimationFrame(animationFrameId); window.removeEventLi
   gap: 20px; max-width: 1100px; margin: 0 auto; height: 85vh;
 }
 
-/* --- WOOD PANEL (Replaced Glass Panel) --- */
+/* --- WOOD PANEL --- */
 .wood-panel {
   background: linear-gradient(135deg, rgba(45, 30, 25, 0.95), rgba(30, 20, 15, 0.98));
   border: 1px solid #6d4c41;
@@ -560,13 +663,13 @@ onUnmounted(() => { cancelAnimationFrame(animationFrameId); window.removeEventLi
 }
 .filter-tabs button.active { background: #3e2723; color: #ffd700; font-weight: bold; border: 1px solid #5d4037; }
 
-/* --- WHEEL VIEW (COMPACT) --- */
+/* --- WHEEL VIEW --- */
 .wheel-wrapper { flex: 1; display: flex; justify-content: center; align-items: center; overflow: hidden; }
 .infinite-wheel-container {
     width: 100%; position: relative; overflow: hidden;
     background: radial-gradient(circle at center, rgba(62, 39, 35, 0.4) 0%, transparent 80%);
     cursor: grab;
-    height: 250px; /* Chiều cao ngắn lại */
+    height: 250px; 
     mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
     -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 20%, black 80%, transparent 100%);
 }
@@ -618,10 +721,10 @@ onUnmounted(() => { cancelAnimationFrame(animationFrameId); window.removeEventLi
 
 .empty-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #5d4037; opacity: 0.5; font-style: italic; }
 
-/* --- GRID VIEW (COMPACT) --- */
+/* --- GRID VIEW --- */
 .grid-view-container { flex: 1; padding: 10px; overflow-y: auto; }
 .inv-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); /* Nhỏ hơn */
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); 
     gap: 6px; align-content: start;
 }
 .item-slot {
@@ -694,7 +797,10 @@ onUnmounted(() => { cancelAnimationFrame(animationFrameId); window.removeEventLi
 .modal-body { padding: 15px; }
 .input-group label { color: #d7ccc8; font-size: 0.9rem; }
 .input-group input { width: 100%; background: #261815; border: 1px solid #5d4037; color: #fff; padding: 8px; font-family: inherit; }
+.fixed-price-display { background: #1a100d; border: 1px dashed #5d4037; padding: 8px; text-align: right; color: #e0e0e0; font-weight: bold; }
+.gold-icon { color: #ffd700; margin-left: 4px; }
 .highlight-gold { color: #ffd700; font-weight: bold; }
+.hint-text { color: #8d6e63; font-size: 0.75rem; margin-top: 5px; display: block; font-style: italic; }
 .modal-actions { padding: 15px; border-top: 1px solid #4e342e; display: flex; justify-content: flex-end; gap: 10px; background: rgba(0,0,0,0.2); }
 .btn-modal { padding: 8px 16px; border-radius: 4px; border: none; font-weight: bold; cursor: pointer; }
 .btn-cancel { background: transparent; color: #888; border: 1px solid #444; }
