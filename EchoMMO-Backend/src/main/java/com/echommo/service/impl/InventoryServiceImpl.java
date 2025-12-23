@@ -32,7 +32,6 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public List<UserItem> getInventory(Integer charId) {
-        // charId là Integer, Repository cũng nhận Integer (đã check), nên OK.
         return userItemRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(charId);
     }
 
@@ -42,10 +41,8 @@ public class InventoryServiceImpl implements InventoryService {
         Character character = charRepo.findById(charId)
                 .orElseThrow(() -> new RuntimeException("Character not found"));
 
-        // [FIX] Convert Integer -> Long
-        Long idLong = userItemId != null ? userItemId.longValue() : null;
-
-        UserItem newItem = userItemRepo.findById(idLong)
+        // [FIX] Dùng trực tiếp Integer
+        UserItem newItem = userItemRepo.findById(userItemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
         if (!newItem.getCharacter().getCharId().equals(charId)) {
@@ -97,11 +94,9 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public void unequipItem(Integer charId, Integer userItemId) {
-        // [FIX] Convert Integer -> Long
-        Long idLong = userItemId != null ? userItemId.longValue() : null;
-
+        // [FIX] Dùng trực tiếp Integer
         Character character = charRepo.findById(charId).orElseThrow();
-        UserItem item = userItemRepo.findById(idLong).orElseThrow();
+        UserItem item = userItemRepo.findById(userItemId).orElseThrow();
 
         if (!item.getCharacter().getCharId().equals(charId)) {
             throw new RuntimeException("Vật phẩm không thuộc về bạn!");
@@ -120,17 +115,14 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     @Transactional
     public UserItem enhanceItem(Integer charId, Integer userItemId) {
-        // [FIX] Gọi EquipmentService với Integer
         return equipmentService.enhanceItem(userItemId);
     }
 
     @Override
     @Transactional
     public UserItem repairItem(User user, Integer userItemId) {
-        // [FIX] Convert Integer -> Long
-        Long idLong = userItemId != null ? userItemId.longValue() : null;
-
-        UserItem userItem = userItemRepo.findById(idLong)
+        // [FIX] Dùng trực tiếp Integer
+        UserItem userItem = userItemRepo.findById(userItemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy vật phẩm!"));
 
         if (!userItem.getCharacter().getUser().getUserId().equals(user.getUserId())) {

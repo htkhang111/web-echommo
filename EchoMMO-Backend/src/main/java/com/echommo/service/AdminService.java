@@ -1,3 +1,5 @@
+// File: EchoMMO-Backend/src/main/java/com/echommo/service/AdminService.java
+
 package com.echommo.service;
 
 import com.echommo.entity.*;
@@ -169,19 +171,17 @@ public class AdminService {
     public Item createItem(Item item) { return itemRepository.save(item); }
 
     /**
-     * [FIXED] Xóa Item an toàn bằng cách xóa các ràng buộc khóa ngoại trước.
-     * Yêu cầu: UserItemRepository và MarketListingRepository phải có hàm deleteAllByItemId(Long itemId)
+     * [FIXED] Xử lý xóa vật phẩm với ID hỗn hợp (Integer/Long)
      */
     @Transactional
     public void deleteItem(Integer itemId) {
-        // Convert Integer sang Long để khớp với repository
-        Long idLong = itemId.longValue();
-
         // 1. Xóa vật phẩm này khỏi Chợ (Marketplace)
-        marketListingRepository.deleteAllByItemId(idLong);
+        // MarketListingRepository vẫn dùng Long cho itemId, nên cần ép kiểu
+        marketListingRepository.deleteAllByItemId(itemId.longValue());
 
         // 2. Xóa vật phẩm này khỏi Túi đồ của TẤT CẢ người chơi (UserItem)
-        userItemRepository.deleteAllByItemId(idLong);
+        // UserItemRepository đã được sửa để nhận Integer
+        userItemRepository.deleteAllByItemId(itemId);
 
         // 3. Cuối cùng mới xóa Item gốc
         if (itemRepository.existsById(itemId)) {

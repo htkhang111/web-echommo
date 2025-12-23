@@ -1,5 +1,3 @@
-// File: EchoMMO-Backend/src/main/java/com/echommo/controller/InventoryController.java
-
 package com.echommo.controller;
 
 import com.echommo.entity.Character;
@@ -56,17 +54,15 @@ public class InventoryController {
         }
     }
 
-    // [FIX] Nhận Integer -> Ép kiểu sang Long để gọi Repo
+    // [FIX] Dùng trực tiếp Integer userItemId
     @PostMapping("/equip/{userItemId}")
     @Transactional
     public ResponseEntity<?> equipItem(@PathVariable Integer userItemId) {
         try {
             Character character = getCurrentCharacter();
 
-            // [FIX] Casting here
-            Long idLong = userItemId != null ? userItemId.longValue() : null;
-
-            UserItem newItem = userItemRepo.findById(idLong)
+            // Truyền thẳng Integer userItemId vào Repository
+            UserItem newItem = userItemRepo.findById(userItemId)
                     .orElseThrow(() -> new RuntimeException("Item không tồn tại"));
 
             if (!newItem.getCharacter().getCharId().equals(character.getCharId())) {
@@ -94,17 +90,14 @@ public class InventoryController {
         }
     }
 
-    // [FIX] Nhận Integer -> Ép kiểu sang Long
+    // [FIX] Dùng trực tiếp Integer userItemId
     @PostMapping("/unequip/{userItemId}")
     @Transactional
     public ResponseEntity<?> unequipItem(@PathVariable Integer userItemId) {
         try {
             Character character = getCurrentCharacter();
 
-            // [FIX] Casting here
-            Long idLong = userItemId != null ? userItemId.longValue() : null;
-
-            UserItem item = userItemRepo.findById(idLong)
+            UserItem item = userItemRepo.findById(userItemId)
                     .orElseThrow(() -> new RuntimeException("Item không tồn tại"));
 
             if (!item.getCharacter().getCharId().equals(character.getCharId())) {
@@ -119,17 +112,14 @@ public class InventoryController {
         }
     }
 
-    // [FIX] Nhận Integer -> Ép kiểu sang Long
+    // [FIX] Dùng trực tiếp Integer userItemId
     @PostMapping("/use/{userItemId}")
     @Transactional
     public ResponseEntity<?> useItem(@PathVariable Integer userItemId) {
         try {
             Character character = getCurrentCharacter();
 
-            // [FIX] Casting here
-            Long idLong = userItemId != null ? userItemId.longValue() : null;
-
-            UserItem uItem = userItemRepo.findById(idLong)
+            UserItem uItem = userItemRepo.findById(userItemId)
                     .orElseThrow(() -> new RuntimeException("Item không tồn tại"));
 
             if (!uItem.getCharacter().getCharId().equals(character.getCharId())) {
@@ -161,7 +151,7 @@ public class InventoryController {
     public ResponseEntity<?> repairItem(@PathVariable Integer userItemId, Authentication auth) {
         User user = userService.getUserFromAuth(auth);
         try {
-            // Service đã sửa để nhận Integer, nên ở đây truyền thẳng
+            // Service đã được sửa để nhận Integer
             UserItem repairedItem = inventoryService.repairItem(user, userItemId);
             return ResponseEntity.ok("Sửa chữa thành công! Độ bền: " + repairedItem.getCurrentDurability());
         } catch (RuntimeException e) {

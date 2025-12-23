@@ -255,7 +255,7 @@ const appLogo = getAppLogo();
       </p>
     </div>
 
-    <GiftCodeModal ref="GiftModalRef" />
+    <GiftCodeModal ref="giftModalRef" />
   </footer>
 </template>
 

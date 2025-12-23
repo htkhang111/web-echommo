@@ -268,6 +268,8 @@
 //    }
 //}
 
+// File: EchoMMO-Backend/src/main/java/com/echommo/service/EquipmentService.java
+
 package com.echommo.service;
 
 import com.echommo.config.GameConstants;
@@ -303,11 +305,10 @@ public class EquipmentService {
     /**
      * Nâng cấp sao cho trang bị Mythic (Thần thoại)
      */
+    // [FIX] Nhận Integer và dùng trực tiếp
     @Transactional
     public UserItem enhanceMythicStars(Integer userItemId, Integer userId) {
-        Long idLong = userItemId != null ? userItemId.longValue() : null;
-
-        UserItem item = userItemRepo.findById(idLong)
+        UserItem item = userItemRepo.findById(userItemId)
                 .orElseThrow(() -> new RuntimeException("Trang bị không tồn tại!"));
 
         if (!item.getCharacter().getUser().getUserId().equals(userId)) {
@@ -328,7 +329,6 @@ public class EquipmentService {
         BigDecimal coinCost;
         int successRate;
 
-        // Bảng giá nâng cấp sao (Đồng bộ với FE)
         switch (nextStar) {
             case 1 -> { goldCost = 1_000_000; coinCost = BigDecimal.valueOf(1); successRate = 100; }
             case 2 -> { goldCost = 2_000_000; coinCost = BigDecimal.valueOf(2); successRate = 80; }
@@ -352,19 +352,16 @@ public class EquipmentService {
             throw new RuntimeException("Thiếu Echo Coin! Cần " + coinCost);
         }
 
-        // Trừ tài nguyên
         w.setGold(w.getGold().subtract(BigDecimal.valueOf(goldCost)));
         w.setEchoCoin(w.getEchoCoin().subtract(coinCost));
         walletRepo.save(w);
 
         UserItem savedItem;
-        // Tính tỷ lệ thành công
         if (random.nextInt(100) < successRate) {
             item.setMythicStars(nextStar);
             BigDecimal currentVal = item.getMainStatValue();
             if (currentVal == null) currentVal = BigDecimal.ZERO;
 
-            // Mỗi sao tăng 10% chỉ số hiện tại
             BigDecimal boost = currentVal.multiply(BigDecimal.valueOf(0.1));
             item.setMainStatValue(currentVal.add(boost));
             savedItem = userItemRepo.save(item);
@@ -373,7 +370,6 @@ public class EquipmentService {
                 characterService.recalculateStats(item.getCharacter());
             }
         } else {
-            // Thất bại thì không bị tụt cấp (giữ nguyên logic an toàn)
             throw new RuntimeException("Nâng cấp THẤT BẠI! Bạn mất tài nguyên nhưng trang bị vẫn an toàn.");
         }
         return savedItem;
@@ -382,11 +378,10 @@ public class EquipmentService {
     /**
      * Cường hóa trang bị thường (Enhance +1 -> +30)
      */
+    // [FIX] Nhận Integer và dùng trực tiếp
     @Transactional
     public UserItem enhanceItem(Integer userItemId) {
-        Long idLong = userItemId != null ? userItemId.longValue() : null;
-
-        UserItem item = userItemRepo.findById(idLong).orElseThrow(() -> new RuntimeException("Item not found"));
+        UserItem item = userItemRepo.findById(userItemId).orElseThrow(() -> new RuntimeException("Item not found"));
         if (Boolean.TRUE.equals(item.getIsMythic())) throw new RuntimeException("Trang bị Mythic phải dùng chức năng Nâng Cấp Sao!");
 
         int nextLv = item.getEnhanceLevel() + 1;
@@ -395,9 +390,7 @@ public class EquipmentService {
         Map<Integer, Integer> mats = new HashMap<>();
         int gold;
 
-        // --- Logic tính nguyên liệu (Đồng bộ với FE) ---
         if (nextLv <= 10) {
-            // Level 1-10: 1000 vàng/cấp
             gold = nextLv * 1000;
             int mainQty = nextLv * 15;
             int subQty = nextLv * 5;
@@ -405,15 +398,11 @@ public class EquipmentService {
             if (item.getItem().getSlotType() == SlotType.WEAPON) {
                 mats.put(GameConstants.MAT_ORE_COPPER, mainQty);
             } else {
-                // Armor dùng Than (Coal)
-                // LƯU Ý: Đảm bảo GameConstants.MAT_COAL map với ID item "Than" trong DB
-                // Nếu chưa có hằng số MAT_COAL, bạn hãy thêm vào file GameConstants
                 mats.put(GameConstants.MAT_COAL, mainQty);
             }
             mats.put(GameConstants.MAT_WOOD_OAK, subQty);
 
         } else if (nextLv <= 20) {
-            // Level 11-20: 3000 vàng/cấp
             gold = nextLv * 3000;
             int scale = nextLv - 10;
             int mainQty = scale * 15;
@@ -423,7 +412,6 @@ public class EquipmentService {
             mats.put(GameConstants.MAT_WOOD_DRIED, subQty);
 
         } else {
-            // Level 21-30: 10000 vàng/cấp
             gold = nextLv * 10000;
             int scale = nextLv - 20;
             int mainQty = scale * 20;
@@ -433,16 +421,12 @@ public class EquipmentService {
             mats.put(GameConstants.MAT_WOOD_COLD, subQty);
         }
 
-        // Kiểm tra và trừ tài nguyên
         checkAndConsumeResources(item, mats, gold);
 
-        // Update Level
         item.setEnhanceLevel(nextLv);
 
-        // Mỗi 3 cấp cộng thêm chỉ số phụ (Sub Stat)
         if (nextLv % 3 == 0) applySubStatRoll(item);
 
-        // Tăng Main Stat (Công thức: Base * (1 + lv * 0.1))
         BigDecimal baseVal = item.getOriginalMainStatValue() != null ? item.getOriginalMainStatValue() : item.getMainStatValue();
 
         if (baseVal == null) {
@@ -466,11 +450,10 @@ public class EquipmentService {
     /**
      * Đột phá lên Mythic (Yêu cầu +30)
      */
+    // [FIX] Nhận Integer và dùng trực tiếp
     @Transactional
     public UserItem evolveToMythic(Integer userItemId) {
-        Long idLong = userItemId != null ? userItemId.longValue() : null;
-
-        UserItem item = userItemRepo.findById(idLong).orElseThrow(() -> new RuntimeException("Item not found"));
+        UserItem item = userItemRepo.findById(userItemId).orElseThrow(() -> new RuntimeException("Item not found"));
         if (item.getEnhanceLevel() < 30) throw new RuntimeException("Cần đạt +30 để đột phá!");
         if (Boolean.TRUE.equals(item.getIsMythic())) throw new RuntimeException("Trang bị đã là Mythic rồi!");
 
@@ -488,7 +471,6 @@ public class EquipmentService {
         item.setIsMythic(true);
         item.setMythicStars(1);
 
-        // Mythic base stats boost 1.5 lần so với hiện tại
         BigDecimal currentVal = item.getMainStatValue();
         if (currentVal == null) currentVal = BigDecimal.ZERO;
         item.setMainStatValue(currentVal.multiply(BigDecimal.valueOf(1.5)));
@@ -501,9 +483,6 @@ public class EquipmentService {
         return saved;
     }
 
-    /**
-     * Hàm phụ trợ: Kiểm tra và trừ nguyên liệu, vàng
-     */
     private void checkAndConsumeResources(UserItem targetItem, Map<Integer, Integer> materialCosts, int goldCost) {
         Wallet wallet = walletRepo.findByUser_UserId(targetItem.getCharacter().getUser().getUserId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy ví!"));
@@ -513,11 +492,9 @@ public class EquipmentService {
             throw new RuntimeException("Không đủ vàng (Cần " + goldCost + ")!");
         }
 
-        // Kiểm tra tồn kho nguyên liệu
         Map<Integer, UserItem> foundItems = new HashMap<>();
         if (materialCosts != null) {
             for (Map.Entry<Integer, Integer> entry : materialCosts.entrySet()) {
-                // Tìm nguyên liệu trong kho (không được đang trang bị)
                 UserItem mat = userItemRepo.findByCharacter_CharIdAndItem_ItemId(targetItem.getCharacter().getCharId(), entry.getKey())
                         .stream().filter(i -> !i.getIsEquipped()).findFirst().orElse(null);
 
@@ -528,11 +505,9 @@ public class EquipmentService {
             }
         }
 
-        // Trừ Vàng
         wallet.setGold(wallet.getGold().subtract(cost));
         walletRepo.save(wallet);
 
-        // Trừ Nguyên liệu
         if (materialCosts != null) {
             for (Map.Entry<Integer, Integer> entry : materialCosts.entrySet()) {
                 UserItem itemToReduce = foundItems.get(entry.getKey());

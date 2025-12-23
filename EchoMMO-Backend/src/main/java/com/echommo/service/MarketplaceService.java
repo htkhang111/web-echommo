@@ -1,5 +1,3 @@
-// File: EchoMMO-Backend/src/main/java/com/echommo/service/MarketplaceService.java
-
 package com.echommo.service;
 
 import com.echommo.dto.CreateListingRequest;
@@ -13,7 +11,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class MarketplaceService {
@@ -62,12 +62,10 @@ public class MarketplaceService {
         return "Mua thành công!";
     }
 
-    // [FIXED] Dùng trực tiếp Integer, không cần ép kiểu
     @Transactional
     public String sellItem(Integer userItemId, Integer qty) {
         Character myChar = getMyChar();
 
-        // Truyền thẳng Integer userItemId vào Repository (đã sửa Repository nhận Integer)
         UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(userItemId, myChar.getCharId())
                 .orElseThrow(() -> new RuntimeException("Vật phẩm không tồn tại hoặc không phải của bạn"));
 
@@ -103,25 +101,61 @@ public class MarketplaceService {
         return listingRepo.findBySeller_UserIdAndStatus(getCurrentUser().getUserId(), "ACTIVE");
     }
 
+    // [UPDATED] Đăng bán: Tách vật phẩm + Ẩn khỏi túi (set Character = null)
     @Transactional
     public String createListing(CreateListingRequest req) {
         User u = getCurrentUser();
         Character myChar = getMyChar();
 
-        // [FIXED] Dùng trực tiếp Integer từ Request
         Integer itemId = req.getUserItemId();
+        int qtyToSell = (req.getQuantity() != null && req.getQuantity() > 0) ? req.getQuantity() : 1;
 
         UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(itemId, myChar.getCharId())
                 .orElseThrow(() -> new RuntimeException("Vật phẩm lỗi hoặc không tồn tại"));
 
         if (Boolean.TRUE.equals(ui.getIsEquipped())) throw new RuntimeException("Phải tháo đồ trước khi bán");
+        if (ui.getQuantity() < qtyToSell) throw new RuntimeException("Không đủ số lượng để bán!");
 
+        UserItem itemToSell;
+
+        // Logic tách vật phẩm (Split)
+        if (ui.getQuantity() > qtyToSell) {
+            // 1. Trừ số lượng ở vật phẩm gốc
+            ui.setQuantity(ui.getQuantity() - qtyToSell);
+            uiRepo.save(ui);
+
+            // 2. Tạo vật phẩm mới đại diện cho phần đem bán (Clone)
+            itemToSell = UserItem.builder()
+                    .item(ui.getItem())
+                    .quantity(qtyToSell)
+                    .character(null) // [QUAN TRỌNG] Set NULL để ẩn khỏi túi đồ
+                    .isEquipped(false)
+                    .enhanceLevel(ui.getEnhanceLevel())
+                    .rarity(ui.getRarity())
+                    .mainStatType(ui.getMainStatType())
+                    .mainStatValue(ui.getMainStatValue())
+                    .originalMainStatValue(ui.getOriginalMainStatValue())
+                    .subStats(ui.getSubStats())
+                    .maxDurability(ui.getMaxDurability())
+                    .currentDurability(ui.getCurrentDurability())
+                    .isMythic(ui.getIsMythic())
+                    .mythicStars(ui.getMythicStars())
+                    .acquiredAt(LocalDateTime.now())
+                    .build();
+            itemToSell = uiRepo.save(itemToSell);
+        } else {
+            // Bán tất cả -> Dùng chính vật phẩm đó và ẩn đi
+            itemToSell = ui;
+            itemToSell.setCharacter(null); // [QUAN TRỌNG] Set NULL để ẩn khỏi túi đồ
+            uiRepo.save(itemToSell);
+        }
+
+        // 3. Tạo tin đăng bán
         MarketListing ml = new MarketListing();
         ml.setSeller(u);
-        ml.setItem(ui.getItem());
-        ml.setUserItem(ui);
-
-        ml.setQuantity(ui.getQuantity());
+        ml.setItem(itemToSell.getItem());
+        ml.setUserItem(itemToSell); // Link tới vật phẩm đã ẩn
+        ml.setQuantity(qtyToSell);
         ml.setPrice(req.getPrice());
         ml.setStatus("ACTIVE");
         ml.setCurrencyType("GOLD");
@@ -148,24 +182,45 @@ public class MarketplaceService {
             throw new RuntimeException("Không đủ vàng");
         }
 
+        // Trừ tiền người mua
         buyer.getWallet().setGold(buyer.getWallet().getGold().subtract(total));
         walletRepo.save(buyer.getWallet());
 
+        // Cộng tiền người bán (có trừ thuế 5%)
         User seller = l.getSeller();
         if (seller.getWallet().getGold() == null) seller.getWallet().setGold(BigDecimal.ZERO);
-
         BigDecimal receive = total.multiply(new BigDecimal("0.95"));
         seller.getWallet().setGold(seller.getWallet().getGold().add(receive));
         walletRepo.save(seller.getWallet());
 
+        // Chuyển hàng cho người mua
         UserItem itemBeingSold = l.getUserItem();
         if (itemBeingSold != null) {
-            // Chuyển chủ sở hữu vật phẩm
-            itemBeingSold.setCharacter(buyerChar);
-            itemBeingSold.setIsEquipped(false);
-            uiRepo.save(itemBeingSold);
+            // Kiểm tra xem người mua có stack sẵn không để gộp (Optional)
+            boolean merged = false;
+            if (isStackable(itemBeingSold.getItem())) {
+                Optional<UserItem> existing = uiRepo.findByCharacter_CharIdAndItem_ItemId(buyerChar.getCharId(), itemBeingSold.getItem().getItemId());
+                if (existing.isPresent()) {
+                    UserItem exist = existing.get();
+                    exist.setQuantity(exist.getQuantity() + itemBeingSold.getQuantity());
+                    uiRepo.save(exist);
+
+                    // Xóa vật phẩm tạm (listing item)
+                    l.setUserItem(null);
+                    listingRepo.save(l);
+                    uiRepo.delete(itemBeingSold);
+                    merged = true;
+                }
+            }
+
+            if (!merged) {
+                // Nếu không gộp được thì chuyển chủ sở hữu
+                itemBeingSold.setCharacter(buyerChar);
+                itemBeingSold.setIsEquipped(false);
+                uiRepo.save(itemBeingSold);
+            }
         } else {
-            // Fallback phòng hờ
+            // Fallback (ít khi xảy ra)
             deliverSystemItem(buyerChar, l.getItem(), l.getQuantity());
         }
 
@@ -174,19 +229,50 @@ public class MarketplaceService {
         return "Giao dịch thành công!";
     }
 
+    // [UPDATED] Hủy bán: Trả vật phẩm về túi + Gộp stack nếu có thể
     @Transactional
     public String cancelListing(Integer id) {
         User u = getCurrentUser();
+        Character myChar = getMyChar(); // Lấy nhân vật của người bán để trả đồ về
+
         MarketListing l = listingRepo.findById(id).orElseThrow(() -> new RuntimeException("Lỗi tin đăng"));
         if (!l.getSeller().getUserId().equals(u.getUserId())) throw new RuntimeException("Không phải của bạn");
+        if (!"ACTIVE".equals(l.getStatus())) throw new RuntimeException("Tin không còn khả dụng để hủy");
+
+        UserItem ui = l.getUserItem();
+
+        if (ui != null) {
+            boolean merged = false;
+            // Nếu là vật phẩm chồng được (Máu, Nguyên liệu...), thử tìm trong túi để gộp lại
+            if (isStackable(ui.getItem())) {
+                Optional<UserItem> existingStack = uiRepo.findByCharacter_CharIdAndItem_ItemId(myChar.getCharId(), ui.getItem().getItemId());
+                if (existingStack.isPresent()) {
+                    UserItem exist = existingStack.get();
+                    exist.setQuantity(exist.getQuantity() + ui.getQuantity());
+                    uiRepo.save(exist);
+
+                    // Xóa vật phẩm đang treo bán đi vì đã gộp vào stack chính
+                    l.setUserItem(null);
+                    listingRepo.save(l); // Cần save listing trước để gỡ quan hệ FK (nếu có)
+                    uiRepo.delete(ui);
+                    merged = true;
+                }
+            }
+
+            // Nếu không gộp được (hoặc là trang bị), thì trả về chủ cũ
+            if (!merged) {
+                ui.setCharacter(myChar);
+                uiRepo.save(ui);
+            }
+        }
 
         l.setStatus("CANCELLED");
         listingRepo.save(l);
-        return "Đã thu hồi";
+        return "Đã thu hồi và trả vật phẩm về túi";
     }
 
     private void deliverSystemItem(Character c, Item item, int qty) {
-        boolean isStackable = item.getSlotType() == SlotType.CONSUMABLE || item.getSlotType() == SlotType.NONE;
+        boolean isStackable = isStackable(item);
 
         if (isStackable) {
             UserItem ui = uiRepo.findByCharacter_CharIdAndItem_ItemId(c.getCharId(), item.getItemId())
@@ -211,5 +297,11 @@ public class MarketplaceService {
                 uiRepo.save(ui);
             }
         }
+    }
+
+    private boolean isStackable(Item item) {
+        return item.getSlotType() == SlotType.CONSUMABLE
+                || item.getSlotType() == SlotType.NONE
+                || "MATERIAL".equals(item.getType());
     }
 }
