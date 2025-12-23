@@ -47,7 +47,7 @@
           <div class="sidebar-col">
             <div class="inner-wood-box">
               <div class="box-header">
-                <i class="fas fa-scroll"></i> CAO THỦ BẢNG
+                <i class="fas fa-scroll"></i> CAO THỦ GIANG HỒ
               </div>
               <div v-if="lbStore.loadingPvp" class="lb-loading">
                 <i class="fas fa-yin-yang fa-spin"></i> Đang tra cứu...
