@@ -1,3 +1,5 @@
+// File: EchoMMO-Backend/src/main/java/com/echommo/service/EquipmentService.java
+
 package com.echommo.service;
 
 import com.echommo.config.GameConstants;
@@ -30,10 +32,13 @@ public class EquipmentService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Random random = new Random();
 
-    // [FIX] Tham số userItemId là Integer
+    // [FIX] Nhận Integer -> Ép kiểu sang Long
     @Transactional
     public UserItem enhanceMythicStars(Integer userItemId, Integer userId) {
-        UserItem item = userItemRepo.findById(userItemId)
+        // [FIX] Casting here
+        Long idLong = userItemId != null ? userItemId.longValue() : null;
+
+        UserItem item = userItemRepo.findById(idLong)
                 .orElseThrow(() -> new RuntimeException("Trang bị không tồn tại!"));
 
         if (!item.getCharacter().getUser().getUserId().equals(userId)) {
@@ -45,7 +50,9 @@ public class EquipmentService {
         }
 
         int currentStars = item.getMythicStars() == null ? 0 : item.getMythicStars();
-        if (currentStars >= 10) throw new RuntimeException("Trang bị đã đạt tối đa 10 Sao!");
+        if (currentStars >= 10) {
+            throw new RuntimeException("Trang bị đã đạt tối đa 10 Sao!");
+        }
 
         int nextStar = currentStars + 1;
         long goldCost;
@@ -84,6 +91,7 @@ public class EquipmentService {
             item.setMythicStars(nextStar);
             BigDecimal currentVal = item.getMainStatValue();
             if (currentVal == null) currentVal = BigDecimal.ZERO;
+
             BigDecimal boost = currentVal.multiply(BigDecimal.valueOf(0.1));
             item.setMainStatValue(currentVal.add(boost));
             savedItem = userItemRepo.save(item);
@@ -132,10 +140,13 @@ public class EquipmentService {
         }
     }
 
-    // [FIX] Tham số userItemId là Integer
+    // [FIX] Nhận Integer -> Ép kiểu sang Long
     @Transactional
     public UserItem enhanceItem(Integer userItemId) {
-        UserItem item = userItemRepo.findById(userItemId).orElseThrow(() -> new RuntimeException("Item not found"));
+        // [FIX] Casting here
+        Long idLong = userItemId != null ? userItemId.longValue() : null;
+
+        UserItem item = userItemRepo.findById(idLong).orElseThrow(() -> new RuntimeException("Item not found"));
         if (Boolean.TRUE.equals(item.getIsMythic())) throw new RuntimeException("Trang bị Mythic phải dùng chức năng Nâng Cấp Sao!");
 
         int nextLv = item.getEnhanceLevel() + 1;
@@ -144,46 +155,73 @@ public class EquipmentService {
         Map<Integer, Integer> mats = new HashMap<>();
         int gold;
 
+        // Logic nguyên liệu
         if (nextLv <= 10) {
             gold = nextLv * 1000;
             int mainQty = nextLv * 15;
             int subQty = nextLv * 5;
-            if (item.getItem().getSlotType() == SlotType.WEAPON) mats.put(GameConstants.MAT_ORE_COPPER, mainQty);
-            else mats.put(GameConstants.MAT_STONE, mainQty);
+
+            if (item.getItem().getSlotType() == SlotType.WEAPON) {
+                mats.put(GameConstants.MAT_ORE_COPPER, mainQty);
+            } else {
+                mats.put(GameConstants.MAT_STONE, mainQty);
+            }
             mats.put(GameConstants.MAT_WOOD_OAK, subQty);
+
         } else if (nextLv <= 20) {
             gold = nextLv * 3000;
             int scale = nextLv - 10;
-            mats.put(GameConstants.MAT_ORE_IRON, scale * 15);
-            mats.put(GameConstants.MAT_WOOD_DRIED, scale * 5);
-        } else {
+            int mainQty = scale * 15;
+            int subQty = scale * 5;
+
+            mats.put(GameConstants.MAT_ORE_IRON, mainQty);
+            mats.put(GameConstants.MAT_WOOD_DRIED, subQty);
+
+        } else { // 21 - 30
             gold = nextLv * 10000;
             int scale = nextLv - 20;
-            mats.put(GameConstants.MAT_ORE_PLATINUM, scale * 20);
-            mats.put(GameConstants.MAT_WOOD_COLD, scale * 10);
+            int mainQty = scale * 20;
+            int subQty = scale * 10;
+
+            mats.put(GameConstants.MAT_ORE_PLATINUM, mainQty);
+            mats.put(GameConstants.MAT_WOOD_COLD, subQty);
         }
 
         checkAndConsumeResources(item, mats, gold);
         item.setEnhanceLevel(nextLv);
 
+        // Mỗi 3 cấp cộng thêm chỉ số phụ
         if (nextLv % 3 == 0) applySubStatRoll(item);
 
+        // Tăng Main Stat
         BigDecimal baseVal = item.getOriginalMainStatValue() != null ? item.getOriginalMainStatValue() : item.getMainStatValue();
-        if (baseVal == null) baseVal = BigDecimal.ZERO;
-        if (item.getOriginalMainStatValue() == null) item.setOriginalMainStatValue(baseVal);
+
+        if (baseVal == null) {
+            baseVal = BigDecimal.ZERO;
+        }
+
+        if (item.getOriginalMainStatValue() == null) {
+            item.setOriginalMainStatValue(baseVal);
+        }
 
         BigDecimal multiplier = BigDecimal.valueOf(1).add(BigDecimal.valueOf(nextLv).multiply(BigDecimal.valueOf(0.1)));
         item.setMainStatValue(baseVal.multiply(multiplier));
 
         UserItem saved = userItemRepo.save(item);
-        if (Boolean.TRUE.equals(item.getIsEquipped())) characterService.recalculateStats(item.getCharacter());
+
+        if (Boolean.TRUE.equals(item.getIsEquipped())) {
+            characterService.recalculateStats(item.getCharacter());
+        }
         return saved;
     }
 
-    // [FIX] Tham số userItemId là Integer
+    // [FIX] Nhận Integer -> Ép kiểu sang Long
     @Transactional
     public UserItem evolveToMythic(Integer userItemId) {
-        UserItem item = userItemRepo.findById(userItemId).orElseThrow(() -> new RuntimeException("Item not found"));
+        // [FIX] Casting here
+        Long idLong = userItemId != null ? userItemId.longValue() : null;
+
+        UserItem item = userItemRepo.findById(idLong).orElseThrow(() -> new RuntimeException("Item not found"));
         if (item.getEnhanceLevel() < 30) throw new RuntimeException("Cần đạt +30 để đột phá!");
         if (Boolean.TRUE.equals(item.getIsMythic())) throw new RuntimeException("Trang bị đã là Mythic rồi!");
 
@@ -206,7 +244,10 @@ public class EquipmentService {
         item.setMainStatValue(currentVal.multiply(BigDecimal.valueOf(1.5)));
 
         UserItem saved = userItemRepo.save(item);
-        if (Boolean.TRUE.equals(item.getIsEquipped())) characterService.recalculateStats(item.getCharacter());
+
+        if (Boolean.TRUE.equals(item.getIsEquipped())) {
+            characterService.recalculateStats(item.getCharacter());
+        }
         return saved;
     }
 

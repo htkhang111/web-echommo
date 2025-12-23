@@ -62,12 +62,12 @@ public class MarketplaceService {
         return "Mua thành công!";
     }
 
-    // [FIX] Nhận Integer userItemId theo yêu cầu
+    // [FIX] Nhận Integer -> Ép kiểu sang Long
     @Transactional
     public String sellItem(Integer userItemId, Integer qty) {
         Character myChar = getMyChar();
 
-        // [FIX] Tự động ép kiểu Integer -> Long để tìm trong DB (Tránh lỗi type)
+        // [FIX] Casting here
         Long idLong = userItemId != null ? userItemId.longValue() : null;
 
         UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(idLong, myChar.getCharId())
@@ -110,8 +110,11 @@ public class MarketplaceService {
         User u = getCurrentUser();
         Character myChar = getMyChar();
 
-        // Listing request dùng Long hay Integer tùy ông, ở đây tôi cast cho chắc
-        Long itemIdLong = req.getUserItemId();
+        // [FIX] Convert DTO ID (có thể là Integer hoặc Long) sang Long chuẩn
+        Long itemIdLong = null;
+        if (req.getUserItemId() != null) {
+            itemIdLong = ((Number) req.getUserItemId()).longValue();
+        }
 
         UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(itemIdLong, myChar.getCharId())
                 .orElseThrow(() -> new RuntimeException("Vật phẩm lỗi"));
