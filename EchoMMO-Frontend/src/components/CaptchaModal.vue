@@ -71,17 +71,17 @@
 </template>
 
 <script setup>
-import { ref, defineExpose } from "vue";
+// [ĐÃ SỬA] Bỏ defineExpose ra khỏi import vì nó là macro mặc định
+import { ref } from "vue";
 import axiosClient from "../api/axiosClient";
 
 const isVisible = ref(false);
 const isLoading = ref(false);
-const isSuccess = ref(false); // State mới để làm hiệu ứng thành công
+const isSuccess = ref(false); 
 const question = ref("");
 const options = ref([]);
 const errorMsg = ref("");
 
-// Component cha gọi hàm này
 const open = async () => {
   isVisible.value = true;
   isSuccess.value = false;
@@ -104,28 +104,22 @@ const fetchCaptcha = async () => {
 
 const submitAnswer = async (itemId) => {
   try {
-    // Reset lỗi
     errorMsg.value = "";
-
     await axiosClient.post("/captcha/solve", { itemId });
-
-    // HIỆU ỨNG THÀNH CÔNG
     isSuccess.value = true;
-
-    // Tự đóng sau 1.5s để người dùng thấy hiệu ứng
     setTimeout(() => {
       isVisible.value = false;
     }, 1500);
   } catch (e) {
     errorMsg.value = "ACCESS DENIED. INCORRECT TARGET.";
-    // Rung lắc và tải lại
     setTimeout(() => {
-      errorMsg.value = ""; // Xóa lỗi để lần sau còn rung tiếp
+      errorMsg.value = ""; 
       fetchCaptcha();
     }, 1000);
   }
 };
 
+// Vẫn gọi hàm defineExpose bình thường (không cần import)
 defineExpose({ open });
 </script>
 
@@ -138,7 +132,7 @@ defineExpose({ open });
   width: 100%;
   height: 100%;
   background: rgba(10, 0, 0, 0.95);
-  z-index: 10000; /* Cao hơn tất cả */
+  z-index: 10000; 
   display: flex;
   justify-content: center;
   align-items: center;
@@ -162,7 +156,7 @@ defineExpose({ open });
   background: #050000;
   border: 1px solid #ff0055;
   box-shadow: 0 0 50px rgba(255, 0, 85, 0.2);
-  padding: 2px; /* Inner border spacing */
+  padding: 2px; 
   overflow: hidden;
   font-family: "Courier New", monospace;
   transition: 0.3s;

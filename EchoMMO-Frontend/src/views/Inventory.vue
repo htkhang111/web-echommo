@@ -2443,16 +2443,15 @@ onUnmounted(() => {
             <div v-if="selectedItem.item.type === 'TOOL' && selectedItem.maxDurability" class="durability-box">
                 <div class="durability-header">
                     <span><i class="fas fa-hammer"></i> Độ Bền</span>
-                    <span :class="getDurabilityColorClass(selectedItem)">
-                        {{ selectedItem.currentDurability }}/{{ selectedItem.maxDurability }}
-                    </span>
-                </div>
+                    </div>
+                
                 <div class="durability-progress-bg">
                     <div class="durability-progress-fill" 
                         :style="{ width: getDurabilityPercent(selectedItem) + '%' }"
-                        :class="getDurabilityColorClass(selectedItem)"></div>
+                        :class="getDurabilityColorClass(selectedItem)">
+                    </div>
                     
-                    <div class="durability-text-overlay">
+                    <div class="durability-percent-text">
                         {{ Math.floor((selectedItem.currentDurability / selectedItem.maxDurability) * 100) }}%
                     </div>
                 </div>
@@ -3197,20 +3196,25 @@ onUnmounted(() => {
 
 /* [UPDATE] DURABILITY BAR STYLES */
 .durability-progress-bg { 
-    height: 16px; /* Tăng độ cao lên chút để chứa text */
-    background: #263238; border-radius: 8px; overflow: hidden; 
+    height: 18px; /* Tăng độ cao lên chút để chứa text */
+    background: #263238; border-radius: 9px; overflow: hidden; 
     position: relative; /* Để text overlay căn theo cái này */
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
 }
-.durability-progress-fill { height: 100%; transition: width 0.3s; }
+.durability-progress-fill { 
+    height: 100%; transition: width 0.3s; 
+    z-index: 1; /* Lớp dưới */
+    position: absolute; left: 0; top: 0;
+}
 
 /* Text overlay nằm đè lên thanh */
-.durability-text-overlay {
+.durability-percent-text {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.65rem; font-weight: bold; color: #fff;
-    text-shadow: 0 0 2px #000;
+    font-size: 0.7rem; font-weight: bold; color: #fff;
+    text-shadow: 0 0 3px rgba(0,0,0,0.8);
+    z-index: 2; /* Lớp trên */
 }
 
 .dur-high { background: #66bb6a; color: #66bb6a; }

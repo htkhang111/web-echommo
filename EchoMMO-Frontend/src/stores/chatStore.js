@@ -11,43 +11,41 @@ export const useChatStore = defineStore("chat", {
     isConnected: false,
     isLoading: false,
     error: null,
-    joinedUsers: new Set(),
+    // [ĐÃ XÓA] joinedUsers: new Set(), -> Không dùng cái này nữa
     isWidgetOpen: false,
     privateChatTarget: null,
   }),
 
   actions: {
-    // --- CONNECT WEBSOCKET (Đã sửa để gửi Token) ---
     connect() {
       if (this.stompClient && this.stompClient.connected) return;
 
       const socket = new SockJS("http://localhost:8080/ws");
       this.stompClient = Stomp.over(socket);
       
-      // Tắt debug log (nếu muốn)
+      // Tắt log debug nếu muốn console gọn
       // this.stompClient.debug = () => {};
 
       const authStore = useAuthStore();
       const token = authStore.token || localStorage.getItem('token');
       const username = authStore.user?.username;
 
-      // [QUAN TRỌNG] Tạo header chứa Token
+      // Header gửi Token (để fix lỗi Unauthorized bên Socket nếu có)
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
 
       this.stompClient.connect(
-        headers, // Gửi header vào đây
+        headers,
         (frame) => {
           this.setConnected(true);
           console.log("WS Connected (" + username + ")");
 
-          // 1. Subscribe Chat Thế Giới
+          // 1. Kênh Chat Thế Giới
           this.stompClient.subscribe("/topic/public", (payload) => {
             this.addMessage(JSON.parse(payload.body));
           });
 
-          // 2. Subscribe Chat Riêng / Thông báo Online
+          // 2. Kênh Riêng (Nhận thông báo bạn bè)
           if (username) {
-            // Spring Boot sẽ tự map /user/queue/... tới session của user này
             this.stompClient.subscribe("/user/queue/notifications", (payload) => {
                const notification = JSON.parse(payload.body);
                this.addMessage(notification);
@@ -66,7 +64,6 @@ export const useChatStore = defineStore("chat", {
         (error) => {
           console.error("Lỗi WS:", error);
           this.setConnected(false);
-          // Auto reconnect
           setTimeout(() => this.connect(), 5000);
         }
       );
@@ -102,6 +99,7 @@ export const useChatStore = defineStore("chat", {
           this.messages = [];
         }
       } catch (error) {
+        // Lỗi 401 thường rơi vào đây
         console.error("Lỗi tải chat:", error);
       } finally {
         this.isLoading = false;
@@ -110,31 +108,34 @@ export const useChatStore = defineStore("chat", {
 
     addMessage(message) {
       if (!message) return;
-      if (message.type === 'JOIN') {
-        if (this.joinedUsers.has(message.senderName)) return; 
-        this.joinedUsers.add(message.senderName);
-      }
+
+      // [QUAN TRỌNG] Đã XÓA đoạn kiểm tra message.type === 'JOIN'
+      // Để tin nhắn thông báo luôn được hiển thị, không bị chặn
+
       if (!message.timestamp) message.timestamp = new Date().toISOString();
 
-      // Check trùng
-      const exists = this.messages.some(
-        (m) =>
-          m.content === message.content &&
-          m.senderName === message.senderName &&
-          Math.abs(new Date(m.timestamp) - new Date(message.timestamp)) < 1000
-      );
-
-      if (!exists) {
-        this.messages.push(message);
-        if (this.messages.length > 50) this.messages.shift();
+      // Chỉ lọc trùng tin nhắn chat thường (tránh mạng lag)
+      // Tin hệ thống (SYSTEM) thì luôn cho qua
+      if (message.role !== 'SYSTEM') {
+          const exists = this.messages.some(
+            (m) =>
+              m.content === message.content &&
+              m.senderName === message.senderName &&
+              Math.abs(new Date(m.timestamp) - new Date(message.timestamp)) < 1000
+          );
+          if (exists) return;
       }
+
+      this.messages.push(message);
+      
+      // Giới hạn 50 tin
+      if (this.messages.length > 50) this.messages.shift();
     },
 
     setConnected(status) {
       this.isConnected = status;
     },
 
-    // --- Widget Logic (Giữ nguyên) ---
     openChatWith(user) {
       if (user) {
         this.privateChatTarget = {
