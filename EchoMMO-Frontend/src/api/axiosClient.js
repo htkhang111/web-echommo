@@ -1,21 +1,32 @@
 import axios from "axios";
 
-// 1. Cấu hình baseURL chuẩn
+// [FIX 1] Cấu hình baseURL động
+// Sử dụng biến môi trường hoặc để "/api" để Vite tự Proxy sang port 8080
 const axiosClient = axios.create({
-  baseURL: "http://localhost:8080/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "/api", 
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// 2. Hàm chuyển hướng an toàn tuyệt đối (Dùng window.location)
-// Giúp tránh mọi lỗi liên quan đến import Router trong file này
+// [FIX 2] Biến cờ để chống spam redirect (Logic của bạn rất tốt)
+let isRedirecting = false;
+
+// Hàm chuyển hướng an toàn tuyệt đối
 const forceLogout = () => {
-  localStorage.removeItem("token"); // Hoặc logic xóa token của bạn
-  window.location.href = "/login";
+  if (isRedirecting) return; // Nếu đang chuyển hướng rồi thì thôi
+  isRedirecting = true;
+
+  console.warn("👋 Force Logout: Đang chuyển về trang đăng nhập...");
+  localStorage.removeItem("token"); 
+  
+  // Chỉ chuyển hướng nếu chưa ở trang login
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
 };
 
-// 3. Hàm check token đơn giản
+// Hàm check token đơn giản
 const isTokenExpired = (token) => {
   if (!token) return true;
   try {
@@ -31,23 +42,20 @@ const isTokenExpired = (token) => {
 // --- REQUEST INTERCEPTOR ---
 axiosClient.interceptors.request.use(
   async (config) => {
-    // [QUAN TRỌNG] Try-catch đoạn import Store để tránh sập nếu sai đường dẫn
     let token = null;
     try {
-      // Sửa đường dẫn này cho đúng vị trí file store của bạn
-      // Nếu file axios nằm cùng cấp thư mục cha với stores thì dùng ../
+      // Import động store để tránh lỗi khởi tạo sớm
       const { useAuthStore } = await import("../stores/authStore");
       const authStore = useAuthStore();
       token = authStore.token;
 
       if (token && isTokenExpired(token)) {
         console.warn("⚠️ Token hết hạn (Client). Logout ngay.");
-        authStore.logout(); // Xóa state
-        forceLogout();      // Chuyển trang
-        return Promise.reject(new Error("Token expired")); // Ngắt request
+        authStore.logout(); 
+        forceLogout();      
+        return Promise.reject(new Error("Token expired")); 
       }
     } catch (err) {
-      // Nếu import lỗi, bỏ qua check token client-side để tránh lỗi Promise
       console.error("Lỗi check token ở axios:", err);
     }
 
@@ -64,6 +72,9 @@ axiosClient.interceptors.request.use(
 axiosClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // Nếu đang redirect thì chặn luôn mọi lỗi sau đó để đỡ spam log
+    if (isRedirecting) return Promise.reject(error);
+
     if (error.response) {
       const { status, data } = error.response;
 
@@ -72,7 +83,6 @@ axiosClient.interceptors.response.use(
         ((data?.error === "BANNED") || (data?.message?.toLowerCase().includes("phong ấn")));
 
       if (isBanned) {
-        // Cố gắng import store để hiện popup ban
         try {
             const { useAuthStore } = await import("../stores/authStore");
             const authStore = useAuthStore();
@@ -83,10 +93,9 @@ axiosClient.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      // Xử lý 401 (Hết hạn login)
+      // Xử lý 401 (Hết hạn login hoặc Token không hợp lệ)
       if (status === 401) {
         console.warn("⚠️ 401 Unauthorized -> Logout");
-        // Gọi logout từ store nếu được, không thì force logout luôn
         try {
             const { useAuthStore } = await import("../stores/authStore");
             const authStore = useAuthStore();

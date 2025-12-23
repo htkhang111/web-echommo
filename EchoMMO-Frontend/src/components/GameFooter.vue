@@ -233,7 +233,7 @@ const appLogo = getAppLogo();
               </a>
             </li>
             <li>
-              <a href="#" target="_blank">
+              <a href="https://www.facebook.com/share/1APa65u86N/?mibextid=wwXIfr" target="_blank">
                 <i class="fab fa-facebook"></i> Fanpage
               </a>
             </li>

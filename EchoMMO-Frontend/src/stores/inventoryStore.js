@@ -11,13 +11,24 @@ export const useInventoryStore = defineStore("inventory", {
 
   actions: {
     async fetchInventory() {
+      // [FIX] Kiểm tra Auth trước khi gọi API
+      const authStore = useAuthStore();
+      if (!authStore.token) {
+        console.warn("🛑 InventoryStore: Không có token, hủy gọi API lấy đồ.");
+        this.items = []; // Reset đồ về rỗng cho an toàn
+        return;
+      }
+
       this.loading = true;
       try {
         const res = await axiosClient.get("/inventory/items");
         this.items = res.data;
       } catch (err) {
-        this.error = err.response?.data || "Lỗi lấy túi đồ";
-        console.error(err);
+        // Chỉ log lỗi nếu không phải do hết hạn token (đã xử lý ở axios)
+        if (err.response?.status !== 401) {
+             this.error = err.response?.data || "Lỗi lấy túi đồ";
+             console.error(err);
+        }
       } finally {
         this.loading = false;
       }
@@ -81,4 +92,4 @@ export const useInventoryStore = defineStore("inventory", {
       }
     },
   },
-});
+}); 

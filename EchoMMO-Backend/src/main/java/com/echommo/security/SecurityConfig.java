@@ -60,16 +60,21 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Cấu hình CORS
+        // [FIX] Cấu hình CORS đầy đủ cho các môi trường Dev/Preview/Prod
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",       // Vue Local Dev
                 "http://localhost:4173",       // Vue Preview
                 "http://127.0.0.1:5173",       // Localhost IP
+                "http://127.0.0.1:4173",       // Localhost IP Preview (Thường bị thiếu)
                 "https://htkhang111.github.io" // Production
         ));
 
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(List.of("*"));
+        // [FIX] Thêm HEAD để trình duyệt kiểm tra resource (ví dụ check ảnh avatar có tồn tại không)
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"));
+
+        // [FIX] Cho phép các Headers chuẩn thay vì "*" (An toàn hơn và tránh lỗi ở một số trình duyệt khắt khe)
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Cache-Control", "X-Requested-With"));
+
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

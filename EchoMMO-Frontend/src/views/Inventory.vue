@@ -620,9 +620,11 @@ onUnmounted(() => { cancelAnimationFrame(animationFrameId); window.removeEventLi
   color: #e0d4b9;
   font-family: 'Noto Serif TC', serif;
   
-  /* [FIX] Fix lỗi 2 thanh cuộn: Set height cứng và ẩn overflow */
-  height: 100vh;
-  overflow: hidden;
+  /* [FIX] Xóa height cứng để không ép layout, cho phép cuộn tự nhiên từ Layout cha */
+  /* height: 100vh; */
+  /* overflow: hidden; */
+  min-height: 100%;
+
   box-sizing: border-box;
 
   padding: 20px;
@@ -639,8 +641,9 @@ onUnmounted(() => { cancelAnimationFrame(animationFrameId); window.removeEventLi
   display: grid; grid-template-columns: 1.2fr 1fr;
   gap: 20px; max-width: 1100px; margin: 0 auto; 
   
-  /* [FIX] Trừ đi padding để không bị tràn */
-  height: calc(100vh - 40px);
+  /* [FIX] Giới hạn chiều cao túi đồ để không đẩy footer đi quá xa */
+  /* height: calc(100vh - 40px); */
+  height: 80vh; 
 }
 
 /* --- WOOD PANEL --- */
