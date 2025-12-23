@@ -32,7 +32,7 @@
 </template>
 
 <script setup>
-import { ref, defineExpose } from 'vue'; // Bỏ defineExpose ở import nếu Vue >= 3.3
+import { ref } from 'vue'; // Bỏ defineExpose ở import
 import axiosClient from '@/api/axiosClient';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { useInventoryStore } from '@/stores/inventoryStore';
@@ -67,28 +67,37 @@ const submitCode = async () => {
   isError.value = false;
 
   try {
-    const res = await axiosClient.post('/giftcode/redeem', { code: code.value });
+    // [FIX QUAN TRỌNG] Tăng timeout lên 60 giây cho request này
+    const res = await axiosClient.post(
+        '/giftcode/redeem', 
+        { code: code.value },
+        { timeout: 60000 } 
+    );
     
     // Thành công
     message.value = res.data.message;
     notiStore.showToast(res.data.message, 'success');
     
-    // Reload lại data để thấy tiền và đồ
+    // Reload lại data
     await authStore.fetchUserProfile();
     await inventoryStore.fetchInventory();
     
-    // Tự đóng sau 2s nếu thành công
     setTimeout(() => {
         if(isVisible.value) close();
     }, 2000);
 
   } catch (error) {
     isError.value = true;
-    if (error.response && error.response.data) {
-        message.value = error.response.data.error || error.response.data;
+    
+    // Xử lý thông báo lỗi chi tiết
+    if (error.code === 'ECONNABORTED') {
+        message.value = "Server đang xử lý lượng lớn vật phẩm. Vui lòng kiểm tra túi đồ sau ít phút!";
+    } else if (error.response && error.response.data) {
+        message.value = error.response.data.message || error.response.data.error || "Mã không hợp lệ.";
     } else {
         message.value = "Lỗi kết nối server.";
     }
+    console.error(error);
   } finally {
     isLoading.value = false;
   }

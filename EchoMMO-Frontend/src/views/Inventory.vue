@@ -2291,204 +2291,210 @@ onUnmounted(() => {
 
 
 <template>
-  <div class="page-container inventory-page wuxia-theme">
-    <div class="bg-overlay"></div>
+  <div class="page-container inventory-page">
+    <div class="bg-layer">
+      <div class="mountain-bg" :style="{ backgroundImage: `url(${bgImage})` }"></div>
+      <div class="wood-overlay" :class="{ 'night-mode': isNight }"></div>
+      <div class="vignette"></div>
+    </div>
 
-    <div class="inventory-layout">
-      <div class="inv-list-panel glass-panel">
-        <div class="panel-header">
-          <div class="header-left">
-            <h3><i class="fas fa-sack-dollar"></i> HÀNH NANG</h3>
-          </div>
-          <div class="header-right">
-            <span class="slots-text">
-              {{ inventoryStore.items.length }} / {{ authStore.user?.inventorySlots || 49 }}
-            </span>
-            <button class="btn-icon-action" @click="toggleViewMode" :title="viewMode === 'list' ? 'Xem dạng lưới' : 'Xem dạng cuộn'">
+    <div class="inventory-wrapper">
+      <div class="inventory-layout">
+        <div class="inv-list-panel glass-panel">
+          <div class="panel-header">
+            <div class="header-left">
+              <h3><i class="fas fa-sack-dollar"></i> HÀNH NANG</h3>
+            </div>
+            <div class="header-right">
+              <span class="slots-text">
+                {{ inventoryStore.items.length }} / {{ authStore.user?.inventorySlots || 49 }}
+              </span>
+              <button class="btn-icon-action" @click="toggleViewMode" :title="viewMode === 'list' ? 'Xem dạng lưới' : 'Xem dạng cuộn'">
                 <i :class="viewMode === 'list' ? 'fas fa-th' : 'fas fa-stream'"></i>
-            </button>
-            <button class="btn-add-slots" @click="expandSlots" title="Mở rộng (+7 ô)">
-              <i class="fas fa-plus"></i>
+              </button>
+              <button class="btn-add-slots" @click="expandSlots" title="Mở rộng (+7 ô)">
+                <i class="fas fa-plus"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="filter-tabs">
+            <button v-for="tab in tabs" :key="tab.id" 
+              :class="{ active: currentTab === tab.id }" 
+              @click="switchTab(tab.id)">
+              {{ tab.label }}
             </button>
           </div>
-        </div>
 
-        <div class="filter-tabs">
-          <button v-for="tab in tabs" :key="tab.id" 
-            :class="{ active: currentTab === tab.id }" 
-            @click="switchTab(tab.id)">
-            {{ tab.label }}
-          </button>
-        </div>
-
-        <div v-if="viewMode === 'list'" class="wheel-wrapper" :style="{ marginTop: OFFSET_TOP + 'px' }">
-            <div 
-                class="infinite-wheel-container" 
-                ref="wheelContainer"
-                @wheel.prevent="onWheel"
-                @touchstart="onTouchStart"
-                @touchmove="onTouchMove"
-                @touchend="onTouchEnd"
-                @mousedown="onMouseDown"
-            >
-              <div class="center-highlight-bar"></div>
-              
+          <div v-if="viewMode === 'list'" class="wheel-wrapper" :style="{ marginTop: OFFSET_TOP + 'px' }">
               <div 
-                v-for="itemObj in renderedItems" 
-                :key="itemObj.virtualKey"
-                class="wheel-item"
-                :class="{ 
-                    'active': itemObj.isActive, 
-                    ['rarity-' + (itemObj.data.item.rarity || 'COMMON')]: true 
-                }"
-                :style="itemObj.style"
-                @click="scrollToIndex(itemObj.index)"
+                  class="infinite-wheel-container" 
+                  ref="wheelContainer"
+                  @wheel.prevent="onWheel"
+                  @touchstart="onTouchStart"
+                  @touchmove="onTouchMove"
+                  @touchend="onTouchEnd"
+                  @mousedown="onMouseDown"
               >
-                <div class="wheel-inner">
-                    <div class="icon-box">
-                        <img :src="resolveItemImage(itemObj.data.item.imageUrl)" class="item-icon" />
-                        <span v-if="itemObj.data.quantity > 1" class="qty-badge">{{ itemObj.data.quantity }}</span>
-                    </div>
-                    <div class="info-box">
-                        <div class="name-row">
-                            <span class="item-name">{{ itemObj.data.item.name }}</span>
-                            <span v-if="itemObj.data.isMythic" class="mythic-txt">M{{ itemObj.data.mythicStars || 0 }}</span>
-                            <span v-else-if="itemObj.data.enhanceLevel" class="enhance-txt">+{{ itemObj.data.enhanceLevel }}</span>
-                        </div>
-                        <div class="sub-row" v-if="itemObj.isActive">
-                            <span class="tier-txt">Tier {{ itemObj.data.item.tier }}</span>
-                            <span v-if="itemObj.data.isEquipped" class="status-equipped">
-                                <i class="fas fa-shield-alt"></i> Đang dùng
-                            </span>
-                        </div>
-                    </div>
-                </div>
-              </div>
-              <div v-if="filteredItems.length === 0" class="empty-msg">
-                <i class="fas fa-box-open"></i> Túi Trống
-              </div>
-            </div>
-        </div>
-
-        <div v-else class="grid-view-container custom-scroll">
-            <div class="inv-grid">
+                <div class="center-highlight-bar"></div>
+                
                 <div 
-                    v-for="item in filteredItems" 
-                    :key="item.userItemId"
-                    class="item-slot"
-                    :class="{
-                        selected: selectedItem?.userItemId === item.userItemId,
-                        'border-mythic': item.isMythic,
-                        [getRarityClass(item)]: true,
-                    }"
-                    @click="selectItem(item)"
+                  v-for="itemObj in renderedItems" 
+                  :key="itemObj.virtualKey"
+                  class="wheel-item"
+                  :class="{ 
+                      'active': itemObj.isActive, 
+                      ['rarity-' + (itemObj.data.item.rarity || 'COMMON')]: true 
+                  }"
+                  :style="itemObj.style"
+                  @click="scrollToIndex(itemObj.index)"
                 >
-                    <div class="slot-inner">
-                        <img :src="resolveItemImage(item.item.imageUrl)" loading="lazy" />
-                        <div class="level-badge" v-if="item.isMythic">M{{ item.mythicStars || 0 }}</div>
-                        <div class="level-badge" v-else-if="item.enhanceLevel > 0">+{{ item.enhanceLevel }}</div>
-                        <span v-if="item.quantity > 1" class="qty-tag">{{ item.quantity }}</span>
-                        <div class="equipped-badge" v-if="item.isEquipped">
-                            <i class="fas fa-shield-alt"></i>
-                        </div>
-                    </div>
+                  <div class="wheel-inner">
+                      <div class="icon-box">
+                          <img :src="resolveItemImage(itemObj.data.item.imageUrl)" class="item-icon" />
+                          <span v-if="itemObj.data.quantity > 1" class="qty-badge">{{ itemObj.data.quantity }}</span>
+                      </div>
+                      <div class="info-box">
+                          <div class="name-row">
+                              <span class="item-name">{{ itemObj.data.item.name }}</span>
+                              <span v-if="itemObj.data.isMythic" class="mythic-txt">M{{ itemObj.data.mythicStars || 0 }}</span>
+                              <span v-else-if="itemObj.data.enhanceLevel" class="enhance-txt">+{{ itemObj.data.enhanceLevel }}</span>
+                          </div>
+                          <div class="sub-row" v-if="itemObj.isActive">
+                              <span class="tier-txt">Tier {{ itemObj.data.item.tier }}</span>
+                              <span v-if="itemObj.data.isEquipped" class="status-equipped">
+                                  <i class="fas fa-shield-alt"></i> Đang dùng
+                              </span>
+                          </div>
+                      </div>
+                  </div>
                 </div>
-                <div 
-                    v-for="n in Math.max(0, (authStore.user?.inventorySlots || 49) - filteredItems.length)" 
-                    :key="'empty-' + n"
-                    class="item-slot empty"
-                ></div>
-            </div>
+                <div v-if="filteredItems.length === 0" class="empty-msg">
+                  <i class="fas fa-box-open"></i> Túi Trống
+                </div>
+              </div>
+          </div>
+
+          <div v-else class="grid-view-container custom-scroll">
+              <div class="inv-grid">
+                  <div 
+                      v-for="item in filteredItems" 
+                      :key="item.userItemId"
+                      class="item-slot"
+                      :class="{
+                          selected: selectedItem?.userItemId === item.userItemId,
+                          'border-mythic': item.isMythic,
+                          [getRarityClass(item)]: true,
+                      }"
+                      @click="selectItem(item)"
+                  >
+                      <div class="slot-inner">
+                          <img :src="resolveItemImage(item.item.imageUrl)" loading="lazy" />
+                          <div class="level-badge" v-if="item.isMythic">M{{ item.mythicStars || 0 }}</div>
+                          <div class="level-badge" v-else-if="item.enhanceLevel > 0">+{{ item.enhanceLevel }}</div>
+                          <span v-if="item.quantity > 1" class="qty-tag">{{ item.quantity }}</span>
+                          <div class="equipped-badge" v-if="item.isEquipped">
+                              <i class="fas fa-shield-alt"></i>
+                          </div>
+                      </div>
+                  </div>
+                  <div 
+                      v-for="n in Math.max(0, (authStore.user?.inventorySlots || 49) - filteredItems.length)" 
+                      :key="'empty-' + n"
+                      class="item-slot empty"
+                  ></div>
+              </div>
+          </div>
         </div>
-      </div>
 
-      <div class="inv-detail-panel glass-panel detail-mode">
-        <div v-if="selectedItem" class="detail-content custom-scroll">
-          <div class="detail-header">
-            <h2 :class="'text-rarity-' + (selectedItem.item.rarity || 'COMMON')">
-              {{ selectedItem.item.name }}
-            </h2>
-            <div class="item-meta">
-              <span class="type-badge">{{ selectedItem.item.type }}</span>
-              <span class="tier-badge">Tier {{ selectedItem.item.tier || 1 }}</span>
-            </div>
-          </div>
-
-          <div class="detail-image-box" :class="'glow-' + (selectedItem.item.rarity || 'COMMON')">
-            <div class="image-halo"></div>
-            <img :src="resolveItemImage(selectedItem.item.imageUrl)" class="big-preview" />
-          </div>
-
-          <div class="stats-box">
-            <div v-if="selectedItem.mainStatValue > 0" class="stat-row main-stat">
-              <span class="stat-label">
-                <i class="fas fa-khanda"></i> 
-                {{ getStatLabel(selectedItem.mainStatType, selectedItem.item.type) }}
-              </span>
-              <span class="stat-val">
-                +{{ formatNumber(selectedItem.mainStatValue) }}{{ isStatPercent(selectedItem.mainStatType) ? '%' : '' }}
-              </span>
+        <div class="inv-detail-panel glass-panel detail-mode">
+          <div v-if="selectedItem" class="detail-content custom-scroll">
+            <div class="detail-header">
+              <h2 :class="'text-rarity-' + (selectedItem.item.rarity || 'COMMON')">
+                {{ selectedItem.item.name }}
+              </h2>
+              <div class="item-meta">
+                <span class="type-badge">{{ selectedItem.item.type }}</span>
+                <span class="tier-badge">Tier {{ selectedItem.item.tier || 1 }}</span>
+              </div>
             </div>
 
-            <div v-if="parsedSubStats.length > 0" class="sub-stats-container">
-              <div v-for="(sub, idx) in parsedSubStats" :key="idx" class="stat-row sub-stat">
-                <span class="dot">◆</span>
-                <span class="sub-label">{{ getStatName(sub.code) }}</span>
-                <span class="sub-val">
-                    +{{ sub.value }}{{ (sub.isPercent || isStatPercent(sub.code)) ? '%' : '' }}
+            <div class="detail-image-box" :class="'glow-' + (selectedItem.item.rarity || 'COMMON')">
+              <div class="image-halo"></div>
+              <img :src="resolveItemImage(selectedItem.item.imageUrl)" class="big-preview" />
+            </div>
+
+            <div class="stats-box">
+              <div v-if="selectedItem.mainStatValue > 0" class="stat-row main-stat">
+                <span class="stat-label">
+                  <i class="fas fa-khanda"></i> 
+                  {{ getStatLabel(selectedItem.mainStatType, selectedItem.item.type) }}
+                </span>
+                <span class="stat-val">
+                  +{{ formatNumber(selectedItem.mainStatValue) }}{{ isStatPercent(selectedItem.mainStatType) ? '%' : '' }}
                 </span>
               </div>
-            </div>
-             
-            <div v-if="selectedItem.item.type === 'TOOL' && selectedItem.maxDurability" class="durability-box">
-                <div class="durability-header">
-                    <span><i class="fas fa-hammer"></i> Độ Bền</span>
-                    </div>
-                
-                <div class="durability-progress-bg">
-                    <div class="durability-progress-fill" 
-                        :style="{ width: getDurabilityPercent(selectedItem) + '%' }"
-                        :class="getDurabilityColorClass(selectedItem)">
-                    </div>
-                    
-                    <div class="durability-percent-text">
-                        {{ Math.floor((selectedItem.currentDurability / selectedItem.maxDurability) * 100) }}%
-                    </div>
-                </div>
-            </div>
 
-            <div class="desc-text">
-              <i class="fas fa-quote-left"></i> {{ selectedItem.item.description }} <i class="fas fa-quote-right"></i>
-            </div>
-          </div>
-
-          <div class="action-buttons">
-            <button v-if="canEquip(selectedItem)" class="btn-action btn-equip" @click="handleEquip">
-              <span>{{ selectedItem.isEquipped ? 'Gỡ Trang Bị' : 'Trang Bị' }}</span>
-            </button>
-            <button v-if="selectedItem.item.type === 'CONSUMABLE'" class="btn-action btn-use" @click="handleUse">
-              <span>Sử Dụng</span>
-            </button>
-            
-            <button v-if="needsRepair(selectedItem)" class="btn-action btn-repair" @click="handleRepair">
-              <span>
-                  <i class="fas fa-tools"></i> Sửa 
-                  <span class="cost-mini">
-                      ({{ formatNumber(getRepairCost(selectedItem).gold) }} Vàng
-                      <span v-if="getRepairCost(selectedItem).coin > 0"> + {{ getRepairCost(selectedItem).coin }} Coin</span>)
+              <div v-if="parsedSubStats.length > 0" class="sub-stats-container">
+                <div v-for="(sub, idx) in parsedSubStats" :key="idx" class="stat-row sub-stat">
+                  <span class="dot">◆</span>
+                  <span class="sub-label">{{ getStatName(sub.code) }}</span>
+                  <span class="sub-val">
+                      +{{ sub.value }}{{ (sub.isPercent || isStatPercent(sub.code)) ? '%' : '' }}
                   </span>
-              </span>
-            </button>
+                </div>
+              </div>
+                
+              <div v-if="selectedItem.item.type === 'TOOL' && selectedItem.maxDurability" class="durability-box">
+                  <div class="durability-header">
+                      <span><i class="fas fa-hammer"></i> Độ Bền</span>
+                      </div>
+                  
+                  <div class="durability-progress-bg">
+                      <div class="durability-progress-fill" 
+                          :style="{ width: getDurabilityPercent(selectedItem) + '%' }"
+                          :class="getDurabilityColorClass(selectedItem)">
+                      </div>
+                      
+                      <div class="durability-percent-text">
+                          {{ Math.floor((selectedItem.currentDurability / selectedItem.maxDurability) * 100) }}%
+                      </div>
+                  </div>
+              </div>
 
-            <button v-if="!selectedItem.isEquipped" class="btn-action btn-sell" @click="openSellModal(selectedItem)">
-                <span><i class="fas fa-coins"></i> Treo Bán</span>
-            </button>
+              <div class="desc-text">
+                <i class="fas fa-quote-left"></i> {{ selectedItem.item.description }} <i class="fas fa-quote-right"></i>
+              </div>
+            </div>
+
+            <div class="action-buttons">
+              <button v-if="canEquip(selectedItem)" class="btn-action btn-equip" @click="handleEquip">
+                <span>{{ selectedItem.isEquipped ? 'Gỡ Trang Bị' : 'Trang Bị' }}</span>
+              </button>
+              <button v-if="selectedItem.item.type === 'CONSUMABLE'" class="btn-action btn-use" @click="handleUse">
+                <span>Sử Dụng</span>
+              </button>
+              
+              <button v-if="needsRepair(selectedItem)" class="btn-action btn-repair" @click="handleRepair">
+                <span>
+                    <i class="fas fa-tools"></i> Sửa 
+                    <span class="cost-mini">
+                        ({{ formatNumber(getRepairCost(selectedItem).gold) }} Vàng
+                        <span v-if="getRepairCost(selectedItem).coin > 0"> + {{ getRepairCost(selectedItem).coin }} Coin</span>)
+                    </span>
+                </span>
+              </button>
+
+              <button v-if="!selectedItem.isEquipped" class="btn-action btn-sell" @click="openSellModal(selectedItem)">
+                  <span><i class="fas fa-coins"></i> Treo Bán</span>
+              </button>
+            </div>
           </div>
-        </div>
-        
-        <div v-else class="empty-detail">
-          <div class="empty-icon-glow"><i class="fas fa-box-open"></i></div>
-          <p>Chọn vật phẩm để xem chi tiết</p>
+          
+          <div v-else class="empty-detail">
+            <div class="empty-icon-glow"><i class="fas fa-box-open"></i></div>
+            <p>Chọn vật phẩm để xem chi tiết</p>
+          </div>
         </div>
       </div>
     </div>
@@ -2550,8 +2556,17 @@ import { useMarketStore } from '@/stores/marketStore';
 import { resolveItemImage } from '@/utils/assetHelper';
 import GameToast from '@/components/GameToast.vue';
 
-// --- CẤU HÌNH VỊ TRÍ DANH SÁCH ---
-// Thay đổi số này để chỉnh danh sách LÊN (-) hoặc XUỐNG (+)
+// --- BACKGROUND LOGIC (MỚI) ---
+const bgImage = "https://htkhang111.github.io/background/b_doanhtrai.png";
+const isNight = ref(false);
+
+const updateDayNight = () => {
+  const h = new Date().getHours();
+  // Chỉ đổi màu nền theo giờ, không hiện text
+  isNight.value = h >= 18 || h < 6;
+};
+
+// --- LOGIC HÀNH TRANG CŨ (GIỮ NGUYÊN) ---
 const OFFSET_TOP = 0; 
 
 const inventoryStore = useInventoryStore();
@@ -2563,18 +2578,15 @@ const currentTab = ref('ALL');
 const selectedItem = ref(null);
 const viewMode = ref('list'); 
 
-// --- STATE MODAL BÁN ---
 const showSellModal = ref(false);
 const sellItemData = ref(null);
 const sellForm = ref({ price: 0, quantity: 1 });
 
-// --- CONFIG WHEEL ---
 const ITEM_HEIGHT = 50; 
 const VISIBLE_COUNT = 9; 
 const scrollY = ref(0);
 const wheelContainer = ref(null);
 
-// Physics vars
 let isDragging = false;
 let startY = 0;
 let lastTouchY = 0;
@@ -2606,7 +2618,6 @@ const toggleViewMode = () => {
     }
 };
 
-// --- LOGIC AUTO SELECT ---
 watch(scrollY, (newVal) => {
     if (viewMode.value !== 'list') return;
     const items = filteredItems.value;
@@ -2626,14 +2637,12 @@ watch(filteredItems, (newItems) => {
     }
 }, { immediate: true });
 
-// --- RENDER LOGIC ---
 const renderedItems = computed(() => {
     if (viewMode.value !== 'list') return [];
     const items = filteredItems.value;
     const total = items.length;
     if (total === 0) return [];
 
-    // Lấy chiều cao container
     const containerHeight = wheelContainer.value ? wheelContainer.value.clientHeight : 350;
     const centerY = containerHeight / 2;
 
@@ -2698,7 +2707,6 @@ const renderedItems = computed(() => {
     return result;
 });
 
-// --- SCROLL HELPERS ---
 const scrollToIndex = (virtualIndex) => {
     targetScrollY = virtualIndex * ITEM_HEIGHT;
     cancelAnimationFrame(animationFrameId);
@@ -2803,7 +2811,6 @@ const switchTab = (tabId) => {
     velocity = 0;
 };
 
-// --- HELPERS ---
 const selectItem = (item) => { selectedItem.value = item; };
 
 const parsedSubStats = computed(() => {
@@ -2843,7 +2850,6 @@ const getStatLabel = (mainStatType, itemType) => {
 
 const canEquip = (uItem) => ['WEAPON', 'ARMOR', 'HELMET', 'BOOTS', 'RING', 'NECKLACE', 'TOOL'].includes(uItem.item.type);
 
-// --- HANDLERS ---
 const handleEquip = async () => {
   if (!selectedItem.value) return;
   try {
@@ -2964,6 +2970,7 @@ const getRarityClass = (item) => item.isMythic ? "mythic" : (item.item.rarity ? 
 const formatNumber = (num) => new Intl.NumberFormat().format(num || 0);
 
 onMounted(async () => {
+  updateDayNight(); // [MỚI] Kích hoạt màu nền
   await inventoryStore.fetchInventory();
 });
 onUnmounted(() => {
@@ -2976,8 +2983,8 @@ onUnmounted(() => {
 <style scoped>
 /* --- BASE THEME --- */
 .wuxia-theme {
-  background-color: #050505;
-  background-image: radial-gradient(circle at 50% 30%, #1a100d 0%, #000000 90%);
+  /* Xóa màu nền cứng, để trong suốt cho bg-layer hiển thị */
+  background-color: transparent; 
   color: #e0d4b9;
   font-family: 'Noto Serif TC', serif;
   min-height: 100vh;
@@ -2986,13 +2993,31 @@ onUnmounted(() => {
   overflow: hidden;
   user-select: none;
 }
-.bg-overlay {
-  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-  background: url('https://www.transparenttextures.com/patterns/dark-leather.png'); opacity: 0.3;
-  pointer-events: none; z-index: 0;
+
+/* --- 1. HỆ THỐNG BACKGROUND (MỚI) --- */
+.bg-layer { position: absolute; inset: 0; z-index: 0; background: #261815; }
+.mountain-bg { 
+  position: absolute; inset: 0; 
+  background-size: cover; background-position: center bottom; 
+  opacity: 0.6; filter: sepia(10%) contrast(1.1); 
 }
+.wood-overlay { 
+  position: absolute; inset: 0; 
+  background: linear-gradient(to bottom, rgba(62, 39, 35, 0.7), rgba(30, 20, 15, 0.9)); 
+  mix-blend-mode: multiply; 
+  transition: background 2s ease; 
+}
+.wood-overlay.night-mode { 
+  background: linear-gradient(to bottom, rgba(10, 5, 20, 0.85), rgba(0, 0, 0, 0.95)); 
+}
+.vignette { 
+  position: absolute; inset: 0; 
+  background: radial-gradient(circle, transparent 60%, #1a100d 100%); 
+}
+
+/* --- 2. LAYOUT HÀNH NANG (Z-INDEX 10 ĐỂ NỔI LÊN) --- */
 .inventory-layout {
-  position: relative; z-index: 1;
+  position: relative; z-index: 10;
   display: grid; grid-template-columns: 1.2fr 1fr;
   gap: 30px;
   max-width: 1100px; margin: 0 auto; height: 85vh;
@@ -3000,7 +3025,7 @@ onUnmounted(() => {
 
 /* --- GLASS PANEL --- */
 .glass-panel {
-  background: rgba(30, 20, 15, 0.6);
+  background: rgba(30, 20, 15, 0.85); /* Tăng độ đậm để dễ đọc trên nền ảnh */
   backdrop-filter: blur(12px);
   border: 1px solid rgba(139, 94, 60, 0.3);
   box-shadow: 0 10px 40px rgba(0,0,0,0.8);
@@ -3194,7 +3219,6 @@ onUnmounted(() => {
 .durability-box { margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; }
 .durability-header { display: flex; justify-content: space-between; font-size: 0.8rem; color: #ccc; margin-bottom: 4px; }
 
-/* [UPDATE] DURABILITY BAR STYLES */
 .durability-progress-bg { 
     height: 18px; /* Tăng độ cao lên chút để chứa text */
     background: #263238; border-radius: 9px; overflow: hidden; 
@@ -3207,7 +3231,6 @@ onUnmounted(() => {
     position: absolute; left: 0; top: 0;
 }
 
-/* Text overlay nằm đè lên thanh */
 .durability-percent-text {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;

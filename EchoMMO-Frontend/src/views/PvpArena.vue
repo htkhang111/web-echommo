@@ -286,17 +286,17 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, computed } from "vue";
+// [IMPORTANT] Sử dụng đúng Store của bạn
 import { useAuthStore } from "../stores/authStore";
-import { useCharacterStore } from "../stores/characterStore";
 import { useLeaderboardStore } from "../stores/leaderboardStore";
 import { CHARACTER_SKINS } from "../utils/assetHelper";
 import axios from "axios";
 
 const API_URL = "http://localhost:8080/api/pvp";
 const authStore = useAuthStore();
-const charStore = useCharacterStore();
 const lbStore = useLeaderboardStore();
 
+// --- ASSET HELPERS ---
 const getSpriteUrl = (skinId) => {
   const skin = CHARACTER_SKINS[skinId] || CHARACTER_SKINS["skin_yasou"];
   return skin.sprites.idle;
@@ -311,10 +311,9 @@ const resolveAvatar = (avatarStr) => {
   return getSpriteUrl(avatarStr);
 };
 
-// --- COMPUTED: LẤY THÔNG TIN TỪ STORE ---
+// --- COMPUTED: Lấy data từ AuthStore (Store này bạn đã cấu hình tốt) ---
 const characterName = computed(() => authStore.character?.name || authStore.user?.username || "Đại Hiệp");
 const characterLevel = computed(() => authStore.character?.level || 1);
-// [FIX] Lấy danh vọng và danh hiệu từ store
 const characterReputation = computed(() => authStore.character?.reputation || 0);
 const characterRankTitle = computed(() => authStore.character?.rankTitle || "Vô Danh");
 
@@ -347,8 +346,7 @@ const endGameMessage = ref("");
 const autoBackTimer = ref(5);
 let autoBackInterval = null;
 
-// [FIX] Biến lưu điểm danh vọng để tính toán
-const startReputation = ref(0); 
+// [FIX] Biến hiển thị kết quả
 const gainedReputation = ref(0);
 
 // --- BATTLE DATA ---
@@ -416,12 +414,19 @@ const clearAllIntervals = () => {
   if (autoBackInterval) clearInterval(autoBackInterval);
 };
 
-// [FIX] BẮT ĐẦU TÌM TRẬN & LƯU ĐIỂM CŨ
+// --- [LOGIC QUAN TRỌNG NHẤT] ---
 const toggleSearch = async () => {
   resetToLobby();
   
-  // Lưu điểm danh vọng hiện tại trước khi vào trận để tí nữa trừ đi
-  startReputation.value = authStore.character?.reputation || 0;
+  // 1. Cập nhật dữ liệu từ Server
+  await authStore.fetchCharacter();
+  
+  // 2. [FIX] Lưu điểm danh vọng vào LocalStorage (chống F5 mất dữ liệu)
+  // Store của bạn lưu trong 'character.reputation'
+  if (authStore.character) {
+    const currentRep = authStore.character.reputation || 0;
+    localStorage.setItem('pvp_start_rep', currentRep); 
+  }
   
   gameState.value = "SEARCHING";
   searchTimer.value = 0;
@@ -430,6 +435,7 @@ const toggleSearch = async () => {
     await axios.post(`${API_URL}/find`, {}, { headers: getHeaders() });
     startPolling();
   } catch (e) {
+    console.error(e);
     resetToLobby();
   }
 };
@@ -443,7 +449,6 @@ const acceptMatch = async () => {
   hasAccepted.value = true;
   try { await axios.post(`${API_URL}/accept`, { matchId: matchId.value }, { headers: getHeaders() }); } catch (e) {}
 };
-const declineMatch = async () => { cancelSearch(); };
 
 const submitRps = async (move) => {
   if (isActionPending.value || isRevealing.value) return;
@@ -471,7 +476,7 @@ const startPolling = () => {
       if (!data) return;
       if (data.matchId && ignoredMatchIds.value.has(Number(data.matchId))) return;
 
-      // [1] XỬ LÝ KẾT THÚC TRẬN ĐẤU
+      // [XỬ LÝ KẾT THÚC TRẬN]
       if (data.status === "FINISHED") {
         if (gameState.value === 'LOBBY' || gameState.value === 'SEARCHING') {
             if (data.matchId) ignoredMatchIds.value.add(Number(data.matchId));
@@ -488,12 +493,16 @@ const startPolling = () => {
           setTimeout(async () => {
             clearAllIntervals();
             
-            // [FIX] QUAN TRỌNG: Gọi API lấy thông tin mới nhất từ DB
+            // 1. Lấy dữ liệu mới nhất từ Server
             await authStore.fetchCharacter(); 
             
-            // [FIX] Tính toán điểm chênh lệch
+            // 2. [FIX] Tính toán điểm chênh lệch từ LocalStorage
             const currentRep = authStore.character?.reputation || 0;
-            gainedReputation.value = currentRep - startReputation.value;
+            // Nếu không tìm thấy trong storage thì lấy luôn currentRep (tránh lỗi NaN)
+            const savedStartRep = localStorage.getItem('pvp_start_rep');
+            const startRep = savedStartRep ? Number(savedStartRep) : currentRep;
+            
+            gainedReputation.value = currentRep - startRep;
 
             const iWon = serverWinnerId === myCharId;
             isWin.value = iWon;
@@ -514,7 +523,7 @@ const startPolling = () => {
             }
 
             showEndGameModal.value = true;
-            lbStore.fetchPvPBoard(); // Cập nhật BXH
+            lbStore.fetchPvPBoard();
             if (data.matchId) ignoredMatchIds.value.add(Number(data.matchId));
 
             // Auto back timer
@@ -797,4 +806,4 @@ onUnmounted(() => clearAllIntervals());
 @keyframes floatUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes critShake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
 @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-</style>
+</style>  
