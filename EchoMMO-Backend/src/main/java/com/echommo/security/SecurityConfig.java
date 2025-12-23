@@ -24,11 +24,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final AuthTokenFilter jwtAuthFilter;
-
-    // [FIX] Inject AuthenticationProvider từ ApplicationConfig thay vì tự tạo Bean mới
     private final AuthenticationProvider authenticationProvider;
-
-    // [OPTIONAL] Xử lý lỗi 401 chuẩn hơn (nếu Cưng đã tạo file AuthEntryPointJwt ở bước trước)
     private final AuthEntryPointJwt unauthorizedHandler;
 
     @Bean
@@ -42,16 +38,19 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**", "/api/public/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers("/uploads/**").permitAll() // [QUAN TRỌNG] Cho phép xem ảnh upload
+                        .requestMatchers("/uploads/**").permitAll()
 
-                        // 2. Các API cần quyền cụ thể (ví dụ PvP)
+                        // [FIX] Cho phép truy cập trang lỗi để tránh loop 401 khi Spring forward request
+                        .requestMatchers("/error").permitAll()
+
+                        // 2. Các API cần quyền cụ thể
                         .requestMatchers("/api/pvp/**").authenticated()
 
                         // 3. Còn lại bắt buộc đăng nhập
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authenticationProvider(authenticationProvider) // Sử dụng provider đã inject
+                .authenticationProvider(authenticationProvider)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -61,7 +60,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Cấu hình CORS cho phép Frontend gọi vào
+        // Cấu hình CORS
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",       // Vue Local Dev
                 "http://localhost:4173",       // Vue Preview

@@ -51,7 +51,8 @@ const route = useRoute();
 const router = useRouter();
 
 const isAuthPage = computed(() => {
-  return ["Login", "Register", "ForgotPassword"].includes(route.name);
+  // [FIX] Thêm ?. để tránh lỗi "Cannot read properties of undefined" khi router chưa sẵn sàng
+  return ["Login", "Register", "ForgotPassword"].includes(route?.name);
 });
 
 const handleLogout = () => {
@@ -60,7 +61,10 @@ const handleLogout = () => {
 };
 
 onMounted(async () => {
-  await authStore.initialize();
+  // Chỉ init nếu không phải trang login để tránh call dư thừa
+  if (!isAuthPage.value) {
+      await authStore.initialize();
+  }
 });
 </script>
 

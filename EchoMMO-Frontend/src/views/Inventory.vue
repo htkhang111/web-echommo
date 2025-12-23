@@ -256,7 +256,7 @@ import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useInventoryStore } from '@/stores/inventoryStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useMarketStore } from '@/stores/marketStore';
-import { useNotificationStore } from '@/stores/notificationStore'; // [FIX] Import Store
+import { useNotificationStore } from '@/stores/notificationStore';
 import { resolveItemImage } from '@/utils/assetHelper';
 import GameToast from '@/components/GameToast.vue';
 
@@ -278,7 +278,7 @@ let targetScrollY = null;
 const inventoryStore = useInventoryStore();
 const authStore = useAuthStore();
 const marketStore = useMarketStore();
-const notificationStore = useNotificationStore(); // [FIX] Init Store
+const notificationStore = useNotificationStore();
 
 const currentTab = ref('ALL');
 const selectedItem = ref(null);
@@ -315,12 +315,14 @@ watch(scrollY, (newVal) => {
     if (viewMode.value !== 'list') return;
     const items = filteredItems.value;
     if (!items.length) return;
+    
+    // [LOGIC MỚI] Không dùng % để tính index nữa để tránh loop
     const centerIndex = Math.round(newVal / ITEM_HEIGHT);
-    const total = items.length;
-    const realIndex = ((centerIndex % total) + total) % total;
-    const targetItem = items[realIndex];
-    if (selectedItem.value?.userItemId !== targetItem?.userItemId) {
-        selectedItem.value = targetItem;
+    if (centerIndex >= 0 && centerIndex < items.length) {
+        const targetItem = items[centerIndex];
+        if (selectedItem.value?.userItemId !== targetItem?.userItemId) {
+            selectedItem.value = targetItem;
+        }
     }
 });
 
@@ -330,6 +332,7 @@ watch(filteredItems, (newItems) => {
     }
 }, { immediate: true });
 
+// [FIX] RENDERED ITEMS: Bỏ logic lặp vô tận (Infinite Loop)
 const renderedItems = computed(() => {
     if (viewMode.value !== 'list') return [];
     const items = filteredItems.value;
@@ -344,8 +347,10 @@ const renderedItems = computed(() => {
     const buffer = Math.ceil(VISIBLE_COUNT / 2);
 
     for (let i = baseIndex - buffer; i <= baseIndex + buffer; i++) {
-        let dataIndex = ((i % total) + total) % total;
-        const itemData = items[dataIndex];
+        // [FIX] Kiểm tra index thực tế. Nếu ra khỏi mảng thì bỏ qua (không lặp lại)
+        if (i < 0 || i >= total) continue;
+
+        const itemData = items[i];
         
         const itemY = i * ITEM_HEIGHT - scrollY.value; 
         const distSlots = Math.abs(itemY / ITEM_HEIGHT);
@@ -423,6 +428,12 @@ const inertiaLoop = (time) => {
     lastTime = time;
     if (Math.abs(velocity) > 0.1) {
         scrollY.value -= velocity * 16;
+        
+        // [FIX] Giới hạn scroll không cho chạy ra quá xa danh sách
+        const maxScroll = Math.max(0, (filteredItems.value.length - 1) * ITEM_HEIGHT);
+        if (scrollY.value < -50) velocity = -0.5; // Bounce ở top
+        if (scrollY.value > maxScroll + 50) velocity = 0.5; // Bounce ở bottom
+        
         velocity *= 0.92;
         animationFrameId = requestAnimationFrame(inertiaLoop);
     } else {
@@ -431,7 +442,12 @@ const inertiaLoop = (time) => {
     }
 };
 const snapToGrid = () => {
-    const targetY = Math.round(scrollY.value / ITEM_HEIGHT) * ITEM_HEIGHT;
+    let targetY = Math.round(scrollY.value / ITEM_HEIGHT) * ITEM_HEIGHT;
+    
+    // [FIX] Clamp targetY để không snap ra ngoài mảng
+    const maxScroll = Math.max(0, (filteredItems.value.length - 1) * ITEM_HEIGHT);
+    targetY = Math.max(0, Math.min(targetY, maxScroll));
+
     const diff = targetY - scrollY.value;
     if (Math.abs(diff) > 0.5) {
         scrollY.value += diff * 0.15;
@@ -446,6 +462,12 @@ const onWheel = (e) => {
     targetScrollY = null;
     velocity = 0;
     scrollY.value += e.deltaY * 0.4;
+    
+    // Clamp ngay khi scroll chuột
+    const maxScroll = Math.max(0, (filteredItems.value.length - 1) * ITEM_HEIGHT);
+    if (scrollY.value < -20) scrollY.value = -20;
+    if (scrollY.value > maxScroll + 20) scrollY.value = maxScroll + 20;
+
     snapToGrid();
 };
 const onMouseDown = (e) => {
@@ -485,7 +507,6 @@ const getStatLabel = (mainStatType, itemType) => {
 };
 const canEquip = (uItem) => ['WEAPON', 'ARMOR', 'HELMET', 'BOOTS', 'RING', 'NECKLACE', 'TOOL'].includes(uItem.item.type);
 
-// [FIX] Dùng notificationStore thay vì toast.value?.show
 const handleEquip = async () => { 
     if (!selectedItem.value) return; 
     try { 
@@ -513,19 +534,16 @@ const handleUse = async () => {
     } 
 };
 
-// [FIX] Logic mở modal bán hàng (Bán Shop)
 const openSellModal = (item) => { 
     if(item.isEquipped) { 
         notificationStore.showToast("Phải gỡ trang bị mới được bán!", "error"); 
         return; 
     } 
     sellItemData.value = item; 
-    // Giá mặc định là 50% giá gốc, số lượng 1
     sellForm.value = { quantity: 1 }; 
     showSellModal.value = true; 
 };
 
-// [FIX] Logic xác nhận bán (gọi marketStore.sellItem - Bán shop)
 const confirmSell = async () => { 
     if(!sellItemData.value) return; 
     
@@ -535,15 +553,11 @@ const confirmSell = async () => {
     } 
     
     try { 
-        // [FIX] Gọi API sellItem (Bán Shop)
         const result = await marketStore.sellItem(sellItemData.value.userItemId, sellForm.value.quantity);
-        
-        // [FIX] Hiển thị message từ server
         notificationStore.showToast(result.message || "Đã bán thành công!", "success"); 
         
         showSellModal.value = false; 
         
-        // Cập nhật lại UI sau khi bán
         await inventoryStore.fetchInventory(); 
         selectedItem.value = null; 
     } catch (e) { 
@@ -600,17 +614,19 @@ onUnmounted(() => { cancelAnimationFrame(animationFrameId); window.removeEventLi
 </script>
 
 <style scoped>
-/* (Giữ nguyên CSS cũ và thêm/sửa một chút cho Modal Bán Shop) */
-/* ... (Code CSS cũ) ... */
 .wuxia-theme {
   background-color: #050505;
   background-image: radial-gradient(circle at 50% 30%, #1a100d 0%, #000000 90%);
   color: #e0d4b9;
   font-family: 'Noto Serif TC', serif;
-  min-height: 100vh;
+  
+  /* [FIX] Fix lỗi 2 thanh cuộn: Set height cứng và ẩn overflow */
+  height: 100vh;
+  overflow: hidden;
+  box-sizing: border-box;
+
   padding: 20px;
   position: relative;
-  overflow: hidden;
   user-select: none;
 }
 .bg-overlay {
@@ -621,7 +637,10 @@ onUnmounted(() => { cancelAnimationFrame(animationFrameId); window.removeEventLi
 .inventory-layout {
   position: relative; z-index: 1;
   display: grid; grid-template-columns: 1.2fr 1fr;
-  gap: 20px; max-width: 1100px; margin: 0 auto; height: 85vh;
+  gap: 20px; max-width: 1100px; margin: 0 auto; 
+  
+  /* [FIX] Trừ đi padding để không bị tràn */
+  height: calc(100vh - 40px);
 }
 
 /* --- WOOD PANEL --- */

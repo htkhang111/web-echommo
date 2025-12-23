@@ -1,21 +1,28 @@
 import axios from "axios";
-// [FIX CIRCULAR DEPENDENCY] KHÔNG import useAuthStore ở đây để tránh vòng lặp:
-// axiosClient -> authStore -> axiosClient -> ...
 
-// [FIX] Đổi localhost -> 127.0.0.1 để tránh lỗi kết nối trên Windows/IPv6
+// 1. Cấu hình baseURL chuẩn
 const axiosClient = axios.create({
-  baseURL: "http://127.0.0.1:8080/api",
+  baseURL: "http://localhost:8080/api",
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// Hàm kiểm tra Token hết hạn (client-side check)
+// 2. Hàm chuyển hướng an toàn tuyệt đối (Dùng window.location)
+// Giúp tránh mọi lỗi liên quan đến import Router trong file này
+const forceLogout = () => {
+  localStorage.removeItem("token"); // Hoặc logic xóa token của bạn
+  window.location.href = "/login";
+};
+
+// 3. Hàm check token đơn giản
 const isTokenExpired = (token) => {
   if (!token) return true;
   try {
-    const payload = JSON.parse(window.atob(token.split(".")[1]));
-    return payload.exp < Date.now() / 1000;
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(window.atob(base64));
+    return payload.exp * 1000 < Date.now();
   } catch (e) {
     return true;
   }
@@ -24,64 +31,72 @@ const isTokenExpired = (token) => {
 // --- REQUEST INTERCEPTOR ---
 axiosClient.interceptors.request.use(
   async (config) => {
-    // [FIX] Sử dụng Dynamic Import để lấy store khi cần, phá vỡ vòng lặp dependency
-    const { useAuthStore } = await import("../stores/authStore");
-    const authStore = useAuthStore();
+    // [QUAN TRỌNG] Try-catch đoạn import Store để tránh sập nếu sai đường dẫn
+    let token = null;
+    try {
+      // Sửa đường dẫn này cho đúng vị trí file store của bạn
+      // Nếu file axios nằm cùng cấp thư mục cha với stores thì dùng ../
+      const { useAuthStore } = await import("../stores/authStore");
+      const authStore = useAuthStore();
+      token = authStore.token;
 
-    if (authStore.token) {
-      // Nếu token hết hạn thật sự (do thời gian), thì logout luôn
-      if (isTokenExpired(authStore.token)) {
-        authStore.logout();
-        window.location.href = "/login";
-        return Promise.reject(new Error("Token expired locally"));
+      if (token && isTokenExpired(token)) {
+        console.warn("⚠️ Token hết hạn (Client). Logout ngay.");
+        authStore.logout(); // Xóa state
+        forceLogout();      // Chuyển trang
+        return Promise.reject(new Error("Token expired")); // Ngắt request
       }
-      config.headers.Authorization = `Bearer ${authStore.token}`;
+    } catch (err) {
+      // Nếu import lỗi, bỏ qua check token client-side để tránh lỗi Promise
+      console.error("Lỗi check token ở axios:", err);
     }
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// --- RESPONSE INTERCEPTOR (Xử lý Ban & Lỗi) ---
+// --- RESPONSE INTERCEPTOR ---
 axiosClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // [FIX] Dynamic Import cho response interceptor
-    const { useAuthStore } = await import("../stores/authStore");
-    const authStore = useAuthStore();
-
     if (error.response) {
       const { status, data } = error.response;
 
-      // [ƯU TIÊN 1] KIỂM TRA BANNED
-      // Backend trả về 403 và JSON có chứa error="BANNED" hoặc message liên quan
-      const isBannedSignal =
-        status === 403 &&
-        ((data && data.error === "BANNED") ||
-          (data &&
-            data.message &&
-            data.message.toLowerCase().includes("phong ấn")));
+      // Xử lý BAN
+      const isBanned = status === 403 && 
+        ((data?.error === "BANNED") || (data?.message?.toLowerCase().includes("phong ấn")));
 
-      if (isBannedSignal) {
-        console.error("⛔ TÀI KHOẢN ĐÃ BỊ BAN!");
-
-        // Gọi action triggerBan trong store để hiện Popup
-        const reason = data.message || "Vi phạm quy định thiên phủ.";
-        authStore.triggerBan(reason);
-
-        // Trả về reject nhưng KHÔNG logout ngay để giữ popup hiện trên màn hình
+      if (isBanned) {
+        // Cố gắng import store để hiện popup ban
+        try {
+            const { useAuthStore } = await import("../stores/authStore");
+            const authStore = useAuthStore();
+            authStore.triggerBan(data.message || "Bị phong ấn.");
+        } catch (e) {
+            console.error("Không gọi được store để hiện ban:", e);
+        }
         return Promise.reject(error);
       }
 
-      // [ƯU TIÊN 2] HẾT HẠN PHIÊN (401)
+      // Xử lý 401 (Hết hạn login)
       if (status === 401) {
-        console.warn("⚠️ Phiên đăng nhập hết hạn (401).");
-        authStore.logout();
-        window.location.href = "/login";
+        console.warn("⚠️ 401 Unauthorized -> Logout");
+        // Gọi logout từ store nếu được, không thì force logout luôn
+        try {
+            const { useAuthStore } = await import("../stores/authStore");
+            const authStore = useAuthStore();
+            authStore.logout();
+        } catch (e) {}
+        
+        forceLogout();
         return Promise.reject(error);
       }
     }
-
     return Promise.reject(error);
   }
 );
