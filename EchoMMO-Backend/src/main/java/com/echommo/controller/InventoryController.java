@@ -54,19 +54,20 @@ public class InventoryController {
         }
     }
 
-    // [FIX] Dùng trực tiếp Integer userItemId
     @PostMapping("/equip/{userItemId}")
     @Transactional
-    public ResponseEntity<?> equipItem(@PathVariable Integer userItemId) {
+    public ResponseEntity<?> equipItem(@PathVariable Long userItemId) { // [FIXED] Long
         try {
             Character character = getCurrentCharacter();
 
-            // Truyền thẳng Integer userItemId vào Repository
             UserItem newItem = userItemRepo.findById(userItemId)
                     .orElseThrow(() -> new RuntimeException("Item không tồn tại"));
 
             if (!newItem.getCharacter().getCharId().equals(character.getCharId())) {
                 return ResponseEntity.badRequest().body("Vật phẩm không thuộc về nhân vật này!");
+            }
+            if (Boolean.TRUE.equals(newItem.getIsLocked())) {
+                return ResponseEntity.badRequest().body("Vật phẩm đang bị khóa!");
             }
 
             SlotType slot = newItem.getItem().getSlotType();
@@ -90,10 +91,9 @@ public class InventoryController {
         }
     }
 
-    // [FIX] Dùng trực tiếp Integer userItemId
     @PostMapping("/unequip/{userItemId}")
     @Transactional
-    public ResponseEntity<?> unequipItem(@PathVariable Integer userItemId) {
+    public ResponseEntity<?> unequipItem(@PathVariable Long userItemId) { // [FIXED] Long
         try {
             Character character = getCurrentCharacter();
 
@@ -102,6 +102,9 @@ public class InventoryController {
 
             if (!item.getCharacter().getCharId().equals(character.getCharId())) {
                 return ResponseEntity.badRequest().body("Vật phẩm không thuộc về bạn!");
+            }
+            if (Boolean.TRUE.equals(item.getIsLocked())) {
+                return ResponseEntity.badRequest().body("Vật phẩm đang bị khóa!");
             }
 
             item.setIsEquipped(false);
@@ -112,10 +115,9 @@ public class InventoryController {
         }
     }
 
-    // [FIX] Dùng trực tiếp Integer userItemId
     @PostMapping("/use/{userItemId}")
     @Transactional
-    public ResponseEntity<?> useItem(@PathVariable Integer userItemId) {
+    public ResponseEntity<?> useItem(@PathVariable Long userItemId) { // [FIXED] Long
         try {
             Character character = getCurrentCharacter();
 
@@ -148,10 +150,9 @@ public class InventoryController {
 
     @PostMapping("/repair/{userItemId}")
     @Transactional
-    public ResponseEntity<?> repairItem(@PathVariable Integer userItemId, Authentication auth) {
+    public ResponseEntity<?> repairItem(@PathVariable Long userItemId, Authentication auth) { // [FIXED] Long
         User user = userService.getUserFromAuth(auth);
         try {
-            // Service đã được sửa để nhận Integer
             UserItem repairedItem = inventoryService.repairItem(user, userItemId);
             return ResponseEntity.ok("Sửa chữa thành công! Độ bền: " + repairedItem.getCurrentDurability());
         } catch (RuntimeException e) {

@@ -1,5 +1,3 @@
-// File: EchoMMO-Backend/src/main/java/com/echommo/service/impl/InventoryServiceImpl.java
-
 package com.echommo.service.impl;
 
 import com.echommo.entity.*;
@@ -32,21 +30,26 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public List<UserItem> getInventory(Integer charId) {
-        return userItemRepo.findByCharacter_CharIdOrderByAcquiredAtDesc(charId);
+        // [FIXED] Sử dụng method mới đã thêm trong Repo
+        return userItemRepo.findByCharacter_CharIdAndIsLockedFalseOrderByAcquiredAtDesc(charId);
     }
 
     @Override
     @Transactional
-    public void equipItem(Integer charId, Integer userItemId) {
+    public void equipItem(Integer charId, Long userItemId) { // [FIXED] Long
         Character character = charRepo.findById(charId)
                 .orElseThrow(() -> new RuntimeException("Character not found"));
 
-        // [FIX] Dùng trực tiếp Integer
         UserItem newItem = userItemRepo.findById(userItemId)
                 .orElseThrow(() -> new RuntimeException("Item not found"));
 
         if (!newItem.getCharacter().getCharId().equals(charId)) {
             throw new RuntimeException("Vật phẩm không thuộc về bạn!");
+        }
+
+        // [FIXED] Kiểm tra isLocked
+        if (Boolean.TRUE.equals(newItem.getIsLocked())) {
+            throw new RuntimeException("Vật phẩm đang bị khóa!");
         }
 
         Item itemBase = newItem.getItem();
@@ -93,8 +96,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
-    public void unequipItem(Integer charId, Integer userItemId) {
-        // [FIX] Dùng trực tiếp Integer
+    public void unequipItem(Integer charId, Long userItemId) { // [FIXED] Long
         Character character = charRepo.findById(charId).orElseThrow();
         UserItem item = userItemRepo.findById(userItemId).orElseThrow();
 
@@ -103,6 +105,10 @@ public class InventoryServiceImpl implements InventoryService {
         }
         if (!Boolean.TRUE.equals(item.getIsEquipped())) {
             throw new RuntimeException("Vật phẩm này chưa được trang bị!");
+        }
+        // [FIXED] Check Locked
+        if (Boolean.TRUE.equals(item.getIsLocked())) {
+            throw new RuntimeException("Vật phẩm đang bị khóa!");
         }
 
         item.setIsEquipped(false);
@@ -114,14 +120,13 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
-    public UserItem enhanceItem(Integer charId, Integer userItemId) {
+    public UserItem enhanceItem(Integer charId, Long userItemId) { // [FIXED] Long
         return equipmentService.enhanceItem(userItemId);
     }
 
     @Override
     @Transactional
-    public UserItem repairItem(User user, Integer userItemId) {
-        // [FIX] Dùng trực tiếp Integer
+    public UserItem repairItem(User user, Long userItemId) { // [FIXED] Long
         UserItem userItem = userItemRepo.findById(userItemId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy vật phẩm!"));
 
@@ -218,7 +223,8 @@ public class InventoryServiceImpl implements InventoryService {
         if (!isStackable && currentCount + quantity > maxSlots) throw new RuntimeException("Kho đồ đã đầy!");
 
         if (isStackable) {
-            Optional<UserItem> existingItem = userItemRepo.findByCharacter_CharIdAndItem_ItemId(character.getCharId(), itemId)
+            // [FIXED] Dùng method mới để tìm item chưa bị khóa
+            Optional<UserItem> existingItem = userItemRepo.findByCharacter_CharIdAndItem_ItemIdAndIsLockedFalse(character.getCharId(), itemId)
                     .stream().filter(ui -> !Boolean.TRUE.equals(ui.getIsEquipped())).findFirst();
             if (existingItem.isPresent()) {
                 UserItem ui = existingItem.get();
@@ -235,6 +241,7 @@ public class InventoryServiceImpl implements InventoryService {
                     .item(item)
                     .quantity(1)
                     .isEquipped(false)
+                    .isLocked(false) // [ADDED] Default
                     .enhanceLevel(0)
                     .rarity(item.getRarity() != null ? item.getRarity() : Rarity.COMMON)
                     .acquiredAt(LocalDateTime.now())

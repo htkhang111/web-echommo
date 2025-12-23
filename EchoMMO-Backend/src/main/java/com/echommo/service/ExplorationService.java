@@ -1,4 +1,3 @@
-// EchoMMO-Backend/src/main/java/com/echommo/service/ExplorationService.java
 package com.echommo.service;
 
 import com.echommo.dto.ExplorationResponse;
@@ -33,6 +32,7 @@ public class ExplorationService {
     // Map chống Spam Click (500ms)
     private final Map<Integer, Long> lastActionMap = new HashMap<>();
 
+    // ... (Giữ nguyên enum GameMap)
     public enum GameMap {
         MAP_01("MAP_01", "Đồng Bằng", 1, 19,
                 createWeightedList(Map.of("w_wood", 40, "o_coal", 30, "o_copper", 20, "f_fish", 10)),
@@ -43,19 +43,19 @@ public class ExplorationService {
                 List.of("Nhện Độc", "Gấu Xám", "Tinh Linh Rừng")),
 
         MAP_03("MAP_03", "Sa Mạc", 30, 39,
-                createWeightedList(Map.of("w_woodRed", 30, "GOLD_MINE_SPECIAL", 40, "o_iron", 30)),
+                createWeightedList(Map.of("w_woodRed", 30, "GOLD_MINE_SPECIAL", 40, "o_iron", 20, "o_gold", 10)),
                 List.of("Bọ Cạp Cát", "Rắn Đuôi Chuông", "Mummy")),
 
         MAP_04("MAP_04", "Núi Cao", 40, 49,
-                createWeightedList(Map.of("o_coal", 30, "o_iron", 30, "o_platinum", 20, "w_woodWhite", 20)),
+                createWeightedList(Map.of("o_coal", 30, "o_iron", 30, "o_platinum", 20, "w_woodWhite", 15, "o_gold", 5)),
                 List.of("Golem Đá", "Đại Bàng Núi", "Rồng Đá Nhỏ")),
 
         MAP_05("MAP_05", "Băng Đảo", 50, 59,
-                createWeightedList(Map.of("w_woodWhite", 40, "o_platinum", 40, "f_whiteshark", 20)),
+                createWeightedList(Map.of("w_woodWhite", 40, "o_platinum", 40, "f_whiteshark", 15, "o_gold", 5)),
                 List.of("Sói Tuyết", "Yeti Khổng Lồ", "Phù Thủy Băng")),
 
         MAP_06("MAP_06", "Vùng Đất Chết", 60, 70,
-                createWeightedList(Map.of("w_woodBlack", 30, "o_strange", 30, "f_megalodon", 20, "r_coinEcho", 20)),
+                createWeightedList(Map.of("w_woodBlack", 30, "o_strange", 30, "f_megalodon", 20, "r_coinEcho", 15, "o_gold", 5)),
                 List.of("Bóng Ma", "Hiệp Sĩ Tử Vong", "Lich King"));
 
         public final String id; public final String name;
@@ -100,12 +100,18 @@ public class ExplorationService {
         Random r = new Random();
         Wallet w = c.getUser().getWallet();
 
-        c.setCurrentExp(c.getCurrentExp() + 10L + c.getLevel());
+        // 1. TÍNH TOÁN LƯƠNG CỨNG (Exp + Gold)
+        long expGained = 10L + c.getLevel();
+        c.setCurrentExp(c.getCurrentExp() + expGained);
+
+        int baseGold = 10 + c.getLevel();
+        int randomGold = r.nextInt(5 + c.getLevel() / 2);
+        BigDecimal totalGoldGained = BigDecimal.valueOf(baseGold + randomGold);
 
         int roll = r.nextInt(100);
         String type; String msg;
         String rewardName = null;
-        String rewardItemCode = null; // [NEW]
+        String rewardItemCode = null;
         Integer rewardAmount = 0; Integer rewardItemId = null;
 
         if (roll < 70) {
@@ -117,9 +123,12 @@ public class ExplorationService {
             String resCode = map.resourceCodes.get(r.nextInt(map.resourceCodes.size()));
 
             if ("GOLD_MINE_SPECIAL".equals(resCode)) {
-                BigDecimal gold = BigDecimal.valueOf(50 + r.nextInt(150));
-                w.setGold(w.getGold().add(gold));
-                msg = "Tìm thấy kho báu! (+" + gold + " Vàng)";
+                // Rơi vào mỏ vàng -> Cộng thêm tiền thưởng
+                BigDecimal bonusGold = BigDecimal.valueOf(50 + r.nextInt(150));
+                totalGoldGained = totalGoldGained.add(bonusGold);
+
+                // MSG chỉ hiện text, không hiện số tiền (FE sẽ hiện số tiền)
+                msg = "Tìm thấy kho báu bí mật!";
                 type = "GOLD_MINE";
                 clearGatheringState(c);
             } else {
@@ -130,21 +139,24 @@ public class ExplorationService {
                     c.setGatheringRemainingAmount(amount);
                     c.setGatheringExpiry(LocalDateTime.now().plusMinutes(3));
 
-                    msg = "Phát hiện bãi " + item.getName();
+                    if ("o_gold".equals(item.getCode())) {
+                        msg = "✨ TÀI LỘC! Phát hiện mạch " + item.getName() + " lấp lánh!";
+                    } else {
+                        msg = "Phát hiện bãi " + item.getName();
+                    }
                     rewardName = item.getName();
-                    rewardItemCode = item.getCode(); // [NEW] Gán code
+                    rewardItemCode = item.getCode();
                     rewardAmount = amount;
                     rewardItemId = item.getItemId();
                 } else {
-                    type = "TEXT"; msg = "Chỉ là ảo ảnh."; clearGatheringState(c);
+                    type = "TEXT"; msg = "Khu vực trống trải."; clearGatheringState(c);
                 }
             }
         } else if (roll < 91) {
             type = "ENEMY";
             String enemyName = map.enemies.get(r.nextInt(map.enemies.size()));
-
             Enemy baseEnemy = enemyRepository.findByName(enemyName)
-                    .orElseGet(() -> enemyRepository.findAll().stream().findFirst().orElseThrow(() -> new RuntimeException("Dữ liệu quái lỗi! Hãy chạy lại SQL.")));
+                    .orElseGet(() -> enemyRepository.findAll().stream().findFirst().orElseThrow(() -> new RuntimeException("Dữ liệu quái lỗi!")));
 
             boolean isElite = r.nextInt(100) < 20;
             createScaledBattleSession(c, baseEnemy, isElite);
@@ -156,22 +168,31 @@ public class ExplorationService {
             type = "ITEM";
             String code = map.resourceCodes.get(r.nextInt(map.resourceCodes.size()));
             if ("GOLD_MINE_SPECIAL".equals(code)) {
-                w.setGold(w.getGold().add(BigDecimal.valueOf(20)));
-                msg = "Nhặt được túi vàng nhỏ (+20 Vàng).";
+                BigDecimal bonus = BigDecimal.valueOf(20);
+                totalGoldGained = totalGoldGained.add(bonus);
+                msg = "Nhặt được túi vàng rơi.";
             } else {
                 Item it = itemRepo.findByCode(code).orElse(null);
                 if (it != null) {
                     addItemToInventory(c, it, 1);
-                    msg = "Nhặt được 1 " + it.getName();
+
+                    if ("o_gold".equals(it.getCode())) {
+                        msg = "✨ MAY MẮN! Nhặt được " + it.getName() + " quý giá!";
+                    } else {
+                        msg = "Nhặt được 1 " + it.getName();
+                    }
                     rewardName = it.getName();
-                    rewardItemCode = it.getCode(); // [NEW] Gán code
+                    rewardItemCode = it.getCode();
                     rewardAmount = 1;
                 } else {
-                    msg = "Không tìm thấy tài nguyên giá trị.";
+                    msg = "Không tìm thấy gì.";
                 }
             }
             clearGatheringState(c);
         }
+
+        // Lưu tổng Gold
+        w.setGold(w.getGold().add(totalGoldGained));
 
         checkExploreLevelUp(c);
         characterRepository.save(c);
@@ -182,11 +203,14 @@ public class ExplorationService {
                 .currentLv(c.getLevel()).currentExp(c.getCurrentExp())
                 .currentEnergy(c.getCurrentEnergy()).maxEnergy(c.getMaxEnergy())
                 .rewardName(rewardName)
-                .rewardItemCode(rewardItemCode) // [NEW] Trả về code
+                .rewardItemCode(rewardItemCode)
                 .rewardAmount(rewardAmount).rewardItemId(rewardItemId)
+                .goldGained(totalGoldGained) // Trả về tổng vàng (Lương cứng + Bonus)
                 .build();
     }
 
+    // ... (Giữ nguyên các hàm private bên dưới)
+    // createScaledBattleSession, gatherResource, etc.
     private void createScaledBattleSession(Character player, Enemy enemy, boolean isElite) {
         BattleSession session = battleSessionRepo.findByCharacter_CharId(player.getCharId())
                 .stream().findFirst().orElse(new BattleSession());
@@ -221,8 +245,10 @@ public class ExplorationService {
         player.setStatus(CharacterStatus.IN_COMBAT);
     }
 
+    // ... Copy nốt các hàm gatherResource, determineRequiredTool, v.v. từ code cũ của bạn
     @Transactional
     public Map<String, Object> gatherResource(User user, int itemId, int amountRequest) {
+        // ... (Logic cũ giữ nguyên)
         Character c = characterRepository.findByUser(user)
                 .orElseThrow(() -> new RuntimeException("Character not found"));
 

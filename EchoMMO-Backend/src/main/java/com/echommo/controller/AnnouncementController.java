@@ -15,13 +15,13 @@ public class AnnouncementController {
     @Autowired
     private AnnouncementService announcementService;
 
-    // Public: Lấy thông báo active
-    @GetMapping
+    // [FIX] Thêm "/latest" để khớp với Frontend (Home.vue gọi /api/announcements/latest)
+    @GetMapping("/latest")
     public ResponseEntity<List<Announcement>> getActive() {
         return ResponseEntity.ok(announcementService.getActiveAnnouncements());
     }
 
-    // Admin: Tạo thông báo
+    // Admin: Tạo thông báo thủ công (Service sẽ check quyền Admin)
     @PostMapping("/create")
     public ResponseEntity<?> create(@RequestBody Announcement announcement) {
         try {
@@ -31,7 +31,7 @@ public class AnnouncementController {
         }
     }
 
-    // Admin: Xóa/Ẩn
+    // Admin: Xóa/Ẩn (Service sẽ check quyền Admin)
     @DeleteMapping("/{id}")
     public ResponseEntity<?> delete(@PathVariable Integer id) {
         try {

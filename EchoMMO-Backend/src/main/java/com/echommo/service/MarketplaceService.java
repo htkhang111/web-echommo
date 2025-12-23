@@ -63,7 +63,8 @@ public class MarketplaceService {
     }
 
     @Transactional
-    public String sellItem(Integer userItemId, Integer qty) {
+    // [FIXED] userItemId -> Long
+    public String sellItem(Long userItemId, Integer qty) {
         Character myChar = getMyChar();
 
         UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(userItemId, myChar.getCharId())
@@ -101,13 +102,13 @@ public class MarketplaceService {
         return listingRepo.findBySeller_UserIdAndStatus(getCurrentUser().getUserId(), "ACTIVE");
     }
 
-    // [UPDATED] Đăng bán: Tách vật phẩm + Ẩn khỏi túi (set Character = null)
     @Transactional
+    // [FIXED] CreateListingRequest đã dùng Long
     public String createListing(CreateListingRequest req) {
         User u = getCurrentUser();
         Character myChar = getMyChar();
 
-        Integer itemId = req.getUserItemId();
+        Long itemId = req.getUserItemId();
         int qtyToSell = (req.getQuantity() != null && req.getQuantity() > 0) ? req.getQuantity() : 1;
 
         UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(itemId, myChar.getCharId())
@@ -128,7 +129,7 @@ public class MarketplaceService {
             itemToSell = UserItem.builder()
                     .item(ui.getItem())
                     .quantity(qtyToSell)
-                    .character(null) // [QUAN TRỌNG] Set NULL để ẩn khỏi túi đồ
+                    .character(null) // [OK] UserItem đã cho phép null
                     .isEquipped(false)
                     .enhanceLevel(ui.getEnhanceLevel())
                     .rarity(ui.getRarity())
@@ -146,7 +147,7 @@ public class MarketplaceService {
         } else {
             // Bán tất cả -> Dùng chính vật phẩm đó và ẩn đi
             itemToSell = ui;
-            itemToSell.setCharacter(null); // [QUAN TRỌNG] Set NULL để ẩn khỏi túi đồ
+            itemToSell.setCharacter(null); // [OK] UserItem đã cho phép null
             uiRepo.save(itemToSell);
         }
 
@@ -196,7 +197,6 @@ public class MarketplaceService {
         // Chuyển hàng cho người mua
         UserItem itemBeingSold = l.getUserItem();
         if (itemBeingSold != null) {
-            // Kiểm tra xem người mua có stack sẵn không để gộp (Optional)
             boolean merged = false;
             if (isStackable(itemBeingSold.getItem())) {
                 Optional<UserItem> existing = uiRepo.findByCharacter_CharIdAndItem_ItemId(buyerChar.getCharId(), itemBeingSold.getItem().getItemId());
@@ -205,7 +205,6 @@ public class MarketplaceService {
                     exist.setQuantity(exist.getQuantity() + itemBeingSold.getQuantity());
                     uiRepo.save(exist);
 
-                    // Xóa vật phẩm tạm (listing item)
                     l.setUserItem(null);
                     listingRepo.save(l);
                     uiRepo.delete(itemBeingSold);
@@ -220,7 +219,6 @@ public class MarketplaceService {
                 uiRepo.save(itemBeingSold);
             }
         } else {
-            // Fallback (ít khi xảy ra)
             deliverSystemItem(buyerChar, l.getItem(), l.getQuantity());
         }
 
@@ -229,11 +227,10 @@ public class MarketplaceService {
         return "Giao dịch thành công!";
     }
 
-    // [UPDATED] Hủy bán: Trả vật phẩm về túi + Gộp stack nếu có thể
     @Transactional
     public String cancelListing(Integer id) {
         User u = getCurrentUser();
-        Character myChar = getMyChar(); // Lấy nhân vật của người bán để trả đồ về
+        Character myChar = getMyChar();
 
         MarketListing l = listingRepo.findById(id).orElseThrow(() -> new RuntimeException("Lỗi tin đăng"));
         if (!l.getSeller().getUserId().equals(u.getUserId())) throw new RuntimeException("Không phải của bạn");
@@ -251,9 +248,8 @@ public class MarketplaceService {
                     exist.setQuantity(exist.getQuantity() + ui.getQuantity());
                     uiRepo.save(exist);
 
-                    // Xóa vật phẩm đang treo bán đi vì đã gộp vào stack chính
                     l.setUserItem(null);
-                    listingRepo.save(l); // Cần save listing trước để gỡ quan hệ FK (nếu có)
+                    listingRepo.save(l);
                     uiRepo.delete(ui);
                     merged = true;
                 }

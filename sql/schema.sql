@@ -630,3 +630,5 @@ UPDATE user_items SET current_durability = 100 WHERE current_durability IS NULL;
 UPDATE user_items SET max_durability = 100 WHERE max_durability IS NULL;
 
 ALTER TABLE enemies ADD COLUMN drop_table JSON;
+
+UPDATE user_items SET is_locked = 0 WHERE is_locked IS NULL;

@@ -5,7 +5,7 @@ import java.math.BigDecimal;
 
 @Data
 public class CreateListingRequest {
-    private Integer userItemId; // [FIX] Dùng Integer
+    private Long userItemId; // [FIXED] Dùng Long
     private Integer quantity;
     private BigDecimal price;
 }

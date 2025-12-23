@@ -113,7 +113,7 @@ public class ShopController extends BaseController {
                 return ResponseEntity.badRequest().body(Map.of("message", "Số lượng bán phải lớn hơn 0"));
             }
 
-            // Gọi Service với tham số Integer (đã khớp)
+            // Gọi Service với tham số Long (đã khớp)
             String resultMessage = marketplaceService.sellItem(request.getUserItemId(), request.getQuantity());
 
             return ResponseEntity.ok(Map.of("message", resultMessage));

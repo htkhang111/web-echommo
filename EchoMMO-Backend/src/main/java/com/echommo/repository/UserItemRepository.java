@@ -1,5 +1,3 @@
-// File: EchoMMO-Backend/src/main/java/com/echommo/repository/UserItemRepository.java
-
 package com.echommo.repository;
 
 import com.echommo.entity.Character;
@@ -16,14 +14,17 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
-// [FIX] Đồng bộ ID là Integer (theo Entity UserItem)
 @Repository
-public interface UserItemRepository extends JpaRepository<UserItem, Integer> {
+public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
     int countByCharacter_CharId(Integer charId);
 
     List<UserItem> findByCharacter_CharId(Integer charId);
     List<UserItem> findByCharacter_CharIdOrderByAcquiredAtDesc(Integer charId);
+
+    // [ADDED] Hỗ trợ lọc vật phẩm chưa khóa (để hiển thị trong túi đồ có thể bán/xóa)
+    List<UserItem> findByCharacter_CharIdAndIsLockedFalseOrderByAcquiredAtDesc(Integer charId);
+
     List<UserItem> findByCharacter_CharIdAndIsEquippedTrue(Integer charId);
 
     @Query("SELECT ui FROM UserItem ui WHERE ui.character.charId = :charId AND ui.isEquipped = true AND ui.item.slotType = :slotType")
@@ -31,14 +32,16 @@ public interface UserItemRepository extends JpaRepository<UserItem, Integer> {
 
     Optional<UserItem> findByCharacter_CharIdAndItem_ItemId(Integer charId, Integer itemId);
 
-    // [FIX] Tham số userItemId là Integer (không phải Long nữa)
-    Optional<UserItem> findByUserItemIdAndCharacter_CharId(Integer userItemId, Integer charId);
+    // [ADDED] Tìm item stackable chưa bị khóa để gộp
+    Optional<UserItem> findByCharacter_CharIdAndItem_ItemIdAndIsLockedFalse(Integer charId, Integer itemId);
+
+    // [FIXED] Long userItemId
+    Optional<UserItem> findByUserItemIdAndCharacter_CharId(Long userItemId, Integer charId);
 
     Optional<UserItem> findByCharacter_CharIdAndItem_Name(Integer charId, String name);
 
     Optional<UserItem> findByCharacterAndItem(Character character, Item item);
 
-    // [FIX] Tham số itemId là Integer
     @Modifying
     @Transactional
     @Query("DELETE FROM UserItem ui WHERE ui.item.itemId = :itemId")

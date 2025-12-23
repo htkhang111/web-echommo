@@ -1,25 +1,22 @@
-// File: EchoMMO-Backend/src/main/java/com/echommo/dto/SellItemRequest.java
-
 package com.echommo.dto;
 
 public class SellItemRequest {
-    // [FIX] Dùng Integer theo ý ông
-    private Integer userItemId;
+    private Long userItemId; // [FIXED] Dùng Long
     private int quantity;
 
     public SellItemRequest() {
     }
 
-    public SellItemRequest(Integer userItemId, int quantity) {
+    public SellItemRequest(Long userItemId, int quantity) {
         this.userItemId = userItemId;
         this.quantity = quantity;
     }
 
-    public Integer getUserItemId() {
+    public Long getUserItemId() {
         return userItemId;
     }
 
-    public void setUserItemId(Integer userItemId) {
+    public void setUserItemId(Long userItemId) {
         this.userItemId = userItemId;
     }
 
