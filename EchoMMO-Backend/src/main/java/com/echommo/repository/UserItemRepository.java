@@ -1,3 +1,5 @@
+// File: EchoMMO-Backend/src/main/java/com/echommo/repository/UserItemRepository.java
+
 package com.echommo.repository;
 
 import com.echommo.entity.Character;
@@ -5,17 +7,18 @@ import com.echommo.entity.Item;
 import com.echommo.entity.UserItem;
 import com.echommo.enums.SlotType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying; // [MỚI]
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional; // [MỚI]
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 
+// [FIX] Đồng bộ ID là Integer (theo Entity UserItem)
 @Repository
-public interface UserItemRepository extends JpaRepository<UserItem, Long> {
+public interface UserItemRepository extends JpaRepository<UserItem, Integer> {
 
     int countByCharacter_CharId(Integer charId);
 
@@ -28,18 +31,16 @@ public interface UserItemRepository extends JpaRepository<UserItem, Long> {
 
     Optional<UserItem> findByCharacter_CharIdAndItem_ItemId(Integer charId, Integer itemId);
 
-    // [BẮT BUỘC] Phải là Long userItemId vì DB lưu BigInt. Service sẽ lo phần convert.
-    Optional<UserItem> findByUserItemIdAndCharacter_CharId(Long userItemId, Integer charId);
+    // [FIX] Tham số userItemId là Integer (không phải Long nữa)
+    Optional<UserItem> findByUserItemIdAndCharacter_CharId(Integer userItemId, Integer charId);
 
     Optional<UserItem> findByCharacter_CharIdAndItem_Name(Integer charId, String name);
 
     Optional<UserItem> findByCharacterAndItem(Character character, Item item);
 
-    // [FIX] Hàm xóa tất cả item của người chơi dựa theo itemId gốc
-    // Giúp tránh lỗi Foreign Key Constraint khi Admin xóa vật phẩm
+    // [FIX] Tham số itemId là Integer
     @Modifying
     @Transactional
     @Query("DELETE FROM UserItem ui WHERE ui.item.itemId = :itemId")
-    void deleteAllByItemId(@Param("itemId") Long itemId);
-    // Lưu ý: Nếu trong Entity Item bạn để itemId là Integer thì đổi Long thành Integer ở dòng trên nhé.
+    void deleteAllByItemId(@Param("itemId") Integer itemId);
 }

@@ -62,15 +62,13 @@ public class MarketplaceService {
         return "Mua thành công!";
     }
 
-    // [FIX] Nhận Integer -> Ép kiểu sang Long
+    // [FIXED] Dùng trực tiếp Integer, không cần ép kiểu
     @Transactional
     public String sellItem(Integer userItemId, Integer qty) {
         Character myChar = getMyChar();
 
-        // [FIX] Casting here
-        Long idLong = userItemId != null ? userItemId.longValue() : null;
-
-        UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(idLong, myChar.getCharId())
+        // Truyền thẳng Integer userItemId vào Repository (đã sửa Repository nhận Integer)
+        UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(userItemId, myChar.getCharId())
                 .orElseThrow(() -> new RuntimeException("Vật phẩm không tồn tại hoặc không phải của bạn"));
 
         if (Boolean.TRUE.equals(ui.getIsEquipped())) throw new RuntimeException("Không thể bán đồ đang mặc");
@@ -110,14 +108,11 @@ public class MarketplaceService {
         User u = getCurrentUser();
         Character myChar = getMyChar();
 
-        // [FIX] Convert DTO ID (có thể là Integer hoặc Long) sang Long chuẩn
-        Long itemIdLong = null;
-        if (req.getUserItemId() != null) {
-            itemIdLong = ((Number) req.getUserItemId()).longValue();
-        }
+        // [FIXED] Dùng trực tiếp Integer từ Request
+        Integer itemId = req.getUserItemId();
 
-        UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(itemIdLong, myChar.getCharId())
-                .orElseThrow(() -> new RuntimeException("Vật phẩm lỗi"));
+        UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(itemId, myChar.getCharId())
+                .orElseThrow(() -> new RuntimeException("Vật phẩm lỗi hoặc không tồn tại"));
 
         if (Boolean.TRUE.equals(ui.getIsEquipped())) throw new RuntimeException("Phải tháo đồ trước khi bán");
 
@@ -165,10 +160,12 @@ public class MarketplaceService {
 
         UserItem itemBeingSold = l.getUserItem();
         if (itemBeingSold != null) {
+            // Chuyển chủ sở hữu vật phẩm
             itemBeingSold.setCharacter(buyerChar);
             itemBeingSold.setIsEquipped(false);
             uiRepo.save(itemBeingSold);
         } else {
+            // Fallback phòng hờ
             deliverSystemItem(buyerChar, l.getItem(), l.getQuantity());
         }
 
