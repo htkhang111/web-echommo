@@ -119,7 +119,6 @@ public class AdminService {
         }
 
         // 2. Dọn dẹp dữ liệu User
-        // [FIX] getSeller() thay vì getSellerUser()
         marketListingRepository.findAll().stream()
                 .filter(ml -> ml.getSeller().getUserId().equals(userId))
                 .forEach(marketListingRepository::delete);
@@ -169,8 +168,28 @@ public class AdminService {
     @Transactional
     public Item createItem(Item item) { return itemRepository.save(item); }
 
+    /**
+     * [FIXED] Xóa Item an toàn bằng cách xóa các ràng buộc khóa ngoại trước.
+     * Yêu cầu: UserItemRepository và MarketListingRepository phải có hàm deleteAllByItemId(Long itemId)
+     */
     @Transactional
-    public void deleteItem(Integer itemId) { itemRepository.deleteById(itemId); }
+    public void deleteItem(Integer itemId) {
+        // Convert Integer sang Long để khớp với repository
+        Long idLong = itemId.longValue();
+
+        // 1. Xóa vật phẩm này khỏi Chợ (Marketplace)
+        marketListingRepository.deleteAllByItemId(idLong);
+
+        // 2. Xóa vật phẩm này khỏi Túi đồ của TẤT CẢ người chơi (UserItem)
+        userItemRepository.deleteAllByItemId(idLong);
+
+        // 3. Cuối cùng mới xóa Item gốc
+        if (itemRepository.existsById(itemId)) {
+            itemRepository.deleteById(itemId);
+        } else {
+            throw new RuntimeException("Vật phẩm không tồn tại!");
+        }
+    }
 
     // --- REWARDS ---
     @Transactional

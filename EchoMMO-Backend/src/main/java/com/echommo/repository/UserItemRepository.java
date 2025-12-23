@@ -1,5 +1,3 @@
-// File: EchoMMO-Backend/src/main/java/com/echommo/repository/UserItemRepository.java
-
 package com.echommo.repository;
 
 import com.echommo.entity.Character;
@@ -7,9 +5,11 @@ import com.echommo.entity.Item;
 import com.echommo.entity.UserItem;
 import com.echommo.enums.SlotType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying; // [MỚI]
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional; // [MỚI]
 
 import java.util.List;
 import java.util.Optional;
@@ -34,4 +34,12 @@ public interface UserItemRepository extends JpaRepository<UserItem, Long> {
     Optional<UserItem> findByCharacter_CharIdAndItem_Name(Integer charId, String name);
 
     Optional<UserItem> findByCharacterAndItem(Character character, Item item);
+
+    // [FIX] Hàm xóa tất cả item của người chơi dựa theo itemId gốc
+    // Giúp tránh lỗi Foreign Key Constraint khi Admin xóa vật phẩm
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM UserItem ui WHERE ui.item.itemId = :itemId")
+    void deleteAllByItemId(@Param("itemId") Long itemId);
+    // Lưu ý: Nếu trong Entity Item bạn để itemId là Integer thì đổi Long thành Integer ở dòng trên nhé.
 }

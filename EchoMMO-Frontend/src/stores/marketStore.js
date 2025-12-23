@@ -36,7 +36,6 @@ export const useMarketStore = defineStore("market", {
     },
 
     async sellItem(id, qty) {
-      // [FIX] Return response data để hiển thị message
       const res = await axiosClient.post("/shop/sell", {
         userItemId: id,
         quantity: qty,
@@ -54,18 +53,20 @@ export const useMarketStore = defineStore("market", {
       await this.refresh();
     },
 
+    // [UPDATED] Thêm return data để UI hiển thị thông báo
     async createListing(id, price, qty) {
-      await axiosClient.post("/market/player/list", {
+      const res = await axiosClient.post("/market/player/list", {
         userItemId: id,
         price: price,
         quantity: qty,
       });
-      await this.refresh();
+      await this.refresh(); // Refresh cả Inventory (trừ đồ) và MyListings
+      return res.data;
     },
 
     async cancelListing(id) {
       await axiosClient.post(`/market/player/cancel/${id}`);
-      await this.refresh();
+      await this.refresh(); // Refresh để trả đồ về Inventory
     },
 
     async refresh() {
