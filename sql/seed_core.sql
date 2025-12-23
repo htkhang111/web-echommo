@@ -482,3 +482,5 @@ VALUES
  'tool/fishing-rod/fr-4-themasterbaiter2.png', true),
 ('ROD_T5_TIME', 'Cần Thời Gian', 'Câu cá từ quá khứ.', 'TOOL', 'FISHING_ROD', 5, 'LEGENDARY', 50000,
  'tool/fishing-rod/fr-4-timelostfishingrod.png', true);
+
+TRUNCATE TABLE messages;
