@@ -36,16 +36,30 @@ public class MarketplaceService {
                 .orElseThrow(() -> new RuntimeException("Bạn chưa tạo nhân vật"));
     }
 
-    // [HELPER] Tự động tạo ví + Log kiểm tra ví
+    // [HELPER] [FIXED] Tìm ví theo Entity User thay vì ID để tránh lỗi Type
     private Wallet getOrCreateWallet(User user) {
-        return walletRepo.findByUser_UserId(user.getUserId())
+        return walletRepo.findByUser(user)
                 .orElseGet(() -> {
                     System.out.println(">>> [DEBUG WALLET] Không thấy ví của " + user.getUsername() + ". Đang tạo mới...");
+
+                    // Kiểm tra kỹ lần nữa xem có ví nào tồn tại theo ID không (đề phòng cache)
+                    Optional<Wallet> doubleCheck = walletRepo.findByUser_UserId(user.getUserId());
+                    if (doubleCheck.isPresent()) {
+                        System.out.println(">>> [DEBUG WALLET] Tìm thấy ví sau khi double check!");
+                        return doubleCheck.get();
+                    }
+
                     Wallet newWallet = new Wallet();
                     newWallet.setUser(user);
                     newWallet.setGold(new BigDecimal("1000000")); // Tặng 1 triệu test
                     newWallet.setEchoCoin(BigDecimal.ZERO);
-                    return walletRepo.save(newWallet);
+                    try {
+                        return walletRepo.save(newWallet);
+                    } catch (Exception e) {
+                        // Nếu vẫn lỗi trùng lặp, cố gắng load lại lần cuối
+                        System.out.println(">>> [ERROR] Lỗi tạo ví (có thể đã tồn tại): " + e.getMessage());
+                        return walletRepo.findByUser(user).orElseThrow(() -> new RuntimeException("Lỗi hệ thống ví: " + e.getMessage()));
+                    }
                 });
     }
 
@@ -61,7 +75,9 @@ public class MarketplaceService {
 
         BigDecimal cost = i.getBasePrice().multiply(BigDecimal.valueOf(qty));
 
-        // 1. Lấy ví
+        System.out.println(">>> [SHOP] Bắt đầu giao dịch mua vật phẩm ID: " + itemId);
+
+        // 1. Lấy ví (Đã fix)
         Wallet w = getOrCreateWallet(u);
         BigDecimal goldBefore = w.getGold();
 
@@ -200,7 +216,7 @@ public class MarketplaceService {
 
         BigDecimal total = l.getPrice();
 
-        // 1. Lấy ví người mua
+        // 1. Lấy ví người mua (Đã fix)
         Wallet buyerWallet = getOrCreateWallet(buyer);
         BigDecimal buyerGoldBefore = buyerWallet.getGold();
 
