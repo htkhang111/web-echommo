@@ -10,7 +10,7 @@ export const useMarketStore = defineStore("market", {
     shopItems: [],
     playerListings: [],
     myListings: [],
-    isLoading: false,
+    isLoading: false, 
   }),
   actions: {
     async fetchShopItems() {

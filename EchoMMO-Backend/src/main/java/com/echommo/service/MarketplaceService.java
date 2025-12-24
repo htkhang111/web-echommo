@@ -36,10 +36,17 @@ public class MarketplaceService {
                 .orElseThrow(() -> new RuntimeException("Bạn chưa tạo nhân vật"));
     }
 
-    // [FIX] Dùng hàm findByUserId mới
-    private Wallet getUserWallet(Integer userId) {
-        return walletRepo.findByUser_UserId(userId)
-                .orElseThrow(() -> new RuntimeException("Lỗi nghiêm trọng: Không tìm thấy ví tiền của User ID " + userId));
+    // [HELPER] Tự động tạo ví + Log kiểm tra ví
+    private Wallet getOrCreateWallet(User user) {
+        return walletRepo.findByUser_UserId(user.getUserId())
+                .orElseGet(() -> {
+                    System.out.println(">>> [DEBUG WALLET] Không thấy ví của " + user.getUsername() + ". Đang tạo mới...");
+                    Wallet newWallet = new Wallet();
+                    newWallet.setUser(user);
+                    newWallet.setGold(new BigDecimal("1000000")); // Tặng 1 triệu test
+                    newWallet.setEchoCoin(BigDecimal.ZERO);
+                    return walletRepo.save(newWallet);
+                });
     }
 
     // --- SYSTEM SHOP ---
@@ -53,20 +60,33 @@ public class MarketplaceService {
         Item i = itemRepo.findById(itemId).orElseThrow(() -> new RuntimeException("Item không tồn tại"));
 
         BigDecimal cost = i.getBasePrice().multiply(BigDecimal.valueOf(qty));
-        Wallet w = getUserWallet(u.getUserId());
 
-        // Debug log nếu cần thiết (in ra console server)
-        System.out.println("User: " + u.getUsername() + " | Gold hiện tại: " + w.getGold() + " | Cần: " + cost);
+        // 1. Lấy ví
+        Wallet w = getOrCreateWallet(u);
+        BigDecimal goldBefore = w.getGold();
 
-        if (w.getGold().compareTo(cost) < 0) {
-            throw new RuntimeException("Không đủ vàng (Cần: " + cost + ", Có: " + w.getGold() + ")");
+        // 2. In Log chứng minh TRƯỚC khi trừ
+        System.out.println("--------------------------------------------------");
+        System.out.println(">>> [CHỨNG MINH] User: " + u.getUsername() + " mua System Item.");
+        System.out.println(">>> Tiền hiện có: " + goldBefore);
+        System.out.println(">>> Giá phải trả: " + cost);
+
+        if (goldBefore.compareTo(cost) < 0) {
+            System.out.println(">>> KẾT QUẢ: Thất bại (Không đủ tiền)");
+            throw new RuntimeException("Không đủ vàng (Cần: " + cost + ", Có: " + goldBefore + ")");
         }
 
-        w.setGold(w.getGold().subtract(cost));
-        walletRepo.save(w);
+        // 3. Thực hiện trừ tiền
+        w.setGold(goldBefore.subtract(cost));
+        Wallet savedWallet = walletRepo.save(w); // Lưu DB ngay lập tức
+
+        // 4. In Log chứng minh SAU khi trừ
+        System.out.println(">>> Tiền sau khi mua: " + savedWallet.getGold());
+        System.out.println(">>> Trạng thái: ĐÃ TRỪ TIỀN THÀNH CÔNG TRONG DB");
+        System.out.println("--------------------------------------------------");
 
         deliverSystemItem(getMyChar(), i, qty);
-        return "Mua thành công!";
+        return "Mua thành công! (Số dư cũ: " + goldBefore + " -> Mới: " + savedWallet.getGold() + ")";
     }
 
     @Transactional
@@ -84,7 +104,9 @@ public class MarketplaceService {
                 .multiply(new BigDecimal("0.5"))
                 .multiply(BigDecimal.valueOf(qty));
 
-        Wallet w = getUserWallet(u.getUserId());
+        Wallet w = getOrCreateWallet(u);
+        System.out.println(">>> [BÁN SHOP] User: " + u.getUsername() + " | Tiền gốc: " + w.getGold() + " | Cộng thêm: " + earn);
+
         w.setGold(w.getGold().add(earn));
         walletRepo.save(w);
 
@@ -119,9 +141,7 @@ public class MarketplaceService {
 
         if (Boolean.TRUE.equals(ui.getIsEquipped())) throw new RuntimeException("Phải tháo đồ trước khi bán");
         if (ui.getQuantity() < qtyToSell) throw new RuntimeException("Không đủ số lượng!");
-
-        // [QUAN TRỌNG] Nếu chạy SQL fix ở Bước 1, lỗi này sẽ biến mất
-        if (Boolean.TRUE.equals(ui.getIsLocked())) throw new RuntimeException("Vật phẩm đang bị khóa (Hãy liên hệ Admin hoặc chạy lệnh fix DB)!");
+        if (Boolean.TRUE.equals(ui.getIsLocked())) throw new RuntimeException("Vật phẩm đang bị khóa (Check DB)!");
 
         UserItem itemToSell;
 
@@ -180,23 +200,38 @@ public class MarketplaceService {
 
         BigDecimal total = l.getPrice();
 
-        // [FIX] Lấy ví chuẩn xác từ DB
-        Wallet buyerWallet = getUserWallet(buyer.getUserId());
+        // 1. Lấy ví người mua
+        Wallet buyerWallet = getOrCreateWallet(buyer);
+        BigDecimal buyerGoldBefore = buyerWallet.getGold();
 
-        if (buyerWallet.getGold().compareTo(total) < 0) {
-            throw new RuntimeException("Không đủ vàng (Cần: " + total + ", Có: " + buyerWallet.getGold() + ")");
+        // 2. Log Chứng minh
+        System.out.println("--------------------------------------------------");
+        System.out.println(">>> [CHỨNG MINH CHỢ] Buyer: " + buyer.getUsername() + " mua đồ Listing #" + listingId);
+        System.out.println(">>> Tiền Buyer TRƯỚC: " + buyerGoldBefore);
+        System.out.println(">>> Giá: " + total);
+
+        if (buyerGoldBefore.compareTo(total) < 0) {
+            System.out.println(">>> KẾT QUẢ: Thất bại (Buyer nghèo)");
+            throw new RuntimeException("Không đủ vàng (Cần: " + total + ", Có: " + buyerGoldBefore + ")");
         }
 
-        buyerWallet.setGold(buyerWallet.getGold().subtract(total));
+        // 3. Trừ tiền Buyer
+        buyerWallet.setGold(buyerGoldBefore.subtract(total));
         walletRepo.save(buyerWallet);
+        System.out.println(">>> Tiền Buyer SAU: " + buyerWallet.getGold() + " (Đã lưu DB)");
 
+        // 4. Cộng tiền Seller
         User seller = l.getSeller();
-        Wallet sellerWallet = getUserWallet(seller.getUserId());
+        Wallet sellerWallet = getOrCreateWallet(seller);
+        BigDecimal receive = total.multiply(new BigDecimal("0.95")); // Trừ phí 5%
 
-        BigDecimal receive = total.multiply(new BigDecimal("0.95"));
+        System.out.println(">>> Seller: " + seller.getUsername() + " | Tiền trước: " + sellerWallet.getGold());
         sellerWallet.setGold(sellerWallet.getGold().add(receive));
         walletRepo.save(sellerWallet);
+        System.out.println(">>> Seller nhận: " + receive + " | Tiền sau: " + sellerWallet.getGold());
+        System.out.println("--------------------------------------------------");
 
+        // Xử lý chuyển đồ
         UserItem itemBeingSold = l.getUserItem();
         if (itemBeingSold != null) {
             boolean merged = false;
