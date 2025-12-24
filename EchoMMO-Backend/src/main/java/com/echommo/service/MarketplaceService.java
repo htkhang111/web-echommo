@@ -36,6 +36,12 @@ public class MarketplaceService {
                 .orElseThrow(() -> new RuntimeException("Bạn chưa tạo nhân vật"));
     }
 
+    // [FIX] Dùng hàm findByUserId mới
+    private Wallet getUserWallet(Integer userId) {
+        return walletRepo.findByUser_UserId(userId)
+                .orElseThrow(() -> new RuntimeException("Lỗi nghiêm trọng: Không tìm thấy ví tiền của User ID " + userId));
+    }
+
     // --- SYSTEM SHOP ---
     public List<Item> getShopItems() {
         return itemRepo.findAll();
@@ -47,16 +53,17 @@ public class MarketplaceService {
         Item i = itemRepo.findById(itemId).orElseThrow(() -> new RuntimeException("Item không tồn tại"));
 
         BigDecimal cost = i.getBasePrice().multiply(BigDecimal.valueOf(qty));
+        Wallet w = getUserWallet(u.getUserId());
 
-        if (u.getWallet() == null) throw new RuntimeException("Lỗi dữ liệu ví tiền");
-        if (u.getWallet().getGold() == null) u.getWallet().setGold(BigDecimal.ZERO);
+        // Debug log nếu cần thiết (in ra console server)
+        System.out.println("User: " + u.getUsername() + " | Gold hiện tại: " + w.getGold() + " | Cần: " + cost);
 
-        if (u.getWallet().getGold().compareTo(cost) < 0) {
-            throw new RuntimeException("Không đủ vàng (Cần: " + cost + ")");
+        if (w.getGold().compareTo(cost) < 0) {
+            throw new RuntimeException("Không đủ vàng (Cần: " + cost + ", Có: " + w.getGold() + ")");
         }
 
-        u.getWallet().setGold(u.getWallet().getGold().subtract(cost));
-        walletRepo.save(u.getWallet());
+        w.setGold(w.getGold().subtract(cost));
+        walletRepo.save(w);
 
         deliverSystemItem(getMyChar(), i, qty);
         return "Mua thành công!";
@@ -65,9 +72,10 @@ public class MarketplaceService {
     @Transactional
     public String sellItem(Long userItemId, Integer qty) {
         Character myChar = getMyChar();
+        User u = myChar.getUser();
 
         UserItem ui = uiRepo.findByUserItemIdAndCharacter_CharId(userItemId, myChar.getCharId())
-                .orElseThrow(() -> new RuntimeException("Vật phẩm không tồn tại hoặc không phải của bạn"));
+                .orElseThrow(() -> new RuntimeException("Vật phẩm không tồn tại"));
 
         if (Boolean.TRUE.equals(ui.getIsEquipped())) throw new RuntimeException("Không thể bán đồ đang mặc");
         if (ui.getQuantity() < qty) throw new RuntimeException("Không đủ số lượng");
@@ -76,12 +84,9 @@ public class MarketplaceService {
                 .multiply(new BigDecimal("0.5"))
                 .multiply(BigDecimal.valueOf(qty));
 
-        User u = myChar.getUser();
-        if (u.getWallet() == null) throw new RuntimeException("Lỗi ví tiền");
-        if (u.getWallet().getGold() == null) u.getWallet().setGold(BigDecimal.ZERO);
-
-        u.getWallet().setGold(u.getWallet().getGold().add(earn));
-        walletRepo.save(u.getWallet());
+        Wallet w = getUserWallet(u.getUserId());
+        w.setGold(w.getGold().add(earn));
+        walletRepo.save(w);
 
         if (ui.getQuantity() <= qty) uiRepo.delete(ui);
         else {
@@ -94,7 +99,6 @@ public class MarketplaceService {
     // --- PLAYER MARKET ---
     @Transactional(readOnly = true)
     public List<MarketListing> getPlayerListings() {
-        // [FIX] Gọi hàm mới ListedAt
         return listingRepo.findByStatusOrderByListedAtDesc("ACTIVE");
     }
 
@@ -114,14 +118,13 @@ public class MarketplaceService {
                 .orElseThrow(() -> new RuntimeException("Vật phẩm lỗi hoặc không tồn tại"));
 
         if (Boolean.TRUE.equals(ui.getIsEquipped())) throw new RuntimeException("Phải tháo đồ trước khi bán");
-        if (ui.getQuantity() < qtyToSell) throw new RuntimeException("Không đủ số lượng để bán!");
+        if (ui.getQuantity() < qtyToSell) throw new RuntimeException("Không đủ số lượng!");
 
-        // [CHECK] Không cho bán đồ đang bị khóa (ví dụ đang treo bán ở slot khác nếu có bug)
-        if (Boolean.TRUE.equals(ui.getIsLocked())) throw new RuntimeException("Vật phẩm đang bị khóa!");
+        // [QUAN TRỌNG] Nếu chạy SQL fix ở Bước 1, lỗi này sẽ biến mất
+        if (Boolean.TRUE.equals(ui.getIsLocked())) throw new RuntimeException("Vật phẩm đang bị khóa (Hãy liên hệ Admin hoặc chạy lệnh fix DB)!");
 
         UserItem itemToSell;
 
-        // Nếu bán 1 phần trong stack -> tách ra item mới
         if (ui.getQuantity() > qtyToSell) {
             ui.setQuantity(ui.getQuantity() - qtyToSell);
             uiRepo.save(ui);
@@ -129,9 +132,9 @@ public class MarketplaceService {
             itemToSell = UserItem.builder()
                     .item(ui.getItem())
                     .quantity(qtyToSell)
-                    .character(myChar) // [FIXED] Vẫn thuộc về người bán
+                    .character(myChar)
                     .isEquipped(false)
-                    .isLocked(true)    // [FIXED] Khóa lại để ẩn khỏi túi
+                    .isLocked(true)
                     .enhanceLevel(ui.getEnhanceLevel())
                     .rarity(ui.getRarity())
                     .mainStatType(ui.getMainStatType())
@@ -146,9 +149,8 @@ public class MarketplaceService {
                     .build();
             itemToSell = uiRepo.save(itemToSell);
         } else {
-            // Nếu bán hết -> dùng luôn item cũ
             itemToSell = ui;
-            itemToSell.setIsLocked(true); // [FIXED] Khóa lại thay vì setCharacter(null)
+            itemToSell.setIsLocked(true);
             uiRepo.save(itemToSell);
         }
 
@@ -166,7 +168,7 @@ public class MarketplaceService {
     }
 
     @Transactional
-    public String buyPlayerListing(Long listingId, Integer qty) { // [FIX] Integer -> Long
+    public String buyPlayerListing(Long listingId, Integer qty) {
         User buyer = getCurrentUser();
         Character buyerChar = getMyChar();
 
@@ -178,27 +180,26 @@ public class MarketplaceService {
 
         BigDecimal total = l.getPrice();
 
-        if (buyer.getWallet().getGold() == null) buyer.getWallet().setGold(BigDecimal.ZERO);
-        if (buyer.getWallet().getGold().compareTo(total) < 0) {
-            throw new RuntimeException("Không đủ vàng");
+        // [FIX] Lấy ví chuẩn xác từ DB
+        Wallet buyerWallet = getUserWallet(buyer.getUserId());
+
+        if (buyerWallet.getGold().compareTo(total) < 0) {
+            throw new RuntimeException("Không đủ vàng (Cần: " + total + ", Có: " + buyerWallet.getGold() + ")");
         }
 
-        // Trừ tiền người mua
-        buyer.getWallet().setGold(buyer.getWallet().getGold().subtract(total));
-        walletRepo.save(buyer.getWallet());
+        buyerWallet.setGold(buyerWallet.getGold().subtract(total));
+        walletRepo.save(buyerWallet);
 
-        // Cộng tiền người bán (phí 5%)
         User seller = l.getSeller();
-        if (seller.getWallet().getGold() == null) seller.getWallet().setGold(BigDecimal.ZERO);
-        BigDecimal receive = total.multiply(new BigDecimal("0.95"));
-        seller.getWallet().setGold(seller.getWallet().getGold().add(receive));
-        walletRepo.save(seller.getWallet());
+        Wallet sellerWallet = getUserWallet(seller.getUserId());
 
-        // Chuyển đồ
+        BigDecimal receive = total.multiply(new BigDecimal("0.95"));
+        sellerWallet.setGold(sellerWallet.getGold().add(receive));
+        walletRepo.save(sellerWallet);
+
         UserItem itemBeingSold = l.getUserItem();
         if (itemBeingSold != null) {
             boolean merged = false;
-            // Logic gộp stack nếu vật phẩm cho phép gộp
             if (isStackable(itemBeingSold.getItem())) {
                 Optional<UserItem> existing = uiRepo.findByCharacter_CharIdAndItem_ItemIdAndIsLockedFalse(buyerChar.getCharId(), itemBeingSold.getItem().getItemId())
                         .stream().findFirst();
@@ -207,22 +208,20 @@ public class MarketplaceService {
                     exist.setQuantity(exist.getQuantity() + itemBeingSold.getQuantity());
                     uiRepo.save(exist);
 
-                    l.setUserItem(null); // Gỡ reference để tránh lỗi FK khi xóa
+                    l.setUserItem(null);
                     listingRepo.save(l);
-                    uiRepo.delete(itemBeingSold); // Xóa item lẻ đã bán
+                    uiRepo.delete(itemBeingSold);
                     merged = true;
                 }
             }
 
             if (!merged) {
-                // [FIXED] Chuyển chủ sở hữu và mở khóa
                 itemBeingSold.setCharacter(buyerChar);
                 itemBeingSold.setIsEquipped(false);
                 itemBeingSold.setIsLocked(false);
                 uiRepo.save(itemBeingSold);
             }
         } else {
-            // Fallback nếu item bị null (hiếm)
             deliverSystemItem(buyerChar, l.getItem(), l.getQuantity());
         }
 
@@ -232,16 +231,15 @@ public class MarketplaceService {
     }
 
     @Transactional
-    public String cancelListing(Long id) { // [FIX] Integer -> Long
+    public String cancelListing(Long id) {
         User u = getCurrentUser();
         Character myChar = getMyChar();
 
         MarketListing l = listingRepo.findById(id).orElseThrow(() -> new RuntimeException("Lỗi tin đăng"));
         if (!l.getSeller().getUserId().equals(u.getUserId())) throw new RuntimeException("Không phải của bạn");
-        if (!"ACTIVE".equals(l.getStatus())) throw new RuntimeException("Tin không còn khả dụng để hủy");
+        if (!"ACTIVE".equals(l.getStatus())) throw new RuntimeException("Tin không còn khả dụng");
 
         UserItem ui = l.getUserItem();
-
         if (ui != null) {
             boolean merged = false;
             if (isStackable(ui.getItem())) {
@@ -258,9 +256,7 @@ public class MarketplaceService {
                     merged = true;
                 }
             }
-
             if (!merged) {
-                // [FIXED] Trả về chủ cũ (vẫn là myChar) và mở khóa
                 ui.setIsLocked(false);
                 uiRepo.save(ui);
             }
@@ -268,42 +264,28 @@ public class MarketplaceService {
 
         l.setStatus("CANCELLED");
         listingRepo.save(l);
-        return "Đã thu hồi và trả vật phẩm về túi";
+        return "Đã thu hồi";
     }
 
     private void deliverSystemItem(Character c, Item item, int qty) {
         boolean isStackable = isStackable(item);
-
         if (isStackable) {
-            // [FIX] Dùng hàm find mới
             UserItem ui = uiRepo.findByCharacter_CharIdAndItem_ItemIdAndIsLockedFalse(c.getCharId(), item.getItemId())
                     .stream().findFirst()
                     .orElse(UserItem.builder()
-                            .character(c)
-                            .item(item)
-                            .quantity(0)
-                            .isEquipped(false)
-                            .enhanceLevel(0)
-                            .build());
+                            .character(c).item(item).quantity(0).isEquipped(false).enhanceLevel(0).build());
             ui.setQuantity(ui.getQuantity() + qty);
             uiRepo.save(ui);
         } else {
             for (int k = 0; k < qty; k++) {
                 UserItem ui = UserItem.builder()
-                        .character(c)
-                        .item(item)
-                        .quantity(1)
-                        .isEquipped(false)
-                        .enhanceLevel(0)
-                        .build();
+                        .character(c).item(item).quantity(1).isEquipped(false).enhanceLevel(0).build();
                 uiRepo.save(ui);
             }
         }
     }
 
     private boolean isStackable(Item item) {
-        return item.getSlotType() == SlotType.CONSUMABLE
-                || item.getSlotType() == SlotType.NONE
-                || "MATERIAL".equals(item.getType());
+        return item.getSlotType() == SlotType.CONSUMABLE || item.getSlotType() == SlotType.NONE || "MATERIAL".equals(item.getType());
     }
 }
