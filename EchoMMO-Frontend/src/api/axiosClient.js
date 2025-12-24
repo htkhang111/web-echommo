@@ -95,6 +95,14 @@ axiosClient.interceptors.response.use(
 
       // Xử lý 401 (Hết hạn login hoặc Token không hợp lệ)
       if (status === 401) {
+        // [FIX - MỚI] Kiểm tra xem URL có phải là login/register không
+        // Nếu là lỗi 401 từ API login thì KHÔNG logout, trả về lỗi để Vue hiển thị
+        const isAuthRequest = error.config.url && (error.config.url.includes('/auth/login') || error.config.url.includes('/auth/register'));
+        
+        if (isAuthRequest) {
+            return Promise.reject(error);
+        }
+
         console.warn("⚠️ 401 Unauthorized -> Logout");
         try {
             const { useAuthStore } = await import("../stores/authStore");
