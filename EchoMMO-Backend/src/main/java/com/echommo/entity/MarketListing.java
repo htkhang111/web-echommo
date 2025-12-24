@@ -16,34 +16,30 @@ public class MarketListing {
     @Column(name = "listing_id")
     private Long listingId;
 
-    // [FIX 1] Giữ nguyên quan hệ UserItem đã sửa cho đúng DB
-    @OneToOne(fetch = FetchType.LAZY)
+    // [FIXED] Đổi LAZY -> EAGER để sửa lỗi Jackson Serialization
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_item_id", referencedColumnName = "user_item_id", nullable = false)
     private UserItem userItem;
 
-    // [RESTORED] Khôi phục quan hệ Seller (User) để Service gọi được .getSeller()
-    @ManyToOne(fetch = FetchType.LAZY)
+    // [FIXED] Đổi LAZY -> EAGER để hiển thị thông tin người bán
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "seller_id", nullable = false)
     private User seller;
 
-    // [RESTORED] Khôi phục quan hệ Item (để hiển thị icon/tên nhanh)
+    // [KEEP] Giữ nguyên EAGER
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "item_id", nullable = false)
     private Item item;
 
-    // [RESTORED] Khôi phục field số lượng
     @Column(name = "quantity")
     private Integer quantity;
 
-    // [FIX 2] Đổi sang BigDecimal để khớp với Service và Wallet
     @Column(name = "price", nullable = false)
     private BigDecimal price;
 
-    // [RESTORED] Trạng thái: ACTIVE, SOLD, CANCELLED
     @Column(name = "status")
     private String status;
 
-    // [RESTORED] Loại tiền tệ: GOLD, ECHO_COIN...
     @Column(name = "currency_type")
     private String currencyType;
 

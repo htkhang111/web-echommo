@@ -116,8 +116,12 @@ public class MarketplaceService {
         if (Boolean.TRUE.equals(ui.getIsEquipped())) throw new RuntimeException("Phải tháo đồ trước khi bán");
         if (ui.getQuantity() < qtyToSell) throw new RuntimeException("Không đủ số lượng để bán!");
 
+        // [CHECK] Không cho bán đồ đang bị khóa (ví dụ đang treo bán ở slot khác nếu có bug)
+        if (Boolean.TRUE.equals(ui.getIsLocked())) throw new RuntimeException("Vật phẩm đang bị khóa!");
+
         UserItem itemToSell;
 
+        // Nếu bán 1 phần trong stack -> tách ra item mới
         if (ui.getQuantity() > qtyToSell) {
             ui.setQuantity(ui.getQuantity() - qtyToSell);
             uiRepo.save(ui);
@@ -125,8 +129,9 @@ public class MarketplaceService {
             itemToSell = UserItem.builder()
                     .item(ui.getItem())
                     .quantity(qtyToSell)
-                    .character(null)
+                    .character(myChar) // [FIXED] Vẫn thuộc về người bán
                     .isEquipped(false)
+                    .isLocked(true)    // [FIXED] Khóa lại để ẩn khỏi túi
                     .enhanceLevel(ui.getEnhanceLevel())
                     .rarity(ui.getRarity())
                     .mainStatType(ui.getMainStatType())
@@ -141,8 +146,9 @@ public class MarketplaceService {
                     .build();
             itemToSell = uiRepo.save(itemToSell);
         } else {
+            // Nếu bán hết -> dùng luôn item cũ
             itemToSell = ui;
-            itemToSell.setCharacter(null);
+            itemToSell.setIsLocked(true); // [FIXED] Khóa lại thay vì setCharacter(null)
             uiRepo.save(itemToSell);
         }
 
@@ -177,18 +183,22 @@ public class MarketplaceService {
             throw new RuntimeException("Không đủ vàng");
         }
 
+        // Trừ tiền người mua
         buyer.getWallet().setGold(buyer.getWallet().getGold().subtract(total));
         walletRepo.save(buyer.getWallet());
 
+        // Cộng tiền người bán (phí 5%)
         User seller = l.getSeller();
         if (seller.getWallet().getGold() == null) seller.getWallet().setGold(BigDecimal.ZERO);
         BigDecimal receive = total.multiply(new BigDecimal("0.95"));
         seller.getWallet().setGold(seller.getWallet().getGold().add(receive));
         walletRepo.save(seller.getWallet());
 
+        // Chuyển đồ
         UserItem itemBeingSold = l.getUserItem();
         if (itemBeingSold != null) {
             boolean merged = false;
+            // Logic gộp stack nếu vật phẩm cho phép gộp
             if (isStackable(itemBeingSold.getItem())) {
                 Optional<UserItem> existing = uiRepo.findByCharacter_CharIdAndItem_ItemIdAndIsLockedFalse(buyerChar.getCharId(), itemBeingSold.getItem().getItemId())
                         .stream().findFirst();
@@ -197,19 +207,22 @@ public class MarketplaceService {
                     exist.setQuantity(exist.getQuantity() + itemBeingSold.getQuantity());
                     uiRepo.save(exist);
 
-                    l.setUserItem(null);
+                    l.setUserItem(null); // Gỡ reference để tránh lỗi FK khi xóa
                     listingRepo.save(l);
-                    uiRepo.delete(itemBeingSold);
+                    uiRepo.delete(itemBeingSold); // Xóa item lẻ đã bán
                     merged = true;
                 }
             }
 
             if (!merged) {
+                // [FIXED] Chuyển chủ sở hữu và mở khóa
                 itemBeingSold.setCharacter(buyerChar);
                 itemBeingSold.setIsEquipped(false);
+                itemBeingSold.setIsLocked(false);
                 uiRepo.save(itemBeingSold);
             }
         } else {
+            // Fallback nếu item bị null (hiếm)
             deliverSystemItem(buyerChar, l.getItem(), l.getQuantity());
         }
 
@@ -247,7 +260,8 @@ public class MarketplaceService {
             }
 
             if (!merged) {
-                ui.setCharacter(myChar);
+                // [FIXED] Trả về chủ cũ (vẫn là myChar) và mở khóa
+                ui.setIsLocked(false);
                 uiRepo.save(ui);
             }
         }
