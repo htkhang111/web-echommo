@@ -91,14 +91,13 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { useAuthStore } from "../stores/authStore"; // Giả sử bạn dùng store
 import axiosClient from "../api/axiosClient";
 import { getAssetUrl } from "@/utils/assetHelper";
 
 const router = useRouter();
-const bgImage = getAssetUrl("b_mountain.jpg"); // Dùng chung background
+const bgImage = getAssetUrl("b_mountain.jpg");
 
 const step = ref(1);
 const email = ref("");
@@ -106,41 +105,67 @@ const otp = ref("");
 const newPassword = ref("");
 const isLoading = ref(false);
 
+// Tự động điền email nếu đã lưu trước đó (tiện cho việc test)
+onMounted(() => {
+  const savedEmail = localStorage.getItem('reset_email_cache');
+  if (savedEmail) {
+    email.value = savedEmail;
+  }
+});
+
 const sendOtp = async () => {
   isLoading.value = true;
   try {
-    // API gửi OTP
     await axiosClient.post("/auth/forgot-password", { email: email.value });
+    
+    // Lưu email lại để dùng cho bước 2
+    localStorage.setItem('reset_email_cache', email.value);
 
-    // Giả lập delay một chút cho trải nghiệm user
+    // Giả lập delay một chút cho mượt
     setTimeout(() => {
       step.value = 2;
       isLoading.value = false;
     }, 800);
   } catch (e) {
-    alert(
-      e.response?.data?.message ||
-        "Không tìm thấy địa chỉ thư tín này trong giang hồ.",
-    );
+    alert(e.response?.data?.message || "Lỗi gửi mail: " + e.message);
     isLoading.value = false;
   }
 };
 
 const resetPass = async () => {
+  // 1. Đảm bảo có email (lấy từ biến hoặc cache)
+  const emailToSend = email.value || localStorage.getItem('reset_email_cache');
+
+  if (!emailToSend) {
+    alert("Lỗi: Không tìm thấy thông tin Email. Vui lòng thực hiện lại từ bước 1.");
+    step.value = 1;
+    return;
+  }
+
   isLoading.value = true;
   try {
-    // API Reset Pass
-    await axiosClient.post("/auth/reset-password", {
-      email: email.value,
+    // 2. Gửi API (QUAN TRỌNG: Key phải khớp với Backend Java)
+    const payload = {
+      email: emailToSend,
       otp: otp.value,
-      newPassword: newPassword.value,
-    });
-    alert("Khôi phục thành công. Mời đại hiệp đăng nhập lại.");
+      password: newPassword.value, // [FIX QUAN TRỌNG] Đổi key từ 'newPassword' thành 'password'
+    };
+
+    console.log("Đang gửi payload:", payload); // Debug xem gửi gì đi
+
+    await axiosClient.post("/auth/reset-password", payload);
+    
+    alert("Khôi phục thành công! Mời đại hiệp đăng nhập lại.");
+    
+    // Xóa cache và chuyển hướng
+    localStorage.removeItem('reset_email_cache');
     router.push("/login");
+
   } catch (e) {
+    console.error(e);
     alert(
       e.response?.data?.message ||
-        "Thất bại: Mã xác nhận không đúng hoặc đã hết hạn.",
+      "Thất bại: Mã xác nhận không đúng hoặc đã hết hạn."
     );
   } finally {
     isLoading.value = false;

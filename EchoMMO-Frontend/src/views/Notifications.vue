@@ -1,4 +1,4 @@
-<template>
+<!-- <template>
   <div class="page-container wuxia-noti ink-theme">
     <div class="bg-layer">
       <div class="mountain-bg" :style="{ backgroundImage: `url(${bgImage})` }"></div>
@@ -1050,4 +1050,491 @@ onMounted(() => {
     transform: rotate(-15deg) scale(0.9);
   }
 }
+</style> -->
+<template>
+  <div class="page-container wuxia-noti ink-theme">
+    <div class="bg-layer">
+      <div class="mountain-bg" :style="{ backgroundImage: `url(${bgImage})` }"></div>
+      <div class="ink-overlay" :class="{ 'night-mode': isNight }"></div>
+      <div class="particles">
+        <div v-for="n in 20" :key="n" class="particle" :style="getParticleStyle(n)"></div>
+      </div>
+    </div>
+
+    <div class="noti-layout">
+      <div class="noti-header fade-in-down">
+        <div class="header-left">
+          <button @click="$router.push('/')" class="btn-ink-back" title="Quay về">
+            <div class="btn-content"><i class="fas fa-chevron-left"></i></div>
+          </button>
+          <div class="title-group">
+            <h2 class="main-title">THIÊN ÂM CÁC</h2>
+            <div class="sub-title">"Gió cuốn mây trôi, tin tức vạn dặm"</div>
+          </div>
+        </div>
+        <div class="header-right">
+           <button @click="handleMarkAllRead" class="btn-royal-seal" :disabled="isLoading || !hasUnread">
+             <i class="fas fa-check-double"></i> <span>ĐÃ ĐỌC HẾT</span>
+           </button>
+        </div>
+      </div>
+
+      <div class="content-frame">
+        <div v-if="isLoading" class="loading-state">
+          <div class="ink-loader"></div>
+          <span class="loading-text">Đang triệu hồi bồ câu...</span>
+        </div>
+
+        <div v-else class="noti-list-container custom-scroll">
+          <div v-if="!hasNotifications" class="empty-state fade-in">
+             <div class="empty-icon"><i class="fas fa-wind"></i></div>
+             <p>Gió lặng mây ngừng, giang hồ yên ả.</p>
+          </div>
+
+          <div v-else class="grouped-list">
+            <div v-for="(group, groupName) in groupedNotifications" :key="groupName" class="noti-group">
+              <div v-if="group.length > 0" class="group-header">
+                <span class="header-line"></span>
+                <span class="header-text">{{ groupName }}</span>
+                <span class="header-line"></span>
+              </div>
+              
+              <transition-group name="staggered-list" tag="div" class="group-items">
+                <div 
+                  v-for="(noti, index) in group" 
+                  :key="noti.id" 
+                  class="noti-item"
+                  :class="[getTypeClass(noti.type), { 'is-read': noti.isRead }]"
+                  :style="{ '--delay': `${index * 0.05}s` }"
+                  @click="openPopup(noti)"
+                >
+                  <div class="card-bg"></div>
+                  <div class="card-border"></div>
+                  
+                  <div class="item-icon-box">
+                    <i :class="getIcon(noti.type)"></i>
+                  </div>
+
+                  <div class="item-body">
+                    <div class="item-top">
+                      <span class="item-title">
+                         <i v-if="isFriendRequest(noti)" class="fas fa-user-plus text-highlight"></i>
+                         {{ noti.title }}
+                      </span>
+                      <span v-if="!noti.isRead" class="badge-new">MỚI</span>
+                    </div>
+                    <div class="item-desc">{{ noti.message }}</div>
+                    <div class="item-time"><i class="far fa-clock"></i> {{ formatTimeShort(noti.createdAt) }}</div>
+                  </div>
+
+                  <div class="item-action">
+                    <i class="fas fa-chevron-right"></i>
+                  </div>
+                </div>
+              </transition-group>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <transition name="scroll-unroll">
+      <div v-if="selectedNoti" class="modal-overlay" @click.self="closePopup">
+        <div class="scroll-container">
+          <div class="rod rod-top">
+            <div class="rod-ornament left"></div>
+            <div class="rod-body"></div>
+            <div class="rod-ornament right"></div>
+          </div>
+
+          <div class="paper-content custom-scroll">
+            <div class="paper-texture"></div>
+            <button class="close-btn-corner" @click="closePopup">
+               <i class="fas fa-times"></i>
+            </button>
+
+            <div class="paper-inner">
+              <div class="detail-header-badge">
+                <div class="cloud-decor left"></div>
+                <span class="badge-text" :class="getTypeClass(selectedNoti.type)">
+                    {{ getHeaderTitle(selectedNoti.type) }}
+                </span>
+                <div class="cloud-decor right"></div>
+              </div>
+
+              <h3 class="detail-title">{{ selectedNoti.title }}</h3>
+              
+              <div class="detail-divider">
+                <span class="line"></span>
+                <i class="fas fa-dragon center-icon"></i>
+                <span class="line"></span>
+              </div>
+
+              <div class="detail-body-text">
+                {{ selectedNoti.message }}
+              </div>
+
+              <div v-if="isFriendRequest(selectedNoti)" class="special-action-box fade-in">
+                 <button @click="goToFriendsPage" class="btn-friend-accept">
+                    <i class="fas fa-user-friends"></i> Xem & Đồng Ý Kết Bạn
+                 </button>
+              </div>
+
+              <div class="detail-footer">
+                <div class="meta-info">
+                  <div class="meta-row">
+                    <i class="fas fa-scroll"></i>
+                    <span>Nguồn: <strong>Thiên Phủ</strong></span>
+                  </div>
+                  <div class="meta-row">
+                    <i class="far fa-clock"></i>
+                    <span>Thời gian: {{ formatTimeFull(selectedNoti.createdAt) }}</span>
+                  </div>
+                </div>
+                
+                <div class="stamp-seal">
+                  <div class="seal-inner">ĐÃ DUYỆT</div>
+                </div>
+              </div>
+
+              <button class="btn-close-main" @click="closePopup">
+                Đóng Mật Thư
+              </button>
+            </div>
+          </div>
+
+          <div class="rod rod-bottom">
+            <div class="rod-ornament left"></div>
+            <div class="rod-body"></div>
+            <div class="rod-ornament right"></div>
+          </div>
+        </div>
+      </div>
+    </transition>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, computed } from "vue";
+import { useRouter } from "vue-router"; // Import router
+import { useNotificationStore } from "../stores/notificationStore";
+
+const router = useRouter(); // Init router
+const notiStore = useNotificationStore();
+const selectedNoti = ref(null);
+const bgImage = "https://htkhang111.github.io/background/b_doanhtrai.png";
+const isNight = ref(false);
+
+// --- COMPUTED & STATE ---
+const isLoading = computed(() => notiStore.isLoading);
+const notifications = computed(() => notiStore.notifications || []);
+const hasNotifications = computed(() => notifications.value.length > 0);
+const hasUnread = computed(() => notifications.value.some(n => !n.isRead));
+
+// Group notifications by date logic
+const groupedNotifications = computed(() => {
+  const groups = { "Hôm Nay": [], "Hôm Qua": [], "Cũ Hơn": [] };
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterday = today - 86400000;
+
+  notifications.value.forEach(noti => {
+    const notiTime = new Date(noti.createdAt).getTime();
+    if (notiTime >= today) groups["Hôm Nay"].push(noti);
+    else if (notiTime >= yesterday) groups["Hôm Qua"].push(noti);
+    else groups["Cũ Hơn"].push(noti);
+  });
+  return groups;
+});
+
+// --- HELPER LOGIC ---
+// Logic phát hiện lời mời kết bạn dựa trên text
+const isFriendRequest = (noti) => {
+   if (!noti) return false;
+   const title = (noti.title || "").toLowerCase();
+   const msg = (noti.message || "").toLowerCase();
+   // Các từ khóa: kết bạn, friend request, lời mời
+   return title.includes("kết bạn") || title.includes("lời mời") || msg.includes("kết bạn");
+};
+
+const goToFriendsPage = () => {
+   router.push('/friends');
+};
+
+const updateDayNight = () => {
+  const h = new Date().getHours();
+  isNight.value = h >= 18 || h < 6;
+};
+
+const getParticleStyle = () => {
+  const size = Math.random() * 3 + 2 + 'px';
+  return {
+    width: size, height: size,
+    left: Math.random() * 100 + '%',
+    animationDelay: Math.random() * 5 + 's',
+    animationDuration: Math.random() * 10 + 10 + 's',
+    opacity: Math.random() * 0.5 + 0.1
+  };
+};
+
+const openPopup = (noti) => {
+  selectedNoti.value = noti;
+  if (!noti.isRead) {
+    notiStore.markRead(noti.id);
+  }
+};
+
+const closePopup = () => {
+  selectedNoti.value = null;
+};
+
+const handleMarkAllRead = () => {
+  if (hasUnread.value) notiStore.markAllRead();
+};
+
+const formatTimeShort = (iso) => {
+  const d = new Date(iso);
+  return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatTimeFull = (iso) => {
+  return new Date(iso).toLocaleString('vi-VN');
+};
+
+const getTypeClass = (type) => {
+  switch (type) {
+    case "SUCCESS": return "type-success";
+    case "WARNING": return "type-warning";
+    case "ERROR": return "type-error";
+    case "REWARD": return "type-reward";
+    default: return "type-info";
+  }
+};
+
+const getHeaderTitle = (type) => {
+  switch (type) {
+    case "SUCCESS": return "TIN MỪNG";
+    case "WARNING": return "CẢNH BÁO";
+    case "ERROR": return "KHẨN CẤP";
+    case "REWARD": return "PHẦN THƯỞNG";
+    default: return "THÔNG ĐIỆP";
+  }
+};
+
+const getIcon = (type) => {
+  switch (type) {
+    case "SUCCESS": return "fas fa-dove";
+    case "WARNING": return "fas fa-bell";
+    case "ERROR": return "fas fa-skull-crossbones";
+    case "REWARD": return "fas fa-gift";
+    default: return "fas fa-scroll";
+  }
+};
+
+onMounted(() => {
+  updateDayNight();
+  notiStore.fetchNotifications();
+});
+</script>
+
+<style scoped>
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap");
+@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
+
+:root {
+  --gold-main: #d4af37;
+  --gold-glow: rgba(212, 175, 55, 0.6);
+  --success-color: #4caf50;
+  --warning-color: #ff9800;
+  --error-color: #f44336;
+  --info-color: #2196f3;
+  --reward-color: #9c27b0;
+}
+
+.ink-theme {
+  font-family: "Noto Serif TC", serif;
+  color: #f0f0f0;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
+
+/* BACKGROUND & PARTICLES */
+.bg-layer { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.mountain-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.4; filter: grayscale(50%) contrast(1.2); }
+.ink-overlay { position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(10,10,10,0.5), #000); mix-blend-mode: multiply; }
+.ink-overlay.night-mode { background: radial-gradient(circle at center, rgba(5,5,20,0.6), #000); }
+.particles { position: absolute; inset: 0; pointer-events: none; }
+.particle { position: absolute; bottom: -10px; background: rgba(255,255,255,0.2); border-radius: 50%; animation: floatUp linear infinite; }
+@keyframes floatUp { to { transform: translateY(-110vh) translateX(30px); opacity: 0; } }
+
+/* LAYOUT */
+.noti-layout {
+  position: relative; z-index: 10;
+  max-width: 800px; margin: 0 auto;
+  height: 100vh; display: flex; flex-direction: column;
+  padding: 20px;
+}
+
+/* HEADER */
+.noti-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 15px 25px; margin-bottom: 20px;
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+}
+
+.header-left { display: flex; align-items: center; gap: 20px; }
+.btn-ink-back { background: none; border: none; cursor: pointer; padding: 0; transition: 0.3s; }
+.btn-content {
+  width: 45px; height: 45px;
+  border: 2px solid #5d4037; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gold-main); font-size: 1.2rem;
+  background: rgba(0,0,0,0.5);
+}
+.btn-ink-back:hover .btn-content { border-color: var(--gold-main); box-shadow: 0 0 15px var(--gold-glow); transform: scale(1.1); }
+
+.title-group .main-title {
+  margin: 0; font-size: 1.8rem;
+  background: linear-gradient(to right, #ffd700, #b8860b);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  font-weight: 900; letter-spacing: 2px;
+}
+.sub-title { font-size: 0.9rem; color: #888; font-style: italic; }
+
+.btn-royal-seal {
+  background: linear-gradient(135deg, #800000, #400000);
+  border: 1px solid #ff4d4d; color: #ffcccc;
+  padding: 8px 16px; border-radius: 6px;
+  cursor: pointer; font-family: inherit; font-weight: bold;
+  display: flex; align-items: center; gap: 8px;
+  transition: all 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+.btn-royal-seal:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 0 15px rgba(255,0,0,0.4); background: linear-gradient(135deg, #a00000, #600000); }
+.btn-royal-seal:disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+
+/* CONTENT & LIST */
+.content-frame { flex: 1; overflow: hidden; position: relative; }
+.noti-list-container { height: 100%; overflow-y: auto; padding-right: 10px; padding-bottom: 30px; }
+
+/* Group Headers */
+.group-header { display: flex; align-items: center; gap: 15px; margin: 25px 0 15px; opacity: 0.8; }
+.header-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, #5d4037, transparent); }
+.header-text { font-size: 0.9rem; color: var(--gold-main); text-transform: uppercase; letter-spacing: 2px; font-weight: bold; }
+
+/* NOTI ITEM CARD */
+.noti-item {
+  position: relative; margin-bottom: 15px;
+  padding: 18px; border-radius: 12px;
+  display: flex; align-items: center; gap: 15px;
+  cursor: pointer; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: hidden;
+  animation: slideInLeft 0.5s ease backwards;
+  animation-delay: var(--delay);
+}
+
+.card-bg { position: absolute; inset: 0; z-index: 0; background: linear-gradient(135deg, rgba(30,30,30,0.9), rgba(15,15,15,0.95)); transition: 0.3s; }
+.card-border { position: absolute; inset: 0; z-index: 0; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; transition: 0.3s; }
+
+.noti-item:hover { transform: translateX(5px); }
+.noti-item:hover .card-bg { background: linear-gradient(135deg, rgba(50,50,50,0.95), rgba(30,30,30,0.98)); }
+.noti-item:hover .card-border { border-color: var(--gold-main); box-shadow: 0 0 15px rgba(212,175,55,0.15); }
+
+.noti-item.is-read { opacity: 0.7; }
+.noti-item.is-read .card-bg { background: rgba(10,10,10,0.6); }
+.noti-item.is-read:hover { opacity: 1; }
+
+.item-icon-box {
+  position: relative; z-index: 1; width: 50px; height: 50px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px; font-size: 1.4rem;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+}
+.item-body { position: relative; z-index: 1; flex: 1; min-width: 0; }
+.item-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.item-title { font-weight: bold; font-size: 1.1rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 8px; }
+.text-highlight { color: #00e676; font-size: 0.9em; animation: pulse 2s infinite; }
+
+.badge-new { background: #d32f2f; color: #fff; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; animation: pulse 2s infinite; }
+.item-desc { font-size: 0.9rem; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 5px; }
+.item-time { font-size: 0.75rem; color: #666; display: flex; align-items: center; gap: 5px; }
+.item-action { position: relative; z-index: 1; color: var(--gold-main); opacity: 0; transform: translateX(-10px); transition: 0.3s; }
+.noti-item:hover .item-action { opacity: 1; transform: translateX(0); }
+
+/* Types Colors */
+.type-success .item-icon-box { color: var(--success-color); border-color: var(--success-color); background: rgba(76,175,80,0.1); }
+.type-warning .item-icon-box { color: var(--warning-color); border-color: var(--warning-color); background: rgba(255,152,0,0.1); }
+.type-error .item-icon-box { color: var(--error-color); border-color: var(--error-color); background: rgba(244,67,54,0.1); }
+.type-reward .item-icon-box { color: var(--reward-color); border-color: var(--reward-color); background: rgba(156,39,176,0.1); }
+.type-info .item-icon-box { color: var(--info-color); border-color: var(--info-color); background: rgba(33,150,243,0.1); }
+
+/* --- MODAL SCROLL UI --- */
+.modal-overlay { position: fixed; inset: 0; z-index: 2000; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; }
+.scroll-container { width: 600px; max-width: 95vw; display: flex; flex-direction: column; filter: drop-shadow(0 20px 50px #000); }
+.rod { height: 28px; background: linear-gradient(90deg, #3e2723, #5d4037, #3e2723); border-radius: 14px; position: relative; z-index: 2; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: space-between; padding: 0 5px; }
+.rod-ornament { width: 20px; height: 34px; background: radial-gradient(circle, #ffca28, #f57f17); border-radius: 4px; border: 2px solid #3e2723; }
+.rod-body { flex: 1; }
+
+.paper-content {
+  background: #fdfbf7; color: #2c241b; position: relative; margin: -10px 15px; padding: 40px;
+  min-height: 400px; max-height: 70vh; overflow-y: auto; transform-origin: top;
+  animation: unroll 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: inset 0 0 50px rgba(139,69,19,0.1);
+}
+.paper-texture { position: absolute; inset: 0; background-image: url("https://www.transparenttextures.com/patterns/cream-paper.png"); opacity: 0.5; pointer-events: none; }
+.close-btn-corner { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 1.5rem; color: #8d6e63; cursor: pointer; transition: 0.3s; z-index: 10; }
+.close-btn-corner:hover { color: #b71c1c; transform: rotate(90deg); }
+
+.detail-header-badge { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 20px; }
+.badge-text { font-weight: 900; font-size: 0.9rem; padding: 5px 15px; border-radius: 20px; border: 2px solid currentColor; text-transform: uppercase; letter-spacing: 1px; }
+.detail-title { text-align: center; font-size: 1.8rem; color: #2c241b; margin-bottom: 20px; text-transform: uppercase; font-weight: 900; }
+.detail-divider { display: flex; align-items: center; justify-content: center; gap: 15px; color: #8d6e63; margin-bottom: 30px; }
+.detail-divider .line { height: 2px; width: 60px; background: currentColor; opacity: 0.5; }
+.detail-body-text { font-size: 1.1rem; line-height: 1.8; text-align: justify; margin-bottom: 40px; white-space: pre-wrap; }
+
+/* SPECIAL FRIEND ACTION */
+.special-action-box { display: flex; justify-content: center; margin-bottom: 30px; }
+.btn-friend-accept {
+  background: linear-gradient(135deg, #2e7d32, #1b5e20); color: #fff; border: none; padding: 12px 30px;
+  border-radius: 30px; font-weight: bold; font-size: 1.1rem; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; transition: 0.3s;
+  box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3);
+}
+.btn-friend-accept:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(46, 125, 50, 0.5); background: linear-gradient(135deg, #43a047, #2e7d32); }
+
+.detail-footer { border-top: 2px dashed #d7ccc8; padding-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+.meta-row { display: flex; align-items: center; gap: 8px; color: #5d4037; font-size: 0.9rem; margin-bottom: 5px; }
+
+.stamp-seal {
+  width: 90px; height: 90px; border: 3px solid #b71c1c; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  color: #b71c1c; font-weight: 900; transform: rotate(-15deg);
+  opacity: 0.8; mask-image: url("https://www.transparenttextures.com/patterns/grunge-wall.png");
+}
+.btn-close-main { width: 100%; margin-top: 30px; padding: 12px; background: #3e2723; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+.btn-close-main:hover { background: #5d4037; }
+
+/* ANIMATIONS */
+@keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes unroll { from { max-height: 0; opacity: 0; transform: scaleY(0); } to { max-height: 70vh; opacity: 1; transform: scaleY(1); } }
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+.fade-in { animation: fadeIn 0.5s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.fade-in-down { animation: fadeInDown 0.6s ease; }
+@keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+
+.loading-state, .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; color: #888; }
+.ink-loader { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-top-color: var(--gold-main); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-icon { font-size: 3rem; margin-bottom: 15px; color: #444; }
+
+.custom-scroll::-webkit-scrollbar { width: 6px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+.custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--gold-main); }
 </style>

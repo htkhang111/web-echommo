@@ -4,7 +4,7 @@
 @import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css");
 
 /* --- KHAI BÁO FONT TỪ GITHUB --- */
-@font-face {
+/* @font-face {
   font-family: "UTM Thu Phap Thien An";
   src:
     url("https://htkhang111.github.io/fonts/UTM-Thu-Phap-Thien-An.woff2")
@@ -26,7 +26,7 @@
   font-weight: normal;
   font-style: normal;
   font-display: swap;
-}
+} */
 
 /* --- ROOT VARIABLES (CYBER SYSTEM) --- */
 :root {
