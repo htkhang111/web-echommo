@@ -1,283 +1,239 @@
 <template>
-  <div class="page-container wuxia-dashboard">
+  <div class="pvp-contained-layout">
     <div class="bg-layer">
-      <div
-        class="mountain-bg"
-        :style="{ backgroundImage: `url(${currentBg})` }"
-      ></div>
-      <div class="wood-overlay" :class="{ 'night-mode': false }"></div>
+      <div class="mountain-bg" :style="{ backgroundImage: `url(${currentBg})` }"></div>
       <div class="vignette"></div>
+      <div class="particles"></div>
     </div>
 
-    <div class="dashboard-wrapper">
-      <div class="command-header wood-panel">
-        <div class="header-left">
-          <div class="server-tag">
-            <span class="status-orb red"></span>
-            <span class="server-txt">KHU VỰC: TỶ VÕ ĐÀI</span>
+    <div class="content-wrapper">
+      
+      <div v-if="gameState !== 'BATTLE'" class="lobby-grid">
+        
+        <div class="glass-panel left-col">
+          <div class="panel-header">
+            <h3><i class="fas fa-crown"></i> CAO THỦ BẢNG</h3>
           </div>
-          <div class="char-block">
-            <div class="char-text">
-              <span class="greet-txt"
-                ><i class="fas fa-fist-raised"></i> Luận Kiếm Giang Hồ</span
-              >
-              <h1 class="char-name">VÕ ĐÀI TRANH HÙNG</h1>
+          
+          <div v-if="lbStore.loadingPvp" class="loading-state">
+            <div class="spinner-ring"></div>
+            <span>Đang tải...</span>
+          </div>
+          
+          <div v-else class="ranking-list custom-scroll">
+            <div 
+              v-for="(entry, index) in lbStore.topPvp" 
+              :key="index" 
+              class="rank-card"
+              :class="{ 'rank-1': index === 0, 'rank-2': index === 1, 'rank-3': index === 2 }"
+            >
+              <div class="rank-badge">
+                 <span v-if="index === 0">👑</span>
+                 <span v-else-if="index === 1">🥈</span>
+                 <span v-else-if="index === 2">🥉</span>
+                 <span v-else>#{{ index + 1 }}</span>
+              </div>
+
+              <div class="rank-sprite-container">
+                <img 
+                  :src="getSkinSprite(entry.avatarUrl)" 
+                  class="pixel-art mini-sprite" 
+                  @error="$event.target.src = getSkinSprite('skin_yasou')"
+                />
+                <div class="lv-tag">{{ entry.level || 1 }}</div>
+              </div>
+
+              <div class="rank-info">
+                <div class="r-name">{{ entry.name }}</div>
+                <div class="r-stats">
+                   <span class="tag-title">{{ entry.rankTitle || 'Tân Thủ' }}</span>
+                   <span class="tag-rep"><i class="fas fa-star"></i> {{ entry.reputation }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="!lbStore.topPvp?.length" class="empty-msg">
+               Chưa có dữ liệu
             </div>
           </div>
         </div>
-        <div class="header-right">
-          <div class="wealth-bar">
-            <div class="wealth-item">
-              <span class="lbl">DANH VỌNG:</span>
-              <span class="amt gold-txt">{{ characterReputation }}</span>
-            </div>
-            <div class="wealth-item" style="margin-left: 15px">
-              <span class="lbl">DANH HIỆU:</span>
-              <span class="amt rank-txt">{{ characterRankTitle }}</span>
-            </div>
-          </div>
-          <div class="weather-seal">
-            <i class="fas fa-dragon"></i>
-          </div>
+
+        <div class="right-col">
+           <div class="hero-showcase">
+              <div class="hero-glow"></div>
+              <img :src="mySprite" class="hero-big-sprite pixel-art" />
+              <div class="hero-details">
+                <h1 class="hero-title">{{ characterName }}</h1>
+                <div class="hero-badges">
+                  <span class="badge-lv">Cấp {{ characterLevel }}</span>
+                </div>
+              </div>
+           </div>
+
+           <div class="action-dock">
+              <template v-if="gameState === 'LOBBY'">
+                <button class="btn-epic pulse-glow" @click="toggleSearch">
+                  <span class="btn-icon"><i class="fas fa-swords"></i></span>
+                  <span class="btn-text">TÌM ĐỐI THỦ</span>
+                </button>
+                <button class="btn-refresh" @click="manualRefresh" title="Làm mới">
+                  <i class="fas fa-sync-alt"></i>
+                </button>
+              </template>
+
+              <template v-else-if="gameState === 'SEARCHING'">
+                <div class="searching-box">
+                  <div class="radar-scan"></div>
+                  <div class="search-text">Đang tìm kiếm... {{ searchTimer }}s</div>
+                  <button class="btn-cancel" @click="cancelSearch">HỦY</button>
+                </div>
+              </template>
+
+              <template v-if="gameState === 'MATCH_FOUND'">
+                <div class="match-found-alert">
+                  <div class="found-text">⚠️ PHÁT HIỆN ĐỐI THỦ ⚠️</div>
+                  <div class="enemy-preview">
+                     <img :src="enemySprite" class="pixel-art" />
+                     <div>
+                       <strong>{{ enemyName }}</strong>
+                       <small>Lv.{{ enemyLevel }}</small>
+                     </div>
+                  </div>
+                  <button class="btn-accept" @click="acceptMatch" :disabled="hasAccepted">
+                    {{ hasAccepted ? "ĐANG CHỜ..." : `CHIẾN NGAY (${acceptTimer}s)` }}
+                  </button>
+                </div>
+              </template>
+           </div>
         </div>
       </div>
 
-      <div class="pvp-stage-container wood-panel-content">
-        <div v-if="gameState !== 'BATTLE'" class="lobby-layout">
-          <div class="sidebar-col">
-            <div class="inner-wood-box">
-              <div class="box-header">
-                <i class="fas fa-scroll"></i> CAO THỦ GIANG HỒ
+      <div v-else class="battle-arena">
+        <div class="battle-hud">
+          <div class="hud-box player-side">
+            <div class="avatar-box"><img :src="mySprite" class="pixel-art" /></div>
+            <div class="bars-container">
+              <div class="name-row">
+                 <span class="b-name">{{ characterName }}</span>
+                 <span class="b-lv">Lv.{{ characterLevel }}</span>
               </div>
-              <div v-if="lbStore.loadingPvp" class="lb-loading">
-                <i class="fas fa-yin-yang fa-spin"></i> Đang tra cứu...
-              </div>
-              <div v-else class="lb-mini-list custom-scroll">
-                <div
-                  v-for="(entry, index) in lbStore.topPvp"
-                  :key="index"
-                  class="lb-mini-item"
-                >
-                  <div class="item-rank" :class="'rank-' + (index + 1)">
-                    {{ index + 1 }}
-                  </div>
-                  <div class="item-avatar small">
-                    <img :src="resolveAvatar(entry.avatarUrl)" class="pixel-art" />
-                  </div>
-                  <div class="item-info">
-                    <div class="item-name">{{ entry.name }}</div>
-                    <div class="item-val">
-                        <span class="rank-badge">{{ entry.rankTitle || 'Vô Danh' }}</span>
-                        <span class="rep-val">({{ entry.reputation }} DV)</span>
-                    </div>
-                  </div>
-                </div>
-                <div v-if="!lbStore.topPvp?.length" class="lb-empty">
-                  Chưa có dữ liệu...
-                </div>
+              <div class="hp-bar-frame">
+                <div class="hp-fill player" :style="{ width: percent(myHp, myMaxHp) + '%' }"></div>
+                <span class="hp-text">{{ myHp }}/{{ myMaxHp }}</span>
               </div>
             </div>
           </div>
 
-          <div class="main-col">
-            <div class="hero-card-wide">
-              <div class="card-bg-pattern"></div>
-              <div class="hero-visual">
-                <div class="avatar-frame gold-border large">
-                  <img :src="mySprite" class="pixel-art" />
-                  <div class="level-tag">
-                    <span class="lbl">CẤP</span>
-                    <span class="val">{{ characterLevel }}</span>
-                  </div>
-                </div>
-                <h2 class="hero-name">{{ characterName }}</h2>
-                <div class="hero-rank-display">{{ characterRankTitle }}</div>
+          <div class="battle-timer" :class="{ warning: turnTimer <= 10 }">
+             {{ turnTimer }}
+          </div>
+
+          <div class="hud-box enemy-side">
+            <div class="bars-container">
+              <div class="name-row">
+                 <span class="b-lv">Lv.{{ enemyLevel }}</span>
+                 <span class="b-name">{{ enemyName }}</span>
               </div>
-
-              <div class="action-area">
-                <div v-if="gameState === 'LOBBY'" class="btn-group">
-                  <button
-                    class="wuxia-btn primary big pulse-anim"
-                    @click="toggleSearch"
-                  >
-                    <i class="fas fa-swords"></i> TÌM ĐỐI THỦ
-                  </button>
-                  <button class="wuxia-btn gold-btn big" @click="manualRefresh">
-                    <i class="fas fa-sync-alt"></i> CẬP NHẬT BXH
-                  </button>
-                </div>
-
-                <div v-else-if="gameState === 'SEARCHING'" class="searching-state">
-                  <div class="spinner-radar">
-                    <i class="fas fa-circle-notch fa-spin"></i>
-                  </div>
-                  <p>Đang tìm kiếm đối thủ xứng tầm... ({{ searchTimer }}s)</p>
-                  <button class="wuxia-btn danger" @click="cancelSearch">
-                    HỦY BỎ
-                  </button>
-                </div>
-
-                <div v-if="gameState === 'MATCH_FOUND'" class="match-popup-embed">
-                  <h3>⚔️ ĐỐI THỦ XUẤT HIỆN ⚔️</h3>
-                  <div class="enemy-preview-row">
-                    <div class="preview-avatar">
-                      <img :src="enemySprite" class="pixel-art" />
-                    </div>
-                    <div class="preview-info">
-                      <strong>{{ enemyName }}</strong>
-                      <span>Cấp {{ enemyLevel }}</span>
-                    </div>
-                  </div>
-                  <div class="popup-actions-row">
-                    <button
-                      class="wuxia-btn primary"
-                      @click="acceptMatch"
-                      :disabled="hasAccepted"
-                    >
-                      {{ hasAccepted ? "ĐANG CHỜ ĐỐI THỦ..." : `CHẤP NHẬN CHIẾN (${acceptTimer}s)` }}
-                    </button>
-                  </div>
-                </div>
+              <div class="hp-bar-frame">
+                <div class="hp-fill enemy" :style="{ width: percent(enemyHp, enemyMaxHp) + '%' }"></div>
+                 <span class="hp-text">{{ enemyHp }}/{{ enemyMaxHp }}</span>
               </div>
             </div>
+            <div class="avatar-box"><img :src="enemySprite" class="pixel-art enemy-flip" /></div>
           </div>
         </div>
 
-        <div v-else class="battle-arena-frame">
-          <div class="arena-background" :style="{ backgroundImage: `url(${currentBg})` }"></div>
-          
-          <div class="log-overlay-btn" @click="showLog = !showLog">
-            <i class="fas fa-book"></i> [L]
-          </div>
+        <div class="battle-stage">
+           <div class="fighter-display left">
+              <img :src="mySprite" class="pixel-art char-anim" :class="{ 'hit-shake': isMyHit }" />
+              <div class="shadow"></div>
+           </div>
 
-          <transition name="fade">
-            <div v-if="showLog" class="floating-log-panel custom-scroll">
-              <div class="log-header">
-                NHẬT KÝ CHIẾN ĐẤU
-                <span @click="showLog = false" class="close-log">×</span>
+           <div class="clash-zone" v-if="isRevealing">
+              <div class="move-icon p1" :class="getAnimClass(displayedMyMove, displayedEnemyMove, true)">
+                 <i :class="getRpsIcon(displayedMyMove)"></i>
               </div>
-              <div class="log-content">
-                <div v-for="(log, i) in battleLogs.slice().reverse()" :key="i" class="log-line">
-                  » {{ log }}
+              <div class="vs-flash">💥</div>
+              <div class="move-icon p2" :class="getAnimClass(displayedMyMove, displayedEnemyMove, false)">
+                 <i :class="getRpsIcon(displayedEnemyMove)"></i>
+              </div>
+              <div class="damage-text" :class="getResultClass(lastResultText)">{{ lastResultText }}</div>
+           </div>
+
+           <div class="fighter-display right">
+              <img :src="enemySprite" class="pixel-art char-anim enemy-flip" :class="{ 'hit-shake': isEnemyHit }" />
+              <div class="shadow"></div>
+           </div>
+        </div>
+
+        <div class="battle-deck">
+           <div class="mini-chat glass-panel">
+              <div class="chat-messages custom-scroll" ref="chatBoxRef">
+                <div v-for="(msg, i) in matchMessages" :key="i" class="msg-line" :class="{ 'me': msg.isMe }">
+                   <span class="sender">{{ msg.sender }}:</span> {{ msg.text }}
                 </div>
               </div>
-            </div>
-          </transition>
-
-          <div class="top-timer-display" :class="{ urgent: turnTimer <= 10 }">
-            <div class="timer-value">{{ turnTimer }}</div>
-          </div>
-
-          <div class="fighters-stage">
-            <div class="fighter left-side player">
-              <div class="sprite-container">
-                <img :src="mySprite" class="char-img pixel-art" :class="{ 'shake-hit': isMyHit }" />
-                <div class="shadow-oval"></div>
-              </div>
-              <div class="hud player-hud">
-                <div class="hud-row">
-                  <span class="f-name">{{ characterName }}</span>
-                  <span class="f-lv">Lv.{{ characterLevel }}</span>
-                </div>
-                <div class="hp-track">
-                  <div class="hp-text">{{ myHp }} / {{ myMaxHp }}</div>
-                  <div class="hp-fill" :style="{ width: percent(myHp, myMaxHp) + '%' }"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="fighter right-side enemy">
-              <div class="hud enemy-hud">
-                <div class="hud-row">
-                  <span class="f-name">{{ enemyName }}</span>
-                  <span class="f-lv">Lv.{{ enemyLevel }}</span>
-                </div>
-                <div class="hp-track">
-                  <div class="hp-text">{{ enemyHp }} / {{ enemyMaxHp }}</div>
-                  <div class="hp-fill" :style="{ width: percent(enemyHp, enemyMaxHp) + '%' }"></div>
-                </div>
-              </div>
-              <div class="sprite-container">
-                <img :src="enemySprite" class="char-img pixel-art enemy-flip" :class="{ 'shake-hit': isEnemyHit }" />
-                <div class="shadow-oval"></div>
-              </div>
-            </div>
-
-            <div v-if="isRevealing" class="clash-visual">
-              <div class="move-card p1" :class="getAnimClass(displayedMyMove, displayedEnemyMove, true)">
-                <i :class="getRpsIcon(displayedMyMove)"></i>
-              </div>
-              <div class="clash-spark">💥</div>
-              <div class="move-card p2" :class="getAnimClass(displayedMyMove, displayedEnemyMove, false)">
-                <i :class="getRpsIcon(displayedEnemyMove)"></i>
-              </div>
-              <div class="result-label" :class="getResultClass(lastResultText)">
-                {{ lastResultText }}
-              </div>
-            </div>
-          </div>
-
-          <div class="battle-controls">
-            <div class="chat-section">
-              <div class="chat-history custom-scroll" ref="chatBoxRef">
-                <div v-for="(msg, i) in matchMessages" :key="i" class="chat-bubble" :class="{ me: msg.isMe }">
-                  <span class="sender">{{ msg.sender }}:</span> {{ msg.text }}
-                </div>
-              </div>
-              <div class="chat-input-area">
+              <div class="chat-input-row">
                 <input v-model="chatInput" @keyup.enter="sendPrivateChat" placeholder="Chat..." />
-                <button @click="sendPrivateChat"><i class="fas fa-paper-plane"></i></button>
               </div>
-            </div>
+           </div>
 
-            <div class="actions-section">
-              <div v-if="battlePhase === 'RPS_WAIT' && !isRevealing" class="rps-grid-simple">
-                <button class="square-btn rock" @click="submitRps('ROCK')" :disabled="isActionPending">
-                  <i class="fas fa-hand-rock"></i><span>BÚA</span>
-                </button>
-                <button class="square-btn paper" @click="submitRps('PAPER')" :disabled="isActionPending">
-                  <i class="fas fa-hand-paper"></i><span>BAO</span>
-                </button>
-                <button class="square-btn scissor" @click="submitRps('SCISSORS')" :disabled="isActionPending">
-                  <i class="fas fa-hand-scissors"></i><span>KÉO</span>
-                </button>
-                <button class="square-btn surrender" @click="handleSurrender">
-                  <i class="fas fa-flag"></i><span>THOÁT</span>
-                </button>
+           <div class="command-center">
+              <div v-if="battlePhase !== 'RPS_WAIT' || isRevealing" class="status-badge">
+                 <i class="fas fa-yin-yang fa-spin"></i>
+                 {{ isRevealing ? "ĐANG TÍNH..." : "CHỜ ĐỐI THỦ..." }}
               </div>
-              <div v-else class="status-overlay">
-                <div class="spinner-box">
-                  <i v-if="!isRevealing" class="fas fa-yin-yang fa-spin"></i>
-                  <span>{{ isRevealing ? "ĐANG TÍNH TOÁN..." : "CHỜ ĐỐI THỦ RA CHIÊU..." }}</span>
-                </div>
+              <div v-else class="rps-buttons">
+                 <button class="rps-btn rock" @click.prevent="submitRps('ROCK')" :disabled="isActionPending">
+                    <div class="icon-circle"><i class="fas fa-hand-rock"></i></div>
+                    <span>BÚA</span>
+                 </button>
+                 <button class="rps-btn paper" @click.prevent="submitRps('PAPER')" :disabled="isActionPending">
+                    <div class="icon-circle"><i class="fas fa-hand-paper"></i></div>
+                    <span>BAO</span>
+                 </button>
+                 <button class="rps-btn scissors" @click.prevent="submitRps('SCISSORS')" :disabled="isActionPending">
+                    <div class="icon-circle"><i class="fas fa-hand-scissors"></i></div>
+                    <span>KÉO</span>
+                 </button>
               </div>
-            </div>
-          </div>
+           </div>
+
+           <div class="util-deck">
+              <button class="util-btn log" @click="showLog = !showLog" title="Nhật ký">
+                 <i class="fas fa-book"></i>
+              </button>
+              <button class="util-btn surrender" @click="handleSurrender" title="Đầu hàng">
+                 <i class="fas fa-flag"></i>
+              </button>
+           </div>
         </div>
+
+        <transition name="fade">
+           <div v-if="showLog" class="log-modal glass-panel">
+              <div class="log-head">NHẬT KÝ CHIẾN ĐẤU <span @click="showLog=false">✕</span></div>
+              <div class="log-body custom-scroll">
+                 <div v-for="(log, i) in battleLogs.slice().reverse()" :key="i" class="log-item">» {{ log }}</div>
+              </div>
+           </div>
+        </transition>
       </div>
     </div>
 
-    <transition name="fade">
-      <div v-if="showEndGameModal" class="endgame-modal-overlay">
-        <div class="endgame-content" :class="{ win: isWin, lose: !isWin }">
-          <div class="endgame-title">{{ endGameTitle }}</div>
-          <div class="endgame-desc">{{ endGameMessage }}</div>
-          
-          <div class="reward-box" v-if="gainedReputation !== 0">
-             <div class="reward-row">
-                <span class="lbl">Danh Vọng:</span>
-                <span class="val" :class="gainedReputation > 0 ? 'plus' : 'minus'">
+    <transition name="zoom">
+      <div v-if="showEndGameModal" class="victory-modal-overlay">
+        <div class="victory-card" :class="isWin ? 'win-theme' : 'lose-theme'">
+           <div class="vic-header">{{ endGameTitle }}</div>
+           <div class="vic-body">
+              <p>{{ endGameMessage }}</p>
+              <div class="reward-pill" v-if="gainedReputation !== 0">
+                 <span class="label">Danh Vọng:</span>
+                 <span class="value" :class="gainedReputation > 0 ? 'plus' : 'minus'">
                     {{ gainedReputation > 0 ? '+' : '' }}{{ gainedReputation }}
-                </span>
-             </div>
-          </div>
-
-          <div class="auto-back-timer">
-            Tự động về sảnh sau {{ autoBackTimer }}s
-          </div>
-          <button class="wuxia-btn primary big" @click="closeEndGameModal">
-            VỀ SẢNH NGAY
-          </button>
+                 </span>
+              </div>
+           </div>
+           <button class="btn-home" @click="closeEndGameModal">QUAY VỀ ({{ autoBackTimer }}s)</button>
         </div>
       </div>
     </transition>
@@ -286,7 +242,6 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick, computed } from "vue";
-// [IMPORTANT] Sử dụng đúng Store của bạn
 import { useAuthStore } from "../stores/authStore";
 import { useLeaderboardStore } from "../stores/leaderboardStore";
 import { CHARACTER_SKINS } from "../utils/assetHelper";
@@ -296,36 +251,44 @@ const API_URL = "http://localhost:8080/api/pvp";
 const authStore = useAuthStore();
 const lbStore = useLeaderboardStore();
 
-// --- ASSET HELPERS ---
-const getSpriteUrl = (skinId) => {
-  const skin = CHARACTER_SKINS[skinId] || CHARACTER_SKINS["skin_yasou"];
-  return skin.sprites.idle;
+// --- 1. HÀM LẤY SPRITE TỪ SKIN ID ---
+// Hàm này cực kỳ quan trọng: Nhận vào ID (vd: 'skin_riven') -> Trả về link ảnh sprite
+const getSkinSprite = (skinId) => {
+  // Nếu không có ID hoặc null -> Lấy Yasou
+  if (!skinId) return CHARACTER_SKINS["skin_yasou"].sprites.idle;
+  
+  // Nếu ID có trong danh sách skin -> Trả về sprite idle của skin đó
+  if (CHARACTER_SKINS[skinId]) {
+    return CHARACTER_SKINS[skinId].sprites.idle;
+  }
+
+  // Trường hợp dự phòng: Nếu skinId lạ hoắc -> Vẫn trả về Yasou để không bị đen hình
+  return CHARACTER_SKINS["skin_yasou"].sprites.idle;
 };
 
-const resolveAvatar = (avatarStr) => {
-  if (!avatarStr) return getSpriteUrl("skin_yasou");
-  if (avatarStr.startsWith("/uploads/"))
-    return `http://localhost:8080${avatarStr}`;
-  if (avatarStr.includes("http") || avatarStr.startsWith("data:"))
-    return avatarStr;
-  return getSpriteUrl(avatarStr);
-};
-
-// --- COMPUTED: Lấy data từ AuthStore (Store này bạn đã cấu hình tốt) ---
+// --- DATA ---
 const characterName = computed(() => authStore.character?.name || authStore.user?.username || "Đại Hiệp");
 const characterLevel = computed(() => authStore.character?.level || 1);
 const characterReputation = computed(() => authStore.character?.reputation || 0);
 const characterRankTitle = computed(() => authStore.character?.rankTitle || "Vô Danh");
 
-const mySprite = computed(() => getSpriteUrl(authStore.user?.avatarUrl));
-const enemySprite = computed(() => getSpriteUrl(enemySkinId.value));
-
-const currentBg = computed(() => {
-  if (gameState.value === "BATTLE") return "https://images.unsplash.com/photo-1535581652167-3d6b98c365b2?q=80&w=1920&auto=format&fit=crop";
-  return "https://htkhang111.github.io/background/b_doanhtrai.png";
+// CỘT PHẢI: Nhân vật của MÌNH -> Lấy từ authStore.user.avatarUrl (là skinId)
+const mySprite = computed(() => {
+  const mySkinId = authStore.user?.avatarUrl || "skin_yasou";
+  return getSkinSprite(mySkinId);
 });
 
-// --- STATE ---
+// Đối thủ: Lấy từ enemySkinId (được set khi tìm thấy trận)
+const enemySprite = computed(() => {
+  return getSkinSprite(enemySkinId.value);
+});
+
+// --- LOGIC CŨ (KHÔNG ĐỔI) ---
+const currentBg = computed(() => {
+  if (gameState.value === "BATTLE") return "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1920&auto=format&fit=crop"; 
+  return "https://images.unsplash.com/photo-1518544806352-a5c36195968a?q=80&w=1920&auto=format&fit=crop"; 
+});
+
 const gameState = ref("LOBBY");
 const matchId = ref(null);
 const battlePhase = ref("RPS_WAIT");
@@ -337,19 +300,13 @@ const isActionPending = ref(false);
 const searchTimer = ref(0);
 const acceptTimer = ref(10);
 const ignoredMatchIds = ref(new Set());
-
-// --- END GAME STATE ---
 const showEndGameModal = ref(false);
 const isWin = ref(false);
 const endGameTitle = ref("");
 const endGameMessage = ref("");
 const autoBackTimer = ref(5);
 let autoBackInterval = null;
-
-// [FIX] Biến hiển thị kết quả
 const gainedReputation = ref(0);
-
-// --- BATTLE DATA ---
 const enemyName = ref("Đối thủ");
 const enemyLevel = ref(1);
 const enemySkinId = ref(null);
@@ -381,12 +338,13 @@ const syncBasicInfo = (data) => {
   const isP1 = checkIsPlayer1(data);
   enemyName.value = (isP1 ? data.p2Name : data.p1Name) || "Đối thủ";
   enemyLevel.value = (isP1 ? data.p2Level : data.p1Level) || 1;
+  // Backend trả về avatarUrl là SkinID -> Gán vào enemySkinId
   enemySkinId.value = isP1 ? data.p2AvatarUrl : data.p1AvatarUrl;
 };
 
 const manualRefresh = async () => {
-    await authStore.fetchCharacter();
-    await lbStore.fetchPvPBoard();
+   await authStore.fetchCharacter();
+   await lbStore.fetchPvPBoard();
 }
 
 const resetToLobby = () => {
@@ -414,20 +372,13 @@ const clearAllIntervals = () => {
   if (autoBackInterval) clearInterval(autoBackInterval);
 };
 
-// --- [LOGIC QUAN TRỌNG NHẤT] ---
 const toggleSearch = async () => {
   resetToLobby();
-  
-  // 1. Cập nhật dữ liệu từ Server
   await authStore.fetchCharacter();
-  
-  // 2. [FIX] Lưu điểm danh vọng vào LocalStorage (chống F5 mất dữ liệu)
-  // Store của bạn lưu trong 'character.reputation'
   if (authStore.character) {
     const currentRep = authStore.character.reputation || 0;
     localStorage.setItem('pvp_start_rep', currentRep); 
   }
-  
   gameState.value = "SEARCHING";
   searchTimer.value = 0;
   searchInterval = setInterval(() => searchTimer.value++, 1000);
@@ -466,7 +417,6 @@ const handleSurrender = async () => {
   try { await axios.post(`${API_URL}/surrender`, { matchId: matchId.value }, { headers: getHeaders() }); } catch (e) {}
 };
 
-// --- SYNC ENGINE ---
 const startPolling = () => {
   if (pollId) return;
   pollId = setInterval(async () => {
@@ -476,7 +426,6 @@ const startPolling = () => {
       if (!data) return;
       if (data.matchId && ignoredMatchIds.value.has(Number(data.matchId))) return;
 
-      // [XỬ LÝ KẾT THÚC TRẬN]
       if (data.status === "FINISHED") {
         if (gameState.value === 'LOBBY' || gameState.value === 'SEARCHING') {
             if (data.matchId) ignoredMatchIds.value.add(Number(data.matchId));
@@ -492,16 +441,10 @@ const startPolling = () => {
 
           setTimeout(async () => {
             clearAllIntervals();
-            
-            // 1. Lấy dữ liệu mới nhất từ Server
             await authStore.fetchCharacter(); 
-            
-            // 2. [FIX] Tính toán điểm chênh lệch từ LocalStorage
             const currentRep = authStore.character?.reputation || 0;
-            // Nếu không tìm thấy trong storage thì lấy luôn currentRep (tránh lỗi NaN)
             const savedStartRep = localStorage.getItem('pvp_start_rep');
             const startRep = savedStartRep ? Number(savedStartRep) : currentRep;
-            
             gainedReputation.value = currentRep - startRep;
 
             const iWon = serverWinnerId === myCharId;
@@ -515,18 +458,17 @@ const startPolling = () => {
               endGameTitle.value = "HÒA";
               endGameMessage.value = "Lưỡng bại câu thương!";
             } else if (iWon) {
-              endGameTitle.value = "CHIẾN THẮNG";
+              endGameTitle.value = "ĐẠI THẮNG";
               endGameMessage.value = isSurrender ? "Đối thủ đã đầu hàng!" : "Bạn đã đánh bại đối thủ!";
             } else {
               endGameTitle.value = "THẤT BẠI";
-              endGameMessage.value = isSurrender ? "Bạn đã đầu hàng!" : (isDisconnect ? "Hết giờ, bạn bị xử thua!" : "Bạn đã bị đánh bại...");
+              endGameMessage.value = isSurrender ? "Bạn đã đầu hàng!" : (isDisconnect ? "Hết giờ!" : "Bạn đã bị đánh bại...");
             }
 
             showEndGameModal.value = true;
             lbStore.fetchPvPBoard();
             if (data.matchId) ignoredMatchIds.value.add(Number(data.matchId));
 
-            // Auto back timer
             autoBackTimer.value = 5;
             autoBackInterval = setInterval(() => {
               autoBackTimer.value--;
@@ -607,9 +549,9 @@ const syncBattleData = (data) => {
     if (data.lastLog) {
       battleLogs.value.push(data.lastLog);
       const logUpper = data.lastLog.toUpperCase();
-      if (logUpper.includes("NÉ")) lastResultText.value = "NÉ ĐÒN!";
+      if (logUpper.includes("NÉ")) lastResultText.value = "NÉ!";
       else if (logUpper.includes("CHÍ MẠNG")) lastResultText.value = "BẠO KÍCH!";
-      else if (logUpper.includes("HÒA") || logUpper.includes("XUNG KHẮC")) lastResultText.value = "XUNG KHẮC!";
+      else if (logUpper.includes("HÒA") || logUpper.includes("XUNG KHẮC")) lastResultText.value = "HÒA!";
       else lastResultText.value = "TRÚNG!";
     }
 
@@ -622,6 +564,11 @@ const syncBattleData = (data) => {
   } else {
     const myM = isP1 ? data.p1Move : data.p2Move;
     battlePhase.value = (myM && myM !== 'HIDDEN') ? "RPS_PENDING" : "RPS_WAIT";
+    
+    // [FIX] Reset nút bấm nếu chưa đánh
+    if (!myM || myM === 'HIDDEN') {
+       isActionPending.value = false;
+    }
   }
 };
 
@@ -641,12 +588,12 @@ const getAnimClass = (myMove, enemyMove, isMe) => {
   if (!myMove || !enemyMove) return "";
   if (myMove === enemyMove) return "anim-clash";
   let iWin = (myMove === "ROCK" && enemyMove === "SCISSORS") || (myMove === "SCISSORS" && enemyMove === "PAPER") || (myMove === "PAPER" && enemyMove === "ROCK");
-  return isMe ? (iWin ? "anim-smash-win" : "anim-lose") : (!iWin ? "anim-smash-win" : "anim-lose");
+  return isMe ? (iWin ? "anim-attack-left" : "anim-hit") : (!iWin ? "anim-attack-right" : "anim-hit");
 };
 const getResultClass = (text) => {
-  if (text === "NÉ ĐÒN!") return "res-dodge";
+  if (text === "NÉ!") return "res-dodge";
   if (text === "BẠO KÍCH!") return "res-crit";
-  if (text === "XUNG KHẮC!") return "res-clash";
+  if (text === "HÒA!") return "res-clash";
   return "res-normal";
 };
 
@@ -664,146 +611,239 @@ onUnmounted(() => clearAllIntervals());
 </script>
 
 <style scoped>
-@import url("https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Playfair+Display:wght@700;900&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Noto+Serif+SC:wght@500;700&display=swap");
+
+:root {
+  --gold: #ffc107;
+  --gold-glow: #ffeb3b;
+  --red: #d32f2f;
+  --dark-bg: rgba(20, 10, 5, 0.85);
+}
 
 .pixel-art { image-rendering: pixelated; }
-:root { --wood-base: #3e2723; --wood-card: #5d4037; --gold: #ffecb3; --gold-accent: #ffd700; --text-main: #fff8e1; --text-dim: #d7ccc8; }
-.wuxia-dashboard { min-height: 100vh; padding: 20px; font-family: "Noto Serif", serif; color: var(--text-main); position: relative; overflow-x: hidden; box-sizing: border-box; }
-.bg-layer { position: absolute; inset: 0; z-index: 0; background: #261815; pointer-events: none; }
-.mountain-bg { position: absolute; inset: 0; background-size: cover; background-position: center bottom; opacity: 0.6; filter: sepia(10%) contrast(1.1); transition: background-image 0.5s ease-in-out; }
-.wood-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(62, 39, 35, 0.7), rgba(30, 20, 15, 0.9)); mix-blend-mode: multiply; transition: background 2s ease; }
-.vignette { position: absolute; inset: 0; background: radial-gradient(circle, transparent 60%, #1a100d 100%); }
-.dashboard-wrapper { position: relative; z-index: 10; max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; height: calc(100vh - 40px); }
-.wood-panel { display: flex; justify-content: space-between; align-items: center; background: linear-gradient(90deg, rgba(62, 39, 35, 0.95), rgba(93, 64, 55, 0.9)); border: 2px solid #6d4c41; border-radius: 6px; padding: 10px 20px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5); flex-shrink: 0; }
-.header-left { display: flex; flex-direction: column; gap: 4px; }
-.server-tag { font-size: 0.75rem; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
-.status-orb { width: 6px; height: 6px; background: #66bb6a; border-radius: 50%; box-shadow: 0 0 5px #66bb6a; }
-.status-orb.red { background: #ff5252; box-shadow: 0 0 5px #ff5252; }
-.greet-txt { font-size: 0.8rem; color: var(--gold); }
-.char-name { font-family: "Playfair Display", serif; font-size: 1.8rem; margin: 0; color: #fff; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6); line-height: 1; }
-.header-right { display: flex; align-items: center; gap: 15px; }
-.wealth-item { display: flex; align-items: center; gap: 6px; font-weight: bold; color: var(--gold-accent); font-size: 1rem; }
-.gold-txt { color: #ffd700; }
-.rank-txt { color: #e0f7fa; text-transform: uppercase; font-size: 0.9rem; border: 1px solid #4dd0e1; padding: 2px 6px; border-radius: 4px; background: rgba(0, 188, 212, 0.2); }
-.weather-seal { display: flex; align-items: center; gap: 8px; color: var(--text-dim); font-size: 1.5rem; }
-.pvp-stage-container { flex: 1; background: rgba(40, 20, 10, 0.6); border: 1px solid #5d4037; border-radius: 6px; position: relative; overflow: hidden; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5); display: flex; }
-.lobby-layout { display: flex; width: 100%; height: 100%; gap: 15px; padding: 15px; }
-.sidebar-col { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; }
-.inner-wood-box { background: rgba(30, 20, 15, 0.9); border: 1px solid #6d4c41; flex: 1; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; }
-.box-header { padding: 10px; text-align: center; font-weight: bold; color: var(--gold); border-bottom: 1px solid #5d4037; background: rgba(62, 39, 35, 0.8); }
-.lb-mini-list { flex: 1; overflow-y: auto; padding: 10px; }
-.lb-mini-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-bottom: 1px dashed #444; }
-.item-rank { width: 20px; font-weight: bold; text-align: center; color: #888; }
-.item-rank.rank-1 { color: #ffd700; } .item-rank.rank-2 { color: #c0c0c0; } .item-rank.rank-3 { color: #cd7f32; }
-.item-avatar.small { width: 32px; height: 32px; background: #111; border-radius: 50%; overflow: hidden; }
-.item-avatar.small img { width: 100%; height: 100%; object-fit: contain; }
-.item-info { flex: 1; font-size: 0.9rem; display: flex; flex-direction: column; }
-.item-name { color: #fff; font-weight: bold; }
-.item-val { font-size: 0.8rem; color: var(--gold); display: flex; align-items: center; gap: 5px; }
-.rank-badge { color: #4dd0e1; font-size: 0.75rem; }
-.rep-val { color: #ffd700; font-size: 0.75rem; }
-.main-col { flex: 1; display: flex; align-items: center; justify-content: center; }
-.hero-card-wide { width: 100%; max-width: 400px; background: linear-gradient(135deg, var(--wood-card) 0%, var(--wood-base) 100%); border: 2px solid var(--gold); border-radius: 8px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); position: relative; }
-.hero-visual { display: flex; flex-direction: column; align-items: center; margin-bottom: 25px; position: relative; }
-.avatar-frame.large { width: 140px; height: 140px; margin: 0 auto; border: 4px solid var(--gold); border-radius: 50%; overflow: visible; background: radial-gradient(circle, #261815 60%, #000 100%); box-shadow: 0 0 25px rgba(255, 215, 0, 0.25); position: relative; display: flex; justify-content: center; align-items: center; }
-.avatar-frame.large img { width: 110%; height: 110%; object-fit: cover; transform: translateY(-5px); border-radius: 50%; z-index: 1; }
-.level-tag { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); z-index: 10; background: linear-gradient(180deg, #ffd700 0%, #ff8f00 100%); border: 2px solid #fff; border-radius: 12px; padding: 4px 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5); display: flex; align-items: center; gap: 5px; min-width: 80px; justify-content: center; }
-.level-tag .lbl { font-size: 0.7rem; font-weight: bold; color: #5d4037; text-transform: uppercase; }
-.level-tag .val { font-size: 1.1rem; font-weight: 900; color: #bf360c; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
-.hero-name { margin-top: 25px; font-family: "Playfair Display"; color: #fff; font-size: 1.8rem; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8); letter-spacing: 1px; }
-.hero-rank-display { color: #4dd0e1; font-size: 1rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; margin-top: 5px; text-shadow: 0 0 5px rgba(77, 208, 225, 0.6); }
-.action-area .btn-group { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
-.wuxia-btn { padding: 12px 20px; border: none; cursor: pointer; font-weight: bold; border-radius: 6px; transition: 0.2s; font-family: "Noto Serif"; text-transform: uppercase; font-size: 1rem; position: relative; overflow: hidden; }
-.wuxia-btn.primary { background: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%); color: #fff; border: 2px solid #ff5252; box-shadow: 0 4px 10px rgba(183, 28, 28, 0.5); font-size: 1.2rem; letter-spacing: 1px; }
-.wuxia-btn.primary:hover { background: linear-gradient(135deg, #f44336 0%, #c62828 100%); transform: translateY(-2px); box-shadow: 0 6px 15px rgba(211, 47, 47, 0.7); }
-.wuxia-btn.primary:active { transform: translateY(1px); box-shadow: none; }
-.wuxia-btn.gold-btn { background: linear-gradient(to bottom, #ffd700, #fbc02d); color: #3e2723; border: 2px solid #ffecb3; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4); }
-.wuxia-btn.gold-btn:hover { background: linear-gradient(to bottom, #ffeb3b, #fdd835); transform: translateY(-2px); box-shadow: 0 6px 12px rgba(255, 215, 0, 0.3); }
-.wuxia-btn.gold-btn:active { transform: translateY(1px); }
-.wuxia-btn.outline { background: transparent; border: 1px solid var(--gold); color: var(--gold); }
-.wuxia-btn.outline:hover { background: rgba(255, 236, 179, 0.1); }
-.wuxia-btn.big { width: 100%; }
-.searching-state { color: var(--gold); }
-.spinner-radar { font-size: 2rem; margin-bottom: 10px; color: var(--gold-accent); }
-.match-popup-embed { border-top: 1px solid rgba(255, 255, 255, 0.2); margin-top: 15px; padding-top: 15px; animation: slideUp 0.3s; }
-.enemy-preview-row { display: flex; align-items: center; gap: 15px; background: rgba(0, 0, 0, 0.3); padding: 10px; border-radius: 4px; margin: 10px 0; }
-.preview-avatar { width: 50px; height: 50px; background: #000; border-radius: 50%; overflow: hidden; }
-.preview-avatar img { width: 100%; height: 100%; object-fit: contain; }
-.preview-info { text-align: left; display: flex; flex-direction: column; }
-.popup-actions-row { display: flex; gap: 10px; justify-content: center; }
-@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes btn-pulse { 0% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(211, 47, 47, 0); } 100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); } }
-.pulse-anim { animation: btn-pulse 2s infinite; }
-.battle-arena-frame { width: 100%; height: 100%; display: flex; flex-direction: column; position: relative; background: #000; }
-.arena-background { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.5; }
-.log-overlay-btn { position: absolute; top: 10px; left: 10px; z-index: 20; background: rgba(0, 0, 0, 0.6); padding: 5px 10px; border: 1px solid var(--gold); color: var(--gold); cursor: pointer; border-radius: 4px; }
-.floating-log-panel { position: absolute; top: 40px; left: 10px; width: 300px; height: 200px; background: rgba(0, 0, 0, 0.9); border: 1px solid var(--gold); z-index: 30; padding: 10px; overflow-y: auto; color: #fff; font-size: 0.85rem; }
-.top-timer-display { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 50px; height: 50px; background: rgba(0, 0, 0, 0.7); border: 2px solid var(--gold); border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 20; font-weight: bold; font-size: 1.2rem; color: #fff; }
-.top-timer-display.urgent { border-color: #f44336; color: #f44336; animation: pulse 0.5s infinite; }
-.fighters-stage { flex: 1; position: relative; z-index: 10; display: flex; justify-content: space-between; padding: 20px 40px; align-items: center; }
-.fighter { display: flex; flex-direction: column; width: 180px; align-items: center; position: relative; }
-.fighter.left-side { align-items: flex-start; } .fighter.left-side .hud { text-align: left; }
-.fighter.right-side { align-items: flex-end; } .fighter.right-side .hud { text-align: right; }
-.sprite-container { width: 120px; height: 120px; position: relative; display: flex; align-items: center; justify-content: center; }
-.char-img { width: 100%; height: 100%; object-fit: contain; transform: scale(1.5); transition: 0.2s; z-index: 2; }
+
+/* CONTAINER */
+.pvp-contained-layout {
+  width: 100%;
+  height: 100%; 
+  font-family: 'Noto Serif SC', serif;
+  color: white;
+  overflow: hidden;
+  position: relative;
+  background: #000;
+  box-sizing: border-box;
+}
+
+/* Layers */
+.bg-layer { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.mountain-bg { width: 100%; height: 100%; background-size: cover; background-position: center; transition: background-image 0.5s; opacity: 0.6; }
+.vignette { position: absolute; inset: 0; background: radial-gradient(circle at center, transparent 40%, #000 100%); }
+
+.content-wrapper {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  padding: 20px 30px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* LOBBY */
+.lobby-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 30px;
+  height: 100%;
+  width: 100%;
+}
+
+.glass-panel {
+  background: rgba(18, 24, 33, 0.95);
+  border: 1px solid #2d3748;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+.panel-header {
+  padding: 15px;
+  background: linear-gradient(90deg, #1a202c, #2d3748);
+  border-bottom: 2px solid #4a5568;
+  color: #fbbf24;
+  font-family: 'Cinzel', serif;
+  text-align: center;
+  font-size: 1.2rem;
+  letter-spacing: 1px;
+}
+
+.ranking-list { padding: 15px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+
+/* Rank Card */
+.rank-card {
+  display: flex; align-items: center; gap: 12px; padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px; transition: all 0.2s ease;
+}
+.rank-card:hover { background: rgba(255, 255, 255, 0.1); transform: translateX(5px); border-color: rgba(255, 255, 255, 0.2); }
+
+.rank-card.rank-1 { background: linear-gradient(90deg, rgba(251, 191, 36, 0.15), transparent); border: 1px solid rgba(251, 191, 36, 0.5); }
+.rank-card.rank-2 { background: linear-gradient(90deg, rgba(226, 232, 240, 0.1), transparent); border: 1px solid rgba(226, 232, 240, 0.4); }
+.rank-card.rank-3 { background: linear-gradient(90deg, rgba(245, 158, 11, 0.1), transparent); border: 1px solid rgba(245, 158, 11, 0.4); }
+
+.rank-badge { width: 30px; text-align: center; font-weight: bold; font-size: 1.1rem; color: #718096; }
+
+/* [FIX] SPRITE CONTAINER */
+.rank-sprite-container {
+  width: 45px; height: 45px;
+  background: #1a100d; border: 1px solid #4a5568; border-radius: 6px;
+  overflow: hidden; position: relative;
+  display: flex; justify-content: center; align-items: center;
+  box-shadow: inset 0 0 10px #000;
+}
+
+.mini-sprite { 
+  height: 90%; 
+  width: auto;
+  object-fit: contain; /* Sprite sẽ không bị cắt nữa */
+  transform: translateY(2px);
+}
+
+.mini-sprite.is-real-photo {
+  width: 100%; height: 100%; object-fit: cover; transform: none;
+}
+
+.lv-tag { position: absolute; bottom: 0; right: 0; background: #2d3748; color: #fff; font-size: 0.6rem; padding: 1px 4px; }
+
+.rank-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.r-name { color: #e2e8f0; font-weight: 600; }
+.r-stats { font-size: 0.8rem; display: flex; gap: 10px; }
+.tag-rep { color: #fbbf24; }
+
+/* RIGHT COL */
+.right-col { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 20px; }
+.hero-showcase { display: flex; flex-direction: column; align-items: center; position: relative; }
+.hero-glow { position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(255,193,7,0.15) 0%, transparent 70%); top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: -1; animation: breathe 3s infinite; }
+.hero-big-sprite { height: 260px; filter: drop-shadow(0 0 20px rgba(0,0,0,0.8)); transition: 0.3s; }
+.hero-showcase:hover .hero-big-sprite { transform: scale(1.05); }
+.hero-title { font-family: 'Cinzel', serif; font-size: 2.2rem; margin: 10px 0 5px; text-shadow: 0 2px 10px #000; background: -webkit-linear-gradient(#fff, #ccc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero-badges { display: flex; gap: 10px; }
+.badge-lv { background: var(--red); padding: 2px 10px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; box-shadow: 0 0 10px rgba(211,47,47,0.5); }
+
+.action-dock { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+.btn-epic { background: linear-gradient(45deg, #8e2de2, #4a00e0); border: 1px solid rgba(255,255,255,0.3); padding: 12px 50px; font-size: 1.4rem; color: white; font-family: 'Cinzel', serif; cursor: pointer; border-radius: 50px; display: flex; align-items: center; gap: 12px; box-shadow: 0 0 20px rgba(74, 0, 224, 0.4); transition: 0.3s; }
+.btn-epic:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 0 40px rgba(74, 0, 224, 0.8); }
+.pulse-glow { animation: pulse 2s infinite; }
+.btn-refresh { width: 40px; height: 40px; border-radius: 50%; background: transparent; border: 1px solid #555; color: #888; cursor: pointer; transition: 0.2s; }
+.btn-refresh:hover { color: #fff; border-color: #fff; transform: rotate(180deg); }
+
+.searching-box { background: rgba(0, 0, 0, 0.6); padding: 15px 30px; border-radius: 12px; border: 1px solid var(--gold); display: flex; flex-direction: column; align-items: center; gap: 10px; animation: popIn 0.3s; }
+.search-text { font-size: 1.2rem; color: var(--gold); letter-spacing: 1px; }
+.btn-cancel { background: transparent; border: 1px solid var(--red); color: var(--red); padding: 5px 20px; border-radius: 20px; cursor: pointer; transition: 0.2s; }
+.match-found-alert { background: rgba(20, 10, 5, 0.95); border: 2px solid var(--gold); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 15px; box-shadow: 0 0 50px rgba(0,0,0,0.8); min-width: 280px; animation: popIn 0.3s; }
+.found-text { color: var(--red); font-weight: bold; letter-spacing: 2px; animation: flash 1s infinite; }
+.enemy-preview { display: flex; align-items: center; gap: 15px; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; width: 100%; }
+.enemy-preview img { width: 50px; height: 50px; background: #000; border-radius: 50%; object-fit: contain; }
+.btn-accept { background: var(--gold); color: #000; border: none; font-weight: bold; padding: 10px 30px; border-radius: 4px; cursor: pointer; font-size: 1.1rem; width: 100%; transition: 0.2s; }
+
+/* BATTLE ARENA */
+.battle-arena { width: 100%; height: 100%; position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; background: rgba(0,0,0,0.3); }
+.battle-hud { position: absolute; top: 15px; width: 100%; padding: 0 30px; display: flex; justify-content: space-between; align-items: flex-start; z-index: 10; pointer-events: none; box-sizing: border-box; }
+.hud-box { display: flex; gap: 15px; width: 350px; align-items: center; }
+.hud-box.enemy-side { justify-content: flex-end; text-align: right; }
+.avatar-box { width: 70px; height: 70px; border: 2px solid var(--gold); border-radius: 50%; background: #000; overflow: hidden; }
+.avatar-box img { width: 100%; height: 100%; object-fit: cover; }
+.bars-container { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+.name-row { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: bold; text-shadow: 0 0 5px #000; }
+.enemy-side .name-row { justify-content: flex-end; }
+.hp-bar-frame { height: 10px; background: rgba(0,0,0,0.6); border: 1px solid #444; border-radius: 10px; overflow: hidden; position: relative; transform: skewX(-15deg); }
+.hp-fill { height: 100%; transition: width 0.3s; }
+.hp-fill.player { background: linear-gradient(90deg, #4caf50, #81c784); }
+.hp-fill.enemy { background: linear-gradient(90deg, #e53935, #ef9a9a); float: right; }
+.hp-text { position: absolute; top: -16px; right: 0; font-size: 0.75rem; color: #ddd; transform: skewX(15deg); }
+.battle-timer { width: 50px; height: 50px; background: rgba(0,0,0,0.6); border: 2px solid var(--gold); border-radius: 10px; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; font-weight: bold; color: #fff; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+.battle-timer.warning { border-color: var(--red); color: var(--red); animation: pulse 1s infinite; }
+
+.battle-stage { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; z-index: 5; }
+.fighter-display { position: absolute; bottom: 180px; width: 250px; text-align: center; }
+.fighter-display.left { left: 10%; } .fighter-display.right { right: 10%; }
+.char-anim { height: 220px; transform: scale(1.5); filter: drop-shadow(0 10px 10px rgba(0,0,0,0.5)); }
 .enemy-flip { transform: scale(1.5) scaleX(-1); }
-.shadow-oval { position: absolute; bottom: 5px; width: 80%; height: 10px; background: rgba(0, 0, 0, 0.5); border-radius: 50%; filter: blur(2px); z-index: 1; }
-.hud { width: 100%; background: rgba(0, 0, 0, 0.6); padding: 5px; border-radius: 4px; margin-top: 5px; color: #fff; font-size: 0.85rem; }
-.hud-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
-.hp-track { width: 100%; height: 5px; background: #333; border-radius: 2px; position: relative; }
-.hp-text { position: absolute; top: -15px; right: 0; font-size: 0.7rem; color: #fff; font-weight: bold; text-shadow: 1px 1px 0 #000; }
-.hp-fill { height: 100%; background: #d32f2f; width: 100%; transition: width 0.3s; }
-.clash-visual { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 20px; pointer-events: none; z-index: 50; }
-.move-card { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; color: #333; border: 3px solid #000; }
-.clash-spark { font-size: 3rem; animation: pulse 0.1s infinite; }
-.result-label { position: absolute; bottom: 100px; font-size: 2.5rem; font-weight: 900; text-shadow: 0 0 10px #000; letter-spacing: 2px; }
-.res-dodge { color: #69f0ae; text-shadow: 0 0 10px #00e676; animation: floatUp 0.5s ease-out; }
-.res-crit { color: #ff5252; text-shadow: 0 0 15px #d50000; transform: scale(1.2); animation: critShake 0.2s infinite; }
-.res-clash { color: #bcaaa4; }
-.res-normal { color: var(--gold-accent); }
-.battle-controls { height: 160px; background: #1a1a1a; border-top: 2px solid #5d4037; display: flex; z-index: 20; position: relative; }
-.chat-section { flex: 1.2; border-right: 1px solid #333; display: flex; flex-direction: column; }
-.chat-history { flex: 1; padding: 10px; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 4px; }
-.chat-bubble { padding: 4px 8px; background: #333; border-radius: 4px; align-self: flex-start; color: #ccc; max-width: 90%; }
-.chat-bubble.me { align-self: flex-end; background: #2e7d32; color: #fff; }
-.chat-input-area { display: flex; border-top: 1px solid #333; }
-.chat-input-area input { flex: 1; background: #000; border: none; color: #fff; padding: 8px; outline: none; }
-.chat-input-area button { background: #5d4037; border: none; color: #fff; padding: 0 15px; cursor: pointer; }
-.actions-section { flex: 1; padding: 15px; display: flex; align-items: center; justify-content: center; }
-.rps-grid-simple { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8px; width: 100%; height: 100%; }
-.square-btn { background: #222; border: 1px solid #444; color: #eee; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; border-radius: 4px; transition: 0.2s; }
-.square-btn i { font-size: 1.5rem; margin-bottom: 2px; }
-.square-btn:hover:not(:disabled) { background: #333; border-color: var(--gold); color: var(--gold); }
-.square-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.status-overlay { display: flex; flex-direction: column; align-items: center; gap: 10px; color: #ccc; width: 100%; }
-.text-btn-tiny { background: rgba(255, 255, 255, 0.1); border: 1px solid #555; color: #aaa; font-size: 0.75rem; padding: 5px 15px; cursor: pointer; border-radius: 20px; transition: 0.3s; }
-.text-btn-tiny:hover { background: #d32f2f; color: #fff; border-color: #d32f2f; }
-.endgame-modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(5px); }
-.endgame-content { background: #1a1a1a; padding: 40px; border-radius: 10px; text-align: center; border: 3px solid #555; width: 400px; box-shadow: 0 0 50px rgba(0, 0, 0, 0.8); animation: popIn 0.3s; }
-.endgame-content.win { border-color: #ffd700; box-shadow: 0 0 50px rgba(255, 215, 0, 0.4); }
-.endgame-content.lose { border-color: #d32f2f; box-shadow: 0 0 50px rgba(211, 47, 47, 0.4); }
-.endgame-title { font-size: 2.5rem; font-weight: 900; margin-bottom: 10px; font-family: "Playfair Display"; }
-.win .endgame-title { color: #ffd700; text-shadow: 0 0 20px #ff8f00; }
-.lose .endgame-title { color: #d32f2f; text-shadow: 0 0 20px #b71c1c; }
-.endgame-desc { font-size: 1.2rem; color: #ddd; margin-bottom: 30px; }
-.auto-back-timer { font-size: 0.9rem; color: #888; margin-bottom: 10px; font-style: italic; }
-.custom-scroll::-webkit-scrollbar { width: 4px; }
-.custom-scroll::-webkit-scrollbar-thumb { background: #555; }
+.shadow { width: 120px; height: 15px; background: rgba(0,0,0,0.5); border-radius: 50%; margin: -10px auto 0; filter: blur(5px); }
 
-/* CSS MỚI CHO PHẦN THƯỞNG */
-.reward-box { margin-bottom: 20px; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 6px; border: 1px dashed #555; }
-.reward-row { display: flex; justify-content: center; align-items: center; gap: 10px; font-size: 1.2rem; }
-.reward-row .lbl { color: #aaa; }
-.reward-row .val.plus { color: #69f0ae; font-weight: bold; text-shadow: 0 0 10px #00e676; }
-.reward-row .val.minus { color: #ff5252; font-weight: bold; }
+.clash-zone { position: absolute; top: 40%; display: flex; gap: 30px; align-items: center; z-index: 20; }
+.move-icon { width: 80px; height: 80px; background: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; border: 4px solid #000; box-shadow: 0 0 30px rgba(255,255,255,0.5); color: #000; }
+.vs-flash { font-size: 4rem; animation: boom 0.2s; }
+.damage-text { position: absolute; top: -60px; left: 50%; transform: translateX(-50%); font-size: 2.5rem; font-weight: 900; -webkit-text-stroke: 1px #000; white-space: nowrap; }
+.res-crit { color: #ff1744; text-shadow: 0 0 20px red; animation: shake 0.5s; }
+.res-dodge { color: #00e676; text-shadow: 0 0 20px green; animation: floatUp 0.5s; }
 
-@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-.shake-hit { animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; filter: sepia(1) saturate(5) hue-rotate(-50deg); }
-@keyframes shake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
-.anim-smash-win { transform: scale(1.3); border-color: #ffd700; z-index: 10; box-shadow: 0 0 20px rgba(255, 215, 0, 0.5); }
-.anim-lose { opacity: 0.5; transform: scale(0.8); filter: grayscale(1); }
-@keyframes floatUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-@keyframes critShake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
-@keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-</style>  
+.battle-deck { 
+  position: absolute; bottom: 0; left: 0; width: 100%; height: 130px; 
+  background: linear-gradient(to top, #000 0%, rgba(0,0,0,0.8) 80%, transparent 100%); 
+  display: grid; grid-template-columns: 300px 1fr 100px; padding: 0 20px 10px; box-sizing: border-box; align-items: end; 
+  z-index: 100; /* Nằm trên cùng */
+  pointer-events: none; /* Layer cha không chặn click */
+}
+.mini-chat, .command-center, .util-deck { pointer-events: auto; } /* Layer con nhận click */
+
+.mini-chat { height: 100px; font-size: 0.8rem; display: flex; flex-direction: column; background: rgba(0,0,0,0.6); border: 1px solid #444; }
+.chat-messages { flex: 1; padding: 5px; overflow-y: auto; }
+.msg-line { color: #ccc; } .msg-line.me { color: #4fc3f7; }
+.chat-input-row input { width: 100%; background: transparent; border: none; border-top: 1px solid #444; color: #fff; padding: 5px; }
+
+.command-center { display: flex; justify-content: center; padding-bottom: 20px; }
+.status-badge { font-size: 1.2rem; color: #ccc; display: flex; gap: 10px; align-items: center; text-shadow: 0 0 10px #000; }
+.rps-buttons { display: flex; gap: 15px; position: relative; z-index: 101; }
+.rps-btn { background: rgba(30,30,30,0.9); border: 1px solid #555; width: 80px; height: 90px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; transition: 0.2s; color: #aaa; z-index: 102; }
+.rps-btn:hover { transform: translateY(-10px); background: #333; border-color: var(--gold); color: var(--gold); }
+.icon-circle { font-size: 1.5rem; }
+
+.util-deck { display: flex; flex-direction: column; gap: 10px; padding-bottom: 20px; }
+.util-btn { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); border: 1px solid #555; color: #fff; cursor: pointer; transition: 0.2s; }
+.util-btn:hover { background: #fff; color: #000; }
+.util-btn.surrender:hover { background: var(--red); color: #fff; border-color: var(--red); }
+
+/* Modals */
+.log-modal { position: absolute; top: 80px; right: 20px; width: 300px; height: 400px; z-index: 100; display: flex; flex-direction: column; box-shadow: 0 10px 30px #000; }
+.log-head { padding: 10px; background: var(--red); font-weight: bold; display: flex; justify-content: space-between; cursor: pointer; }
+.log-body { flex: 1; padding: 10px; font-size: 0.85rem; color: #ddd; line-height: 1.4; }
+.log-item { border-bottom: 1px dashed #444; padding: 4px 0; }
+
+.victory-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; display: flex; justify-content: center; align-items: center; }
+.victory-card { width: 400px; background: #111; border: 2px solid #333; border-radius: 12px; text-align: center; overflow: hidden; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
+.win-theme { border-color: var(--gold); }
+.lose-theme { border-color: #555; }
+.vic-header { padding: 15px; font-size: 2rem; background: rgba(255,255,255,0.05); }
+.win-theme .vic-header { color: var(--gold); text-shadow: 0 0 20px gold; }
+.lose-theme .vic-header { color: #888; }
+.vic-body { padding: 20px; color: #ccc; }
+.btn-home { background: transparent; border: 1px solid #555; color: #fff; padding: 10px 30px; margin-bottom: 20px; cursor: pointer; }
+.btn-home:hover { background: #fff; color: #000; }
+.reward-pill { margin-top: 15px; display: inline-flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.5); padding: 8px 20px; border-radius: 20px; border: 1px dashed #555; }
+.value.plus { color: #00e676; font-weight: bold; }
+.value.minus { color: var(--red); font-weight: bold; }
+
+/* Utils */
+@keyframes breathe { 0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; } 50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(74, 0, 224, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(74, 0, 224, 0); } 100% { box-shadow: 0 0 0 0 rgba(74, 0, 224, 0); } }
+@keyframes flash { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes hitShake { 10%, 90% { transform: translate3d(-1px, 0, 0); } 20%, 80% { transform: translate3d(2px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 0, 0); } 40%, 60% { transform: translate3d(4px, 0, 0); } }
+.hit-shake { animation: hitShake 0.5s; filter: sepia(1) hue-rotate(-50deg) saturate(5); }
+@keyframes floatUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+@keyframes boom { 0% { transform: scale(0.1); opacity: 0; } 50% { transform: scale(1.5); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+.anim-attack-left { animation: attackLeft 0.3s forwards; }
+.anim-attack-right { animation: attackRight 0.3s forwards; }
+@keyframes attackLeft { 0% { transform: translateX(0); } 50% { transform: translateX(50px) scale(1.2); } 100% { transform: translateX(0); } }
+@keyframes attackRight { 0% { transform: translateX(0); } 50% { transform: translateX(-50px) scale(1.2); } 100% { transform: translateX(0); } }
+.anim-hit { animation: hitRecoil 0.3s; }
+@keyframes hitRecoil { 0% { opacity: 1; } 50% { opacity: 0.5; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.custom-scroll::-webkit-scrollbar { width: 5px; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+</style>
